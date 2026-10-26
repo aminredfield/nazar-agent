@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nazar-agent"
+version = "0.1.0"
+description = "A team of AI agents that reviews attendance data in NAZAR and brings evidence-backed recommendations. A human decides."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "openai>=1.60",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "tzdata>=2024.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+]
+
+[project.scripts]
+nazar-agent = "nazar_agent.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["nazar_agent"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
