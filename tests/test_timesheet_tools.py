@@ -56,6 +56,17 @@ def test_only_unusual_days_are_listed_with_citable_ids():
     assert summary["unusual_days_truncated"] is False
 
 
+def test_day_shows_what_nazar_counted_in_local_time():
+    counted = row(
+        "e1", "2026-10-22", worked_minutes=471, late_minutes=64,
+        shift_breakdown=[{"intervals": [{"start_at": "2026-10-22T05:04:32+00:00", "end_at": "2026-10-22T12:56:08+00:00"}]}],
+    )
+
+    [day] = summarize({**MATRIX, "days": [counted]}, NAMES, {})["unusual_days"]
+
+    assert day["counted_intervals"] == [{"start": "2026-10-22T10:04:32+05:00", "end": "2026-10-22T17:56:08+05:00"}]
+
+
 def test_day_detail_keeps_the_same_day_id():
     detail = {
         "day": row("e1", "2026-10-22", "absent"),

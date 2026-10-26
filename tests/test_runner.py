@@ -28,7 +28,7 @@ def make_role(*tools: Tool, max_steps: int = 4) -> Role:
 
 
 def outputs_of(request: dict) -> list[dict]:
-    return [json.loads(item["output"]) for item in request["input"]]
+    return [json.loads(item["output"]) for item in request["input"] if item.get("type") == "function_call_output"]
 
 
 async def test_answers_without_tools():
@@ -39,8 +39,8 @@ async def test_answers_without_tools():
     assert run.answer == "All fine."
     assert run.stopped == "answered"
     assert run.steps == ()
-    assert llm.requests[0]["input"] == "How is it?"
-    assert llm.requests[0]["previous_response_id"] is None
+    assert llm.requests[0]["input"] == [{"role": "user", "content": "How is it?"}]
+    assert run.conversation[-1] == {"role": "assistant", "content": "All fine."}
 
 
 async def test_runs_tool_and_returns_result_to_model():
@@ -53,11 +53,13 @@ async def test_runs_tool_and_returns_result_to_model():
 
     assert run.answer == "Done."
     assert run.steps[0].output == {"echo": "abab"}
-    second = llm.requests[1]
-    assert second["previous_response_id"] == "r1"
-    assert second["input"][0]["type"] == "function_call_output"
-    assert second["input"][0]["call_id"] == "call_echo"
-    assert outputs_of(second) == [{"echo": "abab"}]
+    # The whole conversation goes every time: question, the call, its result.
+    question, call_item, output_item = llm.requests[1]["input"]
+    assert question == {"role": "user", "content": "Echo ab twice"}
+    assert call_item == {"type": "function_call", "call_id": "call_echo", "name": "echo",
+                         "arguments": '{"text": "ab", "times": 2}'}
+    assert output_item["type"] == "function_call_output" and output_item["call_id"] == "call_echo"
+    assert json.loads(output_item["output"]) == {"echo": "abab"}
     assert run.model_turns == 2
     assert (run.input_tokens, run.output_tokens) == (20, 10)
 

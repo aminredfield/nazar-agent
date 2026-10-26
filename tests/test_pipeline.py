@@ -61,7 +61,8 @@ async def test_clean_report_passes_first_time_with_structured_output():
     report_request = llm.requests[2]
     assert report_request["text_format"] == REPORT_FORMAT
     assert report_request["tools"] == []
-    assert report_request["previous_response_id"] == "r2"
+    assert report_request["input"][-2] == {"role": "assistant", "content": "Seen enough."}
+    assert report_request["input"][-1]["content"].startswith("Now write your report")
     assert analysis.clean_first_time is True
     assert analysis.corrections == 0
     assert analysis.rejected == ()
@@ -79,9 +80,9 @@ async def test_checker_sends_problems_back_and_accepts_the_fix():
 
     analysis = await analyze(ROLE, llm, "Anything odd?")
 
-    correction = llm.requests[3]
-    assert correction["previous_response_id"] == "r3"
-    assert "is 6600.0, not '12000'" in correction["input"]
+    correction = llm.requests[3]["input"]
+    assert correction[-2]["role"] == "assistant"  # the report that was sent back
+    assert "is 6600.0, not '12000'" in correction[-1]["content"]
     assert analysis.corrections == 1
     assert analysis.clean_first_time is False
     assert analysis.rejected == ()
@@ -118,7 +119,7 @@ async def test_invalid_json_is_retried_then_fails_loudly():
 
     with pytest.raises(ReportError):
         await analyze(ROLE, llm, "Anything odd?", max_corrections=1)
-    assert "does not match the schema" in llm.requests[3]["input"]
+    assert "does not match the schema" in llm.requests[3]["input"][-1]["content"]
 
 
 def test_report_schema_fits_strict_mode():

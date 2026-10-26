@@ -8,6 +8,11 @@ The loop: send the request → run every tool call the model asked for →
 return the results → repeat until the model answers without tool calls or
 the step budget runs out. Every tool call is recorded, because the fact
 checker later verifies the answer against exactly these outputs.
+
+The conversation is kept here and sent whole on every turn. Chaining turns
+on the server with previous_response_id failed live twice on Oct 27
+("referenced response not found or expired"); the input tokens are billed
+either way.
 """
 
 from __future__ import annotations
@@ -58,8 +63,8 @@ class RoleRun:
     input_tokens: int
     output_tokens: int
     stopped: Literal["answered", "max_steps"]
-    # Lets a follow-up request (the structured report) continue this conversation.
-    last_response_id: str | None
+    # The whole conversation, so a follow-up (the structured report) continues it.
+    conversation: tuple[dict[str, Any], ...]
 
 
 async def run_role(role: Role, llm: LLMClient, user_input: str) -> RoleRun:
@@ -67,20 +72,20 @@ async def run_role(role: Role, llm: LLMClient, user_input: str) -> RoleRun:
     schemas = [tool.schema() for tool in role.tools]
 
     steps: list[ToolStep] = []
-    pending: str | list[dict[str, Any]] = user_input
-    previous_response_id: str | None = None
+    conversation: list[dict[str, Any]] = [{"role": "user", "content": user_input}]
     input_tokens = output_tokens = 0
 
     for turn_number in range(1, role.max_steps + 1):
         turn = await llm.respond(
             model=role.model,
             instructions=role.instructions,
-            input=pending,
+            input=list(conversation),
             tools=schemas,
-            previous_response_id=previous_response_id,
         )
         input_tokens += turn.input_tokens
         output_tokens += turn.output_tokens
+        if turn.text:
+            conversation.append({"role": "assistant", "content": turn.text})
 
         if not turn.tool_calls:
             return RoleRun(
@@ -91,15 +96,15 @@ async def run_role(role: Role, llm: LLMClient, user_input: str) -> RoleRun:
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 stopped="answered",
-                last_response_id=turn.response_id,
+                conversation=tuple(conversation),
             )
 
         turn_steps = await asyncio.gather(
             *(_execute(call, tools_by_name) for call in turn.tool_calls)
         )
         steps.extend(turn_steps)
-        pending = [_call_output(step) for step in turn_steps]
-        previous_response_id = turn.response_id
+        conversation.extend(_call_item(call) for call in turn.tool_calls)
+        conversation.extend(_call_output(step) for step in turn_steps)
 
     return RoleRun(
         role=role.name,
@@ -109,7 +114,7 @@ async def run_role(role: Role, llm: LLMClient, user_input: str) -> RoleRun:
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         stopped="max_steps",
-        last_response_id=previous_response_id,
+        conversation=tuple(conversation),
     )
 
 
@@ -142,6 +147,10 @@ async def _execute(call: ToolCall, tools_by_name: dict[str, Tool]) -> ToolStep:
     except ToolExecutionError as exc:
         return step(arguments, error=str(exc))
     return step(arguments, output=output)
+
+
+def _call_item(call: ToolCall) -> dict[str, Any]:
+    return {"type": "function_call", "call_id": call.call_id, "name": call.name, "arguments": call.arguments}
 
 
 def _call_output(step: ToolStep) -> dict[str, Any]:

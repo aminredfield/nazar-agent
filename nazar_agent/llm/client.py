@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+import httpx
 from openai import AsyncOpenAI
 
 
@@ -40,14 +41,22 @@ class LLMClient(Protocol):
         instructions: str,
         input: str | list[dict[str, Any]],
         tools: list[dict[str, Any]],
-        previous_response_id: str | None,
         text_format: dict[str, Any] | None = None,
     ) -> ModelTurn: ...
 
 
 class MetaResponsesClient:
-    def __init__(self, *, api_key: str, base_url: str, timeout_seconds: float) -> None:
-        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=timeout_seconds)
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        base_url: str,
+        timeout_seconds: float,
+        http_client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self._client = AsyncOpenAI(
+            api_key=api_key, base_url=base_url, timeout=timeout_seconds, http_client=http_client
+        )
 
     async def respond(
         self,
@@ -56,16 +65,11 @@ class MetaResponsesClient:
         instructions: str,
         input: str | list[dict[str, Any]],
         tools: list[dict[str, Any]],
-        previous_response_id: str | None,
         text_format: dict[str, Any] | None = None,
     ) -> ModelTurn:
         request: dict[str, Any] = {"model": model, "instructions": instructions, "input": input}
-        # Instructions are not carried over by previous_response_id, so they are
-        # sent on every turn of the conversation.
         if tools:
             request["tools"] = tools
-        if previous_response_id:
-            request["previous_response_id"] = previous_response_id
         if text_format:
             # Structured output: the answer is generated to this JSON schema.
             request["text"] = {"format": text_format}
@@ -83,6 +87,68 @@ class MetaResponsesClient:
             tool_calls=calls,
             input_tokens=usage.input_tokens if usage else 0,
             output_tokens=usage.output_tokens if usage else 0,
+        )
+
+    async def aclose(self) -> None:
+        await self._client.close()
+
+
+class ChatCompletionsClient:
+    """A model behind the Chat Completions API — e.g. Muse Spark Open on Baseten.
+
+    Used for single-shot roles (the skeptic): one request, no tools, no
+    server-side conversation. Structured output maps to ``response_format``.
+    """
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        base_url: str,
+        timeout_seconds: float,
+        http_client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self._client = AsyncOpenAI(
+            api_key=api_key, base_url=base_url, timeout=timeout_seconds, http_client=http_client
+        )
+
+    async def respond(
+        self,
+        *,
+        model: str,
+        instructions: str,
+        input: str | list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        text_format: dict[str, Any] | None = None,
+    ) -> ModelTurn:
+        if tools or not isinstance(input, str):
+            raise NotImplementedError("ChatCompletionsClient serves single-shot roles without tools.")
+
+        request: dict[str, Any] = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": instructions},
+                {"role": "user", "content": input},
+            ],
+        }
+        if text_format:
+            request["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": text_format["name"],
+                    "schema": text_format["schema"],
+                    "strict": text_format.get("strict", False),
+                },
+            }
+        response = await self._client.chat.completions.create(**request)
+
+        usage = response.usage
+        return ModelTurn(
+            response_id=response.id,
+            text=response.choices[0].message.content or "",
+            tool_calls=(),
+            input_tokens=usage.prompt_tokens if usage else 0,
+            output_tokens=usage.completion_tokens if usage else 0,
         )
 
     async def aclose(self) -> None:

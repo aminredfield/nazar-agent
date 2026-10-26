@@ -247,6 +247,13 @@ def _day_view(row: dict[str, Any], names: dict[str, str], objects: dict[str, str
         "object_name": objects.get(row.get("object_id")),
         "day_kind": row.get("day_code"),
         "planned_minutes": row.get("schedule_norm_minutes"),
+        # What NAZAR actually counted. Without it a model guessed live that a
+        # day was paid from the first check-in when it was paid from the second.
+        "counted_intervals": [
+            {"start": local_time(interval.get("start_at")), "end": local_time(interval.get("end_at"))}
+            for shift in row.get("shift_breakdown") or []
+            for interval in shift.get("intervals") or []
+        ],
         "worked_minutes": row.get("worked_minutes"),
         "late_minutes": row.get("late_minutes"),
         "early_leave_minutes": row.get("early_leave_minutes"),

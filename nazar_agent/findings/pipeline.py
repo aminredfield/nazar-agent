@@ -1,8 +1,8 @@
 """From a question to a verified report.
 
 1. The analyst role investigates with its tools (``run_role``).
-2. In the same conversation it writes a report with structured output — the
-   answer is generated to the ``AnalystReport`` schema.
+2. Continuing the same conversation, it writes a report with structured
+   output — the answer is generated to the ``AnalystReport`` schema.
 3. The fact checker verifies the report against the tool outputs. If it
    finds problems, they go back to the model as a list, up to
    ``max_corrections`` times. Tools are not offered again: a fix may only use
@@ -47,6 +47,10 @@ Now write your report for the owner, as JSON matching the schema.
   not 6.6 km). The text itself may say it in human form.
 - One finding per employee, site or company-wide pattern worth checking. If
   nothing is worth checking, return no findings and say so in the summary.
+  Missing or not yet final data (an open period, a truncated result) is a
+  data gap, not a finding.
+- The title says what is worth checking; the subject's name is shown next to
+  it, so do not repeat the name in the title.
 - The hypothesis is a hypothesis. Alternatives hold at least one innocent
   explanation. Confidence is low, medium or high.
 - Write the summary, titles, facts, hypothesis and alternatives in the
@@ -86,12 +90,9 @@ async def analyze(
     max_corrections: int = DEFAULT_MAX_CORRECTIONS,
 ) -> Analysis:
     run = await run_role(role, llm, question)
-    if run.last_response_id is None:
-        raise ReportError("The analyst produced no response to continue from.")
     evidence = Evidence.from_steps(run.steps)
 
-    pending = REPORT_REQUEST
-    previous_response_id = run.last_response_id
+    conversation = [*run.conversation, {"role": "user", "content": REPORT_REQUEST}]
     input_tokens, output_tokens = run.input_tokens, run.output_tokens
     report: AnalystReport | None = None
     issues: list[Issue] = []
@@ -102,20 +103,22 @@ async def analyze(
         turn = await llm.respond(
             model=role.model,
             instructions=role.instructions,
-            input=pending,
+            input=list(conversation),
             tools=[],
-            previous_response_id=previous_response_id,
             text_format=REPORT_FORMAT,
         )
-        previous_response_id = turn.response_id
         input_tokens += turn.input_tokens
         output_tokens += turn.output_tokens
+        conversation.append({"role": "assistant", "content": turn.text})
 
         try:
             report = AnalystReport.model_validate_json(turn.text)
         except ValidationError as exc:
             report = None
-            pending = f"The report does not match the schema: {exc.errors()[:5]}. Return the full report again."
+            conversation.append({
+                "role": "user",
+                "content": f"The report does not match the schema: {exc.errors()[:5]}. Return the full report again.",
+            })
             caught.append(("the report did not match the schema",))
             continue
 
@@ -126,7 +129,7 @@ async def analyze(
             break
         if attempt < max_corrections:
             caught.append(tuple(issue.describe() for issue in issues))
-        pending = correction_request(issues)
+        conversation.append({"role": "user", "content": correction_request(issues)})
 
     if report is None:
         raise ReportError("No valid report after corrections.")

@@ -1,0 +1,123 @@
+"""From verified findings to recommendation cards.
+
+    verified report → skeptic (other model) → confidence by code
+                    → recommendation writer → actions validated by code
+
+A card is what the owner sees: facts with sources, a possible explanation,
+what else could explain it (the skeptic first), how confident the team is,
+how to check, and actions that already passed validation, each with NAZAR's
+own "before → after" when it changes pay.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date
+
+from nazar_agent.findings import Analysis, Evidence, Finding
+from nazar_agent.findings.models import Confidence
+from nazar_agent.llm import LLMClient
+from nazar_agent.nazar import NazarClient
+from nazar_agent.recommendations.catalog import Context, ValidatedAction, validate_action
+from nazar_agent.recommendations.composer import CaseInput, compose
+from nazar_agent.recommendations.skeptic import SkepticView, merge_confidence, run_skeptic
+
+_ORDER: dict[Confidence, int] = {"high": 0, "medium": 1, "low": 2}
+MAX_ALTERNATIVES = 3  # a card is read by a busy owner, not audited
+
+
+@dataclass(frozen=True, slots=True)
+class Card:
+    finding: Finding
+    confidence: Confidence
+    analyst_confidence: Confidence
+    skeptic: SkepticView | None
+    alternatives: tuple[str, ...]
+    check_steps: tuple[str, ...]
+    actions: tuple[ValidatedAction, ...]
+    rejected_actions: tuple[ValidatedAction, ...]
+    actions_why: str  # the writer's reason for these actions, or for none
+
+
+@dataclass(frozen=True, slots=True)
+class Usage:
+    role: str
+    model: str
+    input_tokens: int
+    output_tokens: int
+
+
+@dataclass(frozen=True, slots=True)
+class Recommendations:
+    cards: tuple[Card, ...]
+    notes: tuple[str, ...]  # skeptic or writer problems the owner should know about
+    usage: tuple[Usage, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Team:
+    """The models behind the review, so each can run on its own provider."""
+
+    skeptic_llm: LLMClient
+    skeptic_model: str
+    writer_llm: LLMClient
+    writer_model: str
+
+
+async def recommend(analysis: Analysis, team: Team, nazar: NazarClient, today: date) -> Recommendations:
+    findings = analysis.report.findings
+    evidence = Evidence.from_steps(analysis.run.steps)
+
+    skeptic = await run_skeptic(team.skeptic_llm, team.skeptic_model, analysis.report, evidence)
+    cases = [
+        CaseInput(finding, merge_confidence(finding.confidence, skeptic.views.get(index)), skeptic.views.get(index))
+        for index, finding in enumerate(findings)
+    ]
+    writer = await compose(team.writer_llm, team.writer_model, cases, today)
+
+    cards = []
+    for index, case in enumerate(cases):
+        plan = writer.plans.get(index)
+        validated = [
+            await validate_action(
+                proposal.action,
+                proposal.raw_params(),
+                context=Context(case.confidence, case.skeptic),
+                evidence=evidence,
+                nazar=nazar,
+            )
+            for proposal in (plan.actions if plan else [])
+        ]
+        cards.append(Card(
+            finding=case.finding,
+            confidence=case.confidence,
+            analyst_confidence=case.finding.confidence,
+            skeptic=case.skeptic,
+            alternatives=_merge_alternatives(case.skeptic, case.finding),
+            check_steps=tuple(plan.check_steps) if plan else (),
+            actions=tuple(action for action in validated if action.valid),
+            rejected_actions=tuple(action for action in validated if not action.valid),
+            actions_why=plan.why if plan else "",
+        ))
+
+    cards.sort(key=lambda card: _ORDER[card.confidence])
+    notes = tuple(
+        f"{role}: {error}" for role, error in (("skeptic", skeptic.error), ("writer", writer.error)) if error
+    )
+    usage = (
+        Usage("skeptic", team.skeptic_model, skeptic.input_tokens, skeptic.output_tokens),
+        Usage("writer", team.writer_model, writer.input_tokens, writer.output_tokens),
+    )
+    return Recommendations(tuple(cards), notes, usage)
+
+
+def _merge_alternatives(skeptic: SkepticView | None, finding: Finding) -> tuple[str, ...]:
+    """The skeptic's explanations first: it looked for them on purpose."""
+    merged: list[str] = []
+    seen: set[str] = set()
+    for text in [*(skeptic.innocent_explanations if skeptic else ()), *finding.alternatives]:
+        key = text.strip().casefold()
+        if key and key not in seen:
+            seen.add(key)
+            merged.append(text.strip())
+    return tuple(merged[:MAX_ALTERNATIVES])

@@ -94,6 +94,23 @@ distance-to-site field — and the corrected report says the earlier check-in
 was inside the geofence. That case is now a test
 ([`tests/test_checker.py`](tests/test_checker.py)).
 
+## The skeptic and the actions
+
+The skeptic gets only the verified facts and the NAZAR records behind them —
+not the analyst's hypothesis, title or confidence — and runs on a different
+model. Its job is to protect people from being wrongly suspected: find the
+innocent explanation that fits the facts best and give a verdict. The final
+confidence comes from fixed rules in code: if the skeptic finds an innocent
+explanation likely, the card is low confidence whatever the analyst thought;
+without a skeptic's opinion it never goes above medium.
+
+A recommendation writer then picks at most two actions per card from a fixed
+catalog. Code validates each one: typed parameters, only records a tool
+actually returned, policy (recording a confirmed violation or not paying a
+day needs high confidence *and* a skeptic who agrees), and for anything that
+changes pay, NAZAR's own preview of the day before and after. Actions in the
+employee's favour — counting a shift from the real arrival — are encouraged.
+
 ## Meta models
 
 | Role | Model |
@@ -116,7 +133,9 @@ goes only to the standard model or to self-hosted open weights.
 | Attendance analyst with read tools | done |
 | Timesheet analyst: reads NAZAR's timesheet and setup check, never recalculates | done |
 | Structured findings (structured output) and the fact checker with correction rounds | done |
-| Skeptic, recommendations, action catalog, executor, audit | planned |
+| Skeptic on a separate model; confidence merged by fixed rules in code | done (Muse Spark 1.2 until Muse Spark Open on Baseten is available) |
+| Recommendation writer, fixed action catalog, validation with policy in code and NAZAR's own before → after | done |
+| Executor after human confirmation, audit, undo | planned |
 | Assistant window, Telegram bot, voice | planned |
 | List import, evals, public demo account | planned |
 
