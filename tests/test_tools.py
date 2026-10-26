@@ -1,17 +1,18 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+import pytest
+from pydantic import Field, ValidationError
 
-from nazar_agent.engine import strict_schema
+from nazar_agent.engine import ToolParams, tool_schema
 
 
-class Inner(BaseModel):
+class Inner(ToolParams):
     title: str = Field(description="A field literally called title.")
     level: Literal["low", "high"]
 
 
-class Params(BaseModel):
+class Params(ToolParams):
     event_id: UUID
     note: str | None = Field(default=None, max_length=50)
     limit: int = Field(default=10, ge=1, le=200, description="1–200.")
@@ -38,32 +39,45 @@ def walk(node):
             yield from walk(value)
 
 
-def test_every_object_is_closed_and_fully_required():
-    schema = strict_schema(Params)
+def test_objects_are_closed_and_only_fields_without_default_are_required():
+    schema = tool_schema(Params)
 
-    objects = [node for node in walk(schema) if node.get("type") == "object"]
-    assert len(objects) == 2
-    for node in objects:
-        assert node["additionalProperties"] is False
-        assert sorted(node["required"]) == sorted(node["properties"])
+    assert schema["additionalProperties"] is False
+    assert sorted(schema["required"]) == ["event_id", "inner"]
+    inner = schema["$defs"]["Inner"]
+    assert inner["additionalProperties"] is False
+    assert sorted(inner["required"]) == ["level", "title"]
 
 
 def test_constraint_keywords_are_dropped_but_descriptions_kept():
-    schema = strict_schema(Params)
+    schema = tool_schema(Params)
 
     keys = {key for node in walk(schema) for key in node if key not in NAME_MAPS}
-    assert not keys & {"title", "default", "format", "minimum", "maximum", "maxLength"}
+    assert not keys & {"title", "format", "minimum", "maximum", "maxLength"}
     assert schema["properties"]["limit"]["description"] == "1–200."
 
 
 def test_field_named_title_survives():
-    inner = strict_schema(Params)["$defs"]["Inner"]
+    inner = tool_schema(Params)["$defs"]["Inner"]
 
     assert "title" in inner["properties"]
     assert inner["properties"]["level"]["enum"] == ["low", "high"]
 
 
-def test_optional_field_stays_nullable():
-    note = strict_schema(Params)["properties"]["note"]
+def test_null_string_from_the_model_means_missing():
+    params = Params.model_validate({
+        "event_id": "00000000-0000-0000-0000-000000000001",
+        "note": "null",
+        "inner": {"title": "t", "level": "low"},
+    })
 
-    assert {"type": "null"} in note["anyOf"]
+    assert params.note is None
+
+
+def test_unknown_argument_is_rejected():
+    with pytest.raises(ValidationError, match="extra"):
+        Params.model_validate({
+            "event_id": "00000000-0000-0000-0000-000000000001",
+            "inner": {"title": "t", "level": "low"},
+            "drop_table": True,
+        })

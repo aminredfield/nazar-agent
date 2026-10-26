@@ -84,7 +84,12 @@ Design rules:
 |---|---|
 | Dispatcher, analysts, recommendation writer | Muse Spark 1.3 — tool calling, structured output, vision |
 | Skeptic, nightly scan, anything with photos or personal data | Muse Spark Open — self-hosted or a hosted provider |
-| Voice messages (Russian, Uzbek) | Muse Spark 1.2 audio input |
+| Voice messages (Russian, Uzbek) | Muse Spark 1.2 audio input (Muse Voice Transcribe does not cover Russian or Uzbek) |
+
+Development and evals run on `muse-spark-1.3-contributor` against a synthetic
+demo company with AI-generated faces: the same model at a fraction of the
+price, in exchange for Meta training on that traffic. Real companies' data
+goes only to the standard model or to self-hosted open weights.
 
 ## Status
 

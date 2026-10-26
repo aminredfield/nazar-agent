@@ -1,5 +1,5 @@
 from nazar_agent.engine.runner import Role, RoleRun, ToolExecutionError, ToolStep, run_role
-from nazar_agent.engine.tools import Tool, strict_schema
+from nazar_agent.engine.tools import Tool, ToolParams, tool_schema
 
 __all__ = [
     "Role",
@@ -8,5 +8,6 @@ __all__ = [
     "ToolExecutionError",
     "ToolStep",
     "run_role",
-    "strict_schema",
+    "ToolParams",
+    "tool_schema",
 ]

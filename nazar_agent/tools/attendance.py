@@ -12,9 +12,9 @@ from typing import Any, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import Field, model_validator
 
-from nazar_agent.engine import Tool, ToolExecutionError
+from nazar_agent.engine import Tool, ToolExecutionError, ToolParams
 from nazar_agent.nazar import NazarApiError, NazarClient
 
 # NAZAR companies work in Tashkent time; a "day" in a question means a local day.
@@ -22,18 +22,38 @@ COMPANY_TZ = ZoneInfo("Asia/Tashkent")
 MAX_RANGE_DAYS = 31
 MAX_EVENTS = 200
 
+# What NAZAR's anti-fraud flags mean (backend/app/core/risk_flags.py), so the
+# model explains them in words instead of repeating codes to a business owner.
+FLAG_MEANINGS = {
+    "mock_location": "the phone reported a fake (mocked) location; NAZAR blocks such check-ins",
+    "accuracy_too_low": "GPS accuracy too coarse to trust the position",
+    "impossible_speed": "moved between two check-ins faster than physically possible",
+    "session_impossible_speed": "impossible movement speed within one check-in session",
+    "device_reported_impossible_speed": "the phone itself reported an impossible speed",
+    "static_high_accuracy_location": "suspiciously still and precise coordinates",
+    "session_stale_location": "coordinates did not change during the session, may be stale",
+    "repeated_exact_location": "exactly the same coordinates as an earlier check-in",
+    "location_signal_mismatch": "two independent signals disagree: IP location far from GPS, or a point exactly at the site centre",
+    "network_location_mismatch": "informational: IP location differs from GPS (common with mobile internet)",
+    "network_location_obscured": "informational: VPN, proxy or hosting network",
+    "static_location_series": "informational: a still series of coordinates",
+    "gps_accuracy_warning": "informational: GPS accuracy is weak",
+    "liveness_not_verified": "informational: set on every check-in while the anti-spoofing model is off; not a signal",
+    "attendance_during_absence": "checked in during an approved absence (vacation, sick leave)",
+}
 
-class ListObjectsParams(BaseModel):
-    include_inactive: bool = Field(description="Also return archived objects.")
+
+class ListObjectsParams(ToolParams):
+    include_inactive: bool = Field(default=False, description="Also return archived objects.")
 
 
-class AttendanceEventsParams(BaseModel):
+class AttendanceEventsParams(ToolParams):
     date_from: date = Field(description="First local day, YYYY-MM-DD.")
     date_to: date = Field(description=f"Last local day, YYYY-MM-DD. At most {MAX_RANGE_DAYS} days after date_from.")
-    object_id: UUID | None = Field(description="Only this object, or null for all objects.")
-    employee_id: UUID | None = Field(description="Only this employee, or null for everyone.")
-    suspicious_only: bool = Field(description="Only events flagged by anti-fraud checks.")
-    limit: int = Field(ge=1, le=MAX_EVENTS, description=f"How many events to return, 1–{MAX_EVENTS}.")
+    object_id: UUID | None = Field(default=None, description="Only this object; leave out for all objects.")
+    employee_id: UUID | None = Field(default=None, description="Only this employee; leave out for everyone.")
+    suspicious_only: bool = Field(default=False, description="Only events flagged by anti-fraud checks.")
+    limit: int = Field(default=100, ge=1, le=MAX_EVENTS, description=f"How many events to return, 1–{MAX_EVENTS}.")
 
     @model_validator(mode="after")
     def _check_range(self) -> AttendanceEventsParams:
@@ -44,12 +64,13 @@ class AttendanceEventsParams(BaseModel):
         return self
 
 
-class EventDetailParams(BaseModel):
+class EventDetailParams(ToolParams):
     event_id: UUID = Field(description="Attendance event id from get_attendance_events.")
 
 
-class PresenceTodayParams(BaseModel):
+class PresenceTodayParams(ToolParams):
     status: Literal["all", "in", "out", "absent"] = Field(
+        default="all",
         description="all; in — on site now; out — checked out today; absent — no check-in today."
     )
 
@@ -100,7 +121,8 @@ def attendance_tools(nazar: NazarClient) -> tuple[Tool, ...]:
             name="get_attendance_events",
             description=(
                 "Check-in and check-out events for a period, newest first, with anti-fraud flags, "
-                "GPS accuracy and review status. Filter by object, employee or suspicious only."
+                "GPS accuracy and review status. One call covers the whole company: filter by "
+                "object or employee only when the question is about them."
             ),
             params=AttendanceEventsParams,
             handler=get_attendance_events,
@@ -144,6 +166,13 @@ def _local_time(value: str | None) -> str | None:
     return datetime.fromisoformat(value).astimezone(COMPANY_TZ).isoformat(timespec="seconds")
 
 
+def _explain_flags(codes: list[str]) -> list[dict[str, str]]:
+    return [
+        {"code": code, "meaning": FLAG_MEANINGS.get(code, "no description")}
+        for code in dict.fromkeys(codes)  # unique, order kept
+    ]
+
+
 def _object_view(item: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": item["id"],
@@ -169,8 +198,7 @@ def _event_view(item: dict[str, Any]) -> dict[str, Any]:
         "face_matched": item.get("matched"),
         "inside_geofence": item.get("inside_geofence"),
         "gps_accuracy_m": item.get("accuracy_meters"),
-        "risk_flags": item.get("risk_flags", []),
-        "suspicious_flags": item.get("suspicious_flags", []),
+        "flags": _explain_flags([*item.get("risk_flags", []), *item.get("suspicious_flags", [])]),
         "review_status": item.get("review_status"),
         "has_photo": bool(item.get("photo_url")),
     }
@@ -193,7 +221,9 @@ def _event_detail_view(item: dict[str, Any]) -> dict[str, Any]:
             "type": previous["event_type"],
             "object_name": previous.get("object_name"),
             "at": _local_time(previous.get("received_at_server")),
-            "distance_m": previous.get("distance_meters"),
+            # Between the two check-ins, not to the site: read live as "the
+            # previous one was 6.6 km from the shop too", which was false.
+            "distance_between_check_ins_m": previous.get("distance_meters"),
         },
         "review_comment": item.get("review_comment"),
         "reviewed_by": item.get("reviewed_by_name"),
