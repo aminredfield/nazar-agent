@@ -1,0 +1,15 @@
+diff --git a/backend/app/main.py b/backend/app/main.py
+index 52d86340..3c4f3476 100644
+--- a/backend/app/main.py
++++ b/backend/app/main.py
+@@ -190,6 +190,10 @@ app.add_middleware(
+         settings.auth_refresh_cookie_name,
+         EMPLOYEE_PORTAL_BROWSER_COOKIE,
+     ),
++    # NAZAR Agent — серверный клиент, не браузер: Origin не шлёт, а помечает
++    # себя X-Request-Origin: nazar_agent (браузер такой заголовок без CORS не
++    # поставит). Публичный репозиторий агента: github.com/aminredfield/nazar-agent
++    trusted_client_markers=("mobile_app", "nazar_agent"),
+ )
+ app.add_middleware(SecurityHeadersMiddleware)
+ app.add_middleware(RequestBodySizeMiddleware, max_bytes=settings.max_request_size_bytes)

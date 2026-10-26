@@ -57,9 +57,12 @@ def evidence() -> Evidence:
     return Evidence.from_steps(STEPS)
 
 
+ASSIGNMENT = "33333333-3333-3333-3333-333333333333"
 DAY_ROW = {
     "employee_id": EMPLOYEE,
     "work_date": DAY,
+    "object_id": "44444444-4444-4444-4444-444444444444",
+    "shift_breakdown": [{"assignment_id": ASSIGNMENT, "intervals": []}],
     "day_code": "work",
     "worked_minutes": 455,
     "paid_minutes": 455,

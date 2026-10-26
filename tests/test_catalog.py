@@ -1,6 +1,10 @@
 import json
 
+import pytest
+
+from nazar_agent.engine import ToolExecutionError
 from nazar_agent.recommendations import Context, SkepticView, validate_action
+from nazar_agent.recommendations.catalog import shift_target
 from tests import factories
 
 STRONG = Context("high", SkepticView("concern_supported", "r", (), ()))
@@ -37,6 +41,7 @@ async def test_pay_change_comes_with_nazars_own_before_and_after():
     preview_request = next(request for request in seen if request.url.path.endswith("/preview"))
     item = json.loads(preview_request.content)["items"][0]
     assert item["intervals"] == [{"start_at": "2026-10-23T09:06:00+05:00", "end_at": "2026-10-23T17:49:00+05:00"}]
+    assert item["assignment_id"] == factories.ASSIGNMENT  # taken from NAZAR's day, not from the model
     assert all(request.method == "GET" or request.url.path.endswith(("/preview", "/login")) for request in seen)
 
 
@@ -69,6 +74,19 @@ async def test_policy_guards_verdicts_and_unpaid_days():
     assert strong_confirm.valid and strong_confirm.preview is None
     assert "not paying a day" in weak_void.problems[0]
     assert unsure.valid
+
+
+def test_shift_target_comes_from_the_day_or_is_refused():
+    one_shift = {"object_id": "o", "shift_breakdown": [{"assignment_id": "a"}, {"assignment_id": "a"}]}
+    no_shift = {"object_id": "o", "shift_breakdown": []}
+    two_shifts = {"object_id": "o", "shift_breakdown": [{"assignment_id": "a"}, {"assignment_id": "b"}]}
+
+    assert shift_target(one_shift) == {"assignment_id": "a"}
+    assert shift_target(no_shift) == {"object_id": "o"}
+    with pytest.raises(ToolExecutionError, match="several shifts"):
+        shift_target(two_shifts)
+    with pytest.raises(ToolExecutionError, match="no timesheet row"):
+        shift_target(None)
 
 
 async def test_nazar_refusing_the_preview_rejects_the_action():

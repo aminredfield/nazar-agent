@@ -144,13 +144,32 @@ async def _day_row(nazar: NazarClient, employee_id: UUID, work_date: date) -> di
         )
     )
     rows = matrix.get("days", [])
-    return _day_fields(rows[0]) if rows else None
+    return rows[0] if rows else None
+
+
+def shift_target(row: dict[str, Any] | None) -> dict[str, str]:
+    """Which shift of the day an interval change applies to, as NAZAR requires.
+
+    Taken from NAZAR's own day row, not from the model: one planned shift →
+    its assignment; no shift → the day's object. Several shifts in one day
+    are ambiguous, so the action is refused rather than guessed.
+    """
+    if row is None:
+        raise ToolExecutionError("NAZAR has no timesheet row for this day.")
+    assignments = {
+        shift["assignment_id"] for shift in row.get("shift_breakdown") or [] if shift.get("assignment_id")
+    }
+    if len(assignments) == 1:
+        return {"assignment_id": assignments.pop()}
+    if not assignments and row.get("object_id"):
+        return {"object_id": row["object_id"]}
+    raise ToolExecutionError("the day has several shifts; it needs to be corrected by hand.")
 
 
 async def _preview_intervals(
     nazar: NazarClient, employee_id: UUID, work_date: date, intervals: list[Interval]
 ) -> Preview:
-    before = await _day_row(nazar, employee_id, work_date)
+    row = await _day_row(nazar, employee_id, work_date)
     rows = await call_nazar(
         nazar.post(
             "/timesheet/adjustments/preview",
@@ -158,6 +177,7 @@ async def _preview_intervals(
                 "items": [{
                     "employee_id": str(employee_id),
                     "work_date": work_date.isoformat(),
+                    **shift_target(row),
                     "intervals": [
                         {"start_at": item.start_at.isoformat(), "end_at": item.end_at.isoformat()} for item in intervals
                     ],
@@ -165,7 +185,7 @@ async def _preview_intervals(
             },
         )
     )
-    return Preview(before=before, after=_day_fields(rows[0]) if rows else None)
+    return Preview(before=_day_fields(row), after=_day_fields(rows[0]) if rows else None)
 
 
 async def _adjust_preview(nazar: NazarClient, params: AdjustShiftParams) -> Preview:

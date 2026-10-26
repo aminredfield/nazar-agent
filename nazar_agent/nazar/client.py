@@ -44,9 +44,9 @@ class NazarClient:
             base_url=base_url.rstrip("/"),
             timeout=timeout_seconds,
             transport=transport,
-            # Names the client in NAZAR's request logs. Note: NAZAR rejects
-            # unsafe requests that carry a session cookie but no Origin (a CSRF
-            # guard for browsers) unless the marker is trusted there.
+            # NAZAR rejects unsafe requests that carry a session cookie but no
+            # Origin (a CSRF guard for browsers). A server-side client names
+            # itself instead; NAZAR trusts this marker (nazar-changes/0001).
             headers={"X-Request-Origin": CLIENT_MARKER},
         )
         self._authenticated = False
