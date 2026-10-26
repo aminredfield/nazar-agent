@@ -41,6 +41,7 @@ class LLMClient(Protocol):
         input: str | list[dict[str, Any]],
         tools: list[dict[str, Any]],
         previous_response_id: str | None,
+        text_format: dict[str, Any] | None = None,
     ) -> ModelTurn: ...
 
 
@@ -56,6 +57,7 @@ class MetaResponsesClient:
         input: str | list[dict[str, Any]],
         tools: list[dict[str, Any]],
         previous_response_id: str | None,
+        text_format: dict[str, Any] | None = None,
     ) -> ModelTurn:
         request: dict[str, Any] = {"model": model, "instructions": instructions, "input": input}
         # Instructions are not carried over by previous_response_id, so they are
@@ -64,6 +66,9 @@ class MetaResponsesClient:
             request["tools"] = tools
         if previous_response_id:
             request["previous_response_id"] = previous_response_id
+        if text_format:
+            # Structured output: the answer is generated to this JSON schema.
+            request["text"] = {"format": text_format}
         response = await self._client.responses.create(**request)
 
         calls = tuple(

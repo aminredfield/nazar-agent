@@ -78,6 +78,22 @@ Design rules:
   never sees their reasoning, only the facts. Two checks are deterministic
   code that cannot be talked into anything.
 
+## How a fact gets checked
+
+An analyst investigates with its tools, then writes its report with
+structured output: findings made of facts, a hypothesis and innocent
+alternatives. Every value a fact relies on is also stated as a claim — record
+id, field, value. The fact checker, plain code, looks each claim up in what
+the tools actually returned in this run. Problems go back to the model as a
+list; what still fails after two rounds is removed and shown separately.
+
+A real example from development: the model wrote that an earlier check-in
+was "also 6.6 km from the shop". 6.6 km was the distance *between* the two
+check-ins. The checker rejects that claim — the earlier event has no
+distance-to-site field — and the corrected report says the earlier check-in
+was inside the geofence. That case is now a test
+([`tests/test_checker.py`](tests/test_checker.py)).
+
 ## Meta models
 
 | Role | Model |
@@ -98,7 +114,8 @@ goes only to the standard model or to self-hosted open weights.
 | Agent engine: roles, tool calling loop, step budget, trace | done |
 | NAZAR API client: session, refresh, error envelope | done |
 | Attendance analyst with read tools | done |
-| Structured findings and the fact checker | planned |
+| Timesheet analyst: reads NAZAR's timesheet and setup check, never recalculates | done |
+| Structured findings (structured output) and the fact checker with correction rounds | done |
 | Skeptic, recommendations, action catalog, executor, audit | planned |
 | Assistant window, Telegram bot, voice | planned |
 | List import, evals, public demo account | planned |

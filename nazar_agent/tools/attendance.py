@@ -10,15 +10,13 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 from typing import Any, Literal
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from pydantic import Field, model_validator
 
-from nazar_agent.engine import Tool, ToolExecutionError, ToolParams
-from nazar_agent.nazar import NazarApiError, NazarClient
+from nazar_agent.engine import Tool, ToolParams
+from nazar_agent.nazar import NazarClient
+from nazar_agent.tools.common import COMPANY_TZ, call_nazar, local_time
 
-# NAZAR companies work in Tashkent time; a "day" in a question means a local day.
-COMPANY_TZ = ZoneInfo("Asia/Tashkent")
 MAX_RANGE_DAYS = 31
 MAX_EVENTS = 200
 
@@ -77,11 +75,11 @@ class PresenceTodayParams(ToolParams):
 
 def attendance_tools(nazar: NazarClient) -> tuple[Tool, ...]:
     async def list_objects(params: ListObjectsParams) -> list[dict[str, Any]]:
-        objects = await _call(nazar.get("/objects", {"include_inactive": params.include_inactive}))
+        objects = await call_nazar(nazar.get("/objects", {"include_inactive": params.include_inactive}))
         return [_object_view(item) for item in objects]
 
     async def get_attendance_events(params: AttendanceEventsParams) -> dict[str, Any]:
-        events = await _call(
+        events = await call_nazar(
             nazar.get(
                 "/attendance/logs",
                 {
@@ -101,11 +99,11 @@ def attendance_tools(nazar: NazarClient) -> tuple[Tool, ...]:
         }
 
     async def get_event_detail(params: EventDetailParams) -> dict[str, Any]:
-        detail = await _call(nazar.get(f"/attendance/events/{params.event_id}"))
+        detail = await call_nazar(nazar.get(f"/attendance/events/{params.event_id}"))
         return _event_detail_view(detail)
 
     async def get_presence_today(params: PresenceTodayParams) -> dict[str, Any]:
-        page = await _call(
+        page = await call_nazar(
             nazar.get("/attendance/presence", {"status": params.status, "limit": 100})
         )
         return _presence_view(page)
@@ -145,12 +143,6 @@ def attendance_tools(nazar: NazarClient) -> tuple[Tool, ...]:
     )
 
 
-async def _call(request: Any) -> Any:
-    try:
-        return await request
-    except NazarApiError as exc:
-        raise ToolExecutionError(f"NAZAR API error {exc.status_code}: {exc.message}") from exc
-
 
 def _local_day_start(day: date) -> datetime:
     return datetime.combine(day, time.min, tzinfo=COMPANY_TZ)
@@ -159,11 +151,6 @@ def _local_day_start(day: date) -> datetime:
 def _str_or_none(value: UUID | None) -> str | None:
     return str(value) if value is not None else None
 
-
-def _local_time(value: str | None) -> str | None:
-    if value is None:
-        return None
-    return datetime.fromisoformat(value).astimezone(COMPANY_TZ).isoformat(timespec="seconds")
 
 
 def _explain_flags(codes: list[str]) -> list[dict[str, str]]:
@@ -190,7 +177,7 @@ def _event_view(item: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": item["id"],
         "type": item["event_type"],
-        "at": _local_time(item.get("received_at_server")),
+        "at": local_time(item.get("received_at_server")),
         "employee_id": item.get("employee_id"),
         "employee_name": item.get("employee_name"),
         "object_id": item.get("object_id"),
@@ -211,7 +198,7 @@ def _event_detail_view(item: dict[str, Any]) -> dict[str, Any]:
         "risk_score": item.get("risk_score"),
         "risk_level": item.get("risk_level"),
         "distance_to_site_m": item.get("distance_to_object_meters"),
-        "captured_at_client": _local_time(item.get("captured_at_client")),
+        "captured_at_client": local_time(item.get("captured_at_client")),
         "location_samples": len(item.get("location_samples") or []),
         "network": item.get("network_context") or {},
         "previous_event": None
@@ -220,7 +207,7 @@ def _event_detail_view(item: dict[str, Any]) -> dict[str, Any]:
             "id": previous["id"],
             "type": previous["event_type"],
             "object_name": previous.get("object_name"),
-            "at": _local_time(previous.get("received_at_server")),
+            "at": local_time(previous.get("received_at_server")),
             # Between the two check-ins, not to the site: read live as "the
             # previous one was 6.6 km from the shop too", which was false.
             "distance_between_check_ins_m": previous.get("distance_meters"),
@@ -236,12 +223,12 @@ def _presence_view(page: dict[str, Any]) -> dict[str, Any]:
         "objects": page.get("objects", []),
         "employees": [
             {
-                "employee_id": entry["employee"]["id"],
+                "id": entry["employee"]["id"],
                 "name": entry["employee"]["full_name"],
                 "status": entry.get("status"),
                 "object_id": entry.get("object_id"),
                 "object_name": entry.get("object_name"),
-                "last_event_at": _local_time(entry.get("last_event_at")),
+                "last_event_at": local_time(entry.get("last_event_at")),
             }
             for entry in page.get("items", [])
         ],

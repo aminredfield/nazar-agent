@@ -58,6 +58,8 @@ class RoleRun:
     input_tokens: int
     output_tokens: int
     stopped: Literal["answered", "max_steps"]
+    # Lets a follow-up request (the structured report) continue this conversation.
+    last_response_id: str | None
 
 
 async def run_role(role: Role, llm: LLMClient, user_input: str) -> RoleRun:
@@ -89,6 +91,7 @@ async def run_role(role: Role, llm: LLMClient, user_input: str) -> RoleRun:
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 stopped="answered",
+                last_response_id=turn.response_id,
             )
 
         turn_steps = await asyncio.gather(
@@ -106,6 +109,7 @@ async def run_role(role: Role, llm: LLMClient, user_input: str) -> RoleRun:
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         stopped="max_steps",
+        last_response_id=previous_response_id,
     )
 
 
