@@ -1,0 +1,812 @@
+diff --git a/backend/app/services/attendance_service.py b/backend/app/services/attendance_service.py
+index 88f730e8..cd3e493e 100644
+--- a/backend/app/services/attendance_service.py
++++ b/backend/app/services/attendance_service.py
+@@ -559,8 +559,14 @@ class AttendanceService:
+                 for row in object_rows
+             ],
+         )
++    async def _ai_agent_enabled(self, company_id: UUID) -> bool:
++        # Ключ устройства нужен только ИИ-помощнику — отдаём его лишь компаниям,
++        # где помощник включён в суперадминке.
++        company_settings = await self.company_settings_repository.get(company_id)
++        return bool(company_settings and company_settings.ai_agent_enabled)
++
+     @staticmethod
+-    def _to_event_list_item(event) -> AttendanceEventListItem:
++    def _to_event_list_item(event, *, with_device_key: bool = False) -> AttendanceEventListItem:
+         return AttendanceEventListItem(
+             id=event.id,
+             event_type=event.event_type,
+@@ -583,7 +589,7 @@ class AttendanceService:
+             review_status=getattr(event, "review_status", None) or DEFAULT_REVIEW_STATUS,
+             photo_url=event.photo_url,
+             received_at_server=event.received_at_server,
+-            device_key=device_key_of(event),
++            device_key=device_key_of(event) if with_device_key else None,
+         )
+ 
+     async def list_employee_events(
+@@ -654,7 +660,8 @@ class AttendanceService:
+             department_id=department_id,
+             without_department=without_department,
+         )
+-        return [self._to_event_list_item(event) for event in events]
++        with_device_key = await self._ai_agent_enabled(company_id)
++        return [self._to_event_list_item(event, with_device_key=with_device_key) for event in events]
+ 
+     async def get_event_detail(self, *, company_id: UUID, event_id: UUID) -> AttendanceEventDetailResponse:
+         event = await self.attendance_repository.get_by_id(company_id=company_id, event_id=event_id)
+@@ -727,7 +734,7 @@ class AttendanceService:
+             photo_url=event.photo_url,
+             captured_at_client=event.captured_at_client,
+             received_at_server=event.received_at_server,
+-            device_key=device_key_of(event),
++            device_key=device_key_of(event) if await self._ai_agent_enabled(company_id) else None,
+             previous_event=previous_info,
+             location_samples=getattr(event, "location_samples", None) or [],
+             network_context=getattr(event, "network_context", None) or {},
+diff --git a/backend/tests/test_attendance_device_key.py b/backend/tests/test_attendance_device_key.py
+index b22482a4..6e08cf17 100644
+--- a/backend/tests/test_attendance_device_key.py
++++ b/backend/tests/test_attendance_device_key.py
+@@ -1,8 +1,14 @@
+-"""The device key on an attendance event: enough to see one phone used by several people."""
++"""The device key on an attendance event: enough to see one phone used by several people.
+ 
++It is part of the AI assistant, so it leaves NAZAR only for a company with the
++assistant switched on.
++"""
++
++import uuid
++from datetime import UTC, datetime
+ from types import SimpleNamespace
+ 
+-from app.services.attendance_service import DEVICE_KEY_LENGTH, device_key_of
++from app.services.attendance_service import DEVICE_KEY_LENGTH, AttendanceService, device_key_of
+ 
+ 
+ def test_two_people_on_one_phone_share_the_key():
+@@ -22,3 +28,21 @@ def test_only_the_start_of_the_hash_leaves_nazar():
+ def test_no_binding_no_key():
+     assert device_key_of(SimpleNamespace(device_binding=None)) is None
+     assert device_key_of(SimpleNamespace()) is None
++
++
++def _event():
++    return SimpleNamespace(
++        id=uuid.uuid4(), event_type="check_in", matched=True, similarity=0.8, threshold=0.5,
++        inside_geofence=True, employee_id=uuid.uuid4(), employee=None, object_id=uuid.uuid4(),
++        object=None, latitude=41.3, longitude=69.2, accuracy_meters=10.0, request_ip=None,
++        risk_flags=[], schedule_snapshot={}, review_status=None, photo_url=None,
++        received_at_server=datetime(2026, 10, 27, tzinfo=UTC),
++        device_binding=SimpleNamespace(browser_hash="b" * 64),
++    )
++
++
++def test_the_list_carries_the_key_only_with_the_assistant_on():
++    event = _event()
++
++    assert AttendanceService._to_event_list_item(event).device_key is None
++    assert AttendanceService._to_event_list_item(event, with_device_key=True).device_key == "b" * DEVICE_KEY_LENGTH
+diff --git a/backend/tests/test_suspicious_geolocation.py b/backend/tests/test_suspicious_geolocation.py
+index 64b8d208..ec2a785e 100644
+--- a/backend/tests/test_suspicious_geolocation.py
++++ b/backend/tests/test_suspicious_geolocation.py
+@@ -232,6 +232,10 @@ def _service_with_event(event):
+         async def get_previous_event(self, **_kwargs):
+             return None
+ 
++    class _CompanySettings:
++        async def get(self, _company_id):
++            return None  # no settings row: the AI assistant is off
++
+     repository = _Repository()
+     service = AttendanceService(
+         object_repository=None,
+@@ -240,7 +244,7 @@ def _service_with_event(event):
+         person_repository=None,
+         assignment_repository=None,
+         platform_settings_repository=None,
+-        company_settings_repository=None,
++        company_settings_repository=_CompanySettings(),
+         pipeline=None,
+         settings=Settings(),
+     )
+diff --git a/backend/scripts/seed_demo_company.py b/backend/scripts/seed_demo_company.py
+index d44758d5..5a48bf7b 100644
+--- a/backend/scripts/seed_demo_company.py
++++ b/backend/scripts/seed_demo_company.py
+@@ -239,28 +239,32 @@ def _at(day, hh_mm: str, *, minutes_shift: float = 0.0) -> datetime:
+     return local.astimezone(UTC)
+ 
+ 
+-async def seed(session: AsyncSession, args: argparse.Namespace, settings) -> None:
++async def remove_previous_demo(session: AsyncSession, *, email: str, reset: bool) -> None:
++    """Drop the demo admin and their companies, or refuse without --reset."""
+     existing = (
+-        await session.execute(select(AdminAccount).where(AdminAccount.email == args.email))
++        await session.execute(select(AdminAccount).where(AdminAccount.email == email))
+     ).scalar_one_or_none()
+-    if existing is not None:
+-        if not args.reset:
+-            raise SystemExit(
+-                f"Admin {args.email} already exists. Re-run with --reset to drop and recreate."
+-            )
+-        company_ids = [
+-            membership.company_id
+-            for membership in (
+-                await session.execute(select(CompanyUser).where(CompanyUser.account_id == existing.id))
+-            ).scalars()
+-        ]
+-        # Core DELETEs so the database's ON DELETE CASCADE removes children;
+-        # an ORM delete would try to null out persons.company_id instead.
+-        if company_ids:
+-            await session.execute(delete(Company).where(Company.id.in_(company_ids)))
+-        await session.execute(delete(AdminAccount).where(AdminAccount.id == existing.id))
+-        await session.flush()
+-        print(f"Removed previous demo data for {args.email}.")
++    if existing is None:
++        return
++    if not reset:
++        raise SystemExit(f"Admin {email} already exists. Re-run with --reset to drop and recreate.")
++    company_ids = [
++        membership.company_id
++        for membership in (
++            await session.execute(select(CompanyUser).where(CompanyUser.account_id == existing.id))
++        ).scalars()
++    ]
++    # Core DELETEs so the database's ON DELETE CASCADE removes children;
++    # an ORM delete would try to null out persons.company_id instead.
++    if company_ids:
++        await session.execute(delete(Company).where(Company.id.in_(company_ids)))
++    await session.execute(delete(AdminAccount).where(AdminAccount.id == existing.id))
++    await session.flush()
++    print(f"Removed previous demo data for {email}.")
++
++
++async def seed(session: AsyncSession, args: argparse.Namespace, settings) -> None:
++    await remove_previous_demo(session, email=args.email, reset=args.reset)
+ 
+     photos = _collect_photos(args.photos_dir)
+ 
+@@ -462,19 +466,51 @@ async def seed(session: AsyncSession, args: argparse.Namespace, settings) -> Non
+ 
+     await session.flush()
+ 
+-    # Backfill daily summaries with the production builder so the dashboard
+-    # dynamics chart and late-arrival counts read exactly what a live system
+-    # would have accumulated. A day is included on the same rule the scheduler
+-    # uses — only once its shift window has closed — so today appears when the
+-    # seed runs after the shift ends and stays absent when it runs mid-day.
++    summaries = await backfill_daily_summaries(
++        session,
++        company=company,
++        objects=objects,
++        assignments=[(obj, assignment) for _, obj, assignment, _ in people],
++        resolver=resolver,
++        days=args.days,
++        today_local=today_local,
++        now_utc=now_utc,
++    )
++
++    await session.commit()
++    print(
++        f"Created company '{COMPANY_NAME}': {len(people)} employees, {summaries} daily summaries, "
++        f"{len(objects)} objects, {events} attendance events over {args.days} days."
++    )
++    print(f"Admin login: {args.email}")
++
++
++async def backfill_daily_summaries(
++    session: AsyncSession,
++    *,
++    company: Company,
++    objects: list[CompanyObject],
++    assignments: list[tuple[CompanyObject, EmployeeObjectAssignment]],
++    resolver: WorkScheduleResolver,
++    days: int,
++    today_local,
++    now_utc: datetime,
++) -> int:
++    """Daily summaries built by the production builder; returns how many.
++
++    The dashboard dynamics chart and late-arrival counts then read exactly what
++    a live system would have accumulated. A day is included on the same rule the
++    scheduler uses — only once its shift window has closed — so today appears
++    when the seed runs after the shift ends and stays absent when it runs mid-day.
++    """
+     summary_repository = DailyAttendanceSummaryRepository(session)
+     summaries = 0
+-    for day_offset in range(args.days, -1, -1):
++    for day_offset in range(days, -1, -1):
+         day = today_local - timedelta(days=day_offset)
+         for obj in objects:
+             object_occurrences = [
+                 occurrence
+-                for _, assigned_obj, assignment, _ in people
++                for assigned_obj, assignment in assignments
+                 if assigned_obj.id == obj.id
+                 if (occurrence := resolver.occurrence(assignment, day)) is not None
+             ]
+@@ -517,13 +553,7 @@ async def seed(session: AsyncSession, args: argparse.Namespace, settings) -> Non
+                 summary_text=payload.summary_text,
+             )
+             summaries += 1
+-
+-    await session.commit()
+-    print(
+-        f"Created company '{COMPANY_NAME}': {len(people)} employees, {summaries} daily summaries, "
+-        f"{len(objects)} objects, {events} attendance events over {args.days} days."
+-    )
+-    print(f"Admin login: {args.email}")
++    return summaries
+ 
+ 
+ async def main() -> int:
+diff --git a/backend/scripts/demo_photos.py b/backend/scripts/demo_photos.py
+new file mode 100644
+index 00000000..3ab4abe4
+--- /dev/null
++++ b/backend/scripts/demo_photos.py
+@@ -0,0 +1,108 @@
++"""Check-in photos for demo companies, drawn from the AI-generated demo faces.
++
++Two kinds, so the difference is visible to a person and to a vision model:
++
++- ``live_photo`` — a selfie: the face with its own background; framing,
++  tilt, light and colour temperature change every time, as with a real
++  phone held at arm's length on a different morning;
++- ``screen_photo`` — the registration photo shown on a phone screen and
++  photographed in the foreman's cabin: the same wall, calendar and window
++  every day, glare and screen lines on the picture.
++
++Synthetic on purpose: no real person is in these pictures.
++"""
++
++from __future__ import annotations
++
++import io
++import random
++from pathlib import Path
++
++from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
++
++WIDTH, HEIGHT = 480, 640
++JPEG_QUALITY = 82
++
++
++def _jpeg(image: Image.Image) -> bytes:
++    buffer = io.BytesIO()
++    image.convert("RGB").save(buffer, "JPEG", quality=JPEG_QUALITY)
++    return buffer.getvalue()
++
++
++def _vertical_gradient(top: tuple[int, int, int], bottom: tuple[int, int, int]) -> Image.Image:
++    strip = Image.new("RGB", (1, HEIGHT))
++    for y in range(HEIGHT):
++        t = y / (HEIGHT - 1)
++        strip.putpixel((0, y), tuple(round(a + (b - a) * t) for a, b in zip(top, bottom)))
++    return strip.resize((WIDTH, HEIGHT))
++
++
++def _warmth(image: Image.Image, shift: int) -> Image.Image:
++    """Morning light is warmer or cooler from day to day."""
++    red, green, blue = image.split()
++    return Image.merge(
++        "RGB",
++        (red.point(lambda v: min(255, max(0, v + shift))), green, blue.point(lambda v: min(255, max(0, v - shift)))),
++    )
++
++
++def live_photo(face_path: Path, rng: random.Random) -> bytes:
++    """A selfie, framed and lit a little differently every time."""
++    face = Image.open(face_path).convert("RGB")
++    face = face.rotate(rng.uniform(-4, 4), resample=Image.BICUBIC, expand=False)
++    # Portrait crop of the square photo: a slightly different part each time,
++    # kept off the edges where the tilt leaves empty corners.
++    margin = round(face.height * 0.08)
++    crop_h = round(face.height * rng.uniform(0.76, 0.83))
++    crop_w = round(crop_h * WIDTH / HEIGHT)
++    x0 = rng.randint(margin, face.width - crop_w - margin)
++    y0 = rng.randint(margin, face.height - crop_h - margin)
++    photo = face.crop((x0, y0, x0 + crop_w, y0 + crop_h)).resize((WIDTH, HEIGHT))
++    photo = ImageEnhance.Brightness(photo).enhance(rng.uniform(0.82, 1.12))
++    photo = ImageEnhance.Contrast(photo).enhance(rng.uniform(0.9, 1.1))
++    photo = _warmth(photo, rng.randint(-12, 14))
++    return _jpeg(photo.filter(ImageFilter.GaussianBlur(rng.uniform(0, 0.7))))
++
++
++def _cabin_wall(rng: random.Random) -> Image.Image:
++    """The foreman's cabin: always the same wall, calendar, window and table."""
++    wall = _vertical_gradient((222, 206, 178), (196, 178, 150))
++    draw = ImageDraw.Draw(wall)
++    draw.rectangle((330, 40, 470, 200), fill=(190, 215, 232), outline=(240, 240, 236), width=8)
++    draw.line((400, 40, 400, 200), fill=(240, 240, 236), width=6)
++    draw.rectangle((24, 60, 150, 220), fill=(246, 246, 240), outline=(170, 160, 150), width=2)
++    draw.rectangle((24, 60, 150, 92), fill=(196, 48, 48))
++    for row in range(5):
++        for col in range(6):
++            x, y = 34 + col * 19, 104 + row * 22
++            draw.rectangle((x, y, x + 12, y + 12), outline=(160, 160, 160))
++    draw.rectangle((0, 560, WIDTH, HEIGHT), fill=(120, 82, 52))
++    draw.rectangle((0, 552, WIDTH, 562), fill=(96, 64, 40))
++    # The light differs a little from day to day; the room does not.
++    return ImageEnhance.Brightness(wall).enhance(rng.uniform(0.95, 1.05))
++
++
++def screen_photo(face_path: Path, rng: random.Random) -> bytes:
++    """The registration photo on a phone screen, photographed in the cabin."""
++    scene = _cabin_wall(rng)
++    phone_w, phone_h = 270, 480
++    phone = Image.new("RGBA", (phone_w, phone_h), (0, 0, 0, 0))
++    draw = ImageDraw.Draw(phone)
++    draw.rounded_rectangle((0, 0, phone_w - 1, phone_h - 1), radius=34, fill=(24, 24, 28, 255))
++    screen_box = (14, 46, phone_w - 14, phone_h - 46)
++    screen_w, screen_h = screen_box[2] - screen_box[0], screen_box[3] - screen_box[1]
++    face = Image.open(face_path).convert("RGB")
++    face = face.resize((screen_h, screen_h)).crop(((screen_h - screen_w) // 2, 0, (screen_h + screen_w) // 2, screen_h))
++    screen = ImageEnhance.Brightness(face).enhance(1.12).convert("RGBA")
++    overlay = Image.new("RGBA", screen.size, (0, 0, 0, 0))
++    lines = ImageDraw.Draw(overlay)
++    for y in range(0, screen_h, 3):  # moiré of a screen photographed by a camera
++        lines.line((0, y, screen_w, y), fill=(20, 30, 60, 26))
++    lines.polygon([(0, 70), (screen_w, 0), (screen_w, 40), (0, 150)], fill=(255, 255, 255, 70))  # glare
++    phone.paste(Image.alpha_composite(screen, overlay), screen_box[:2])
++    draw.rounded_rectangle((phone_w // 2 - 30, 18, phone_w // 2 + 30, 26), radius=4, fill=(60, 60, 66, 255))
++    phone = phone.rotate(rng.uniform(-3, 3), resample=Image.BICUBIC, expand=True)
++    x = (WIDTH - phone.width) // 2 + rng.randint(-8, 8)
++    scene.paste(phone, (x, 70 + rng.randint(-6, 6)), phone)
++    return _jpeg(scene.filter(ImageFilter.GaussianBlur(0.6)))
+diff --git a/backend/scripts/seed_construction_demo.py b/backend/scripts/seed_construction_demo.py
+new file mode 100644
+index 00000000..c4263f11
+--- /dev/null
++++ b/backend/scripts/seed_construction_demo.py
+@@ -0,0 +1,446 @@
++"""Demo construction company for the AI assistant: «мёртвые души» and the honest cases around them.
++
++Mustahkam Qurilish: three sites, three weeks of history, the AI assistant
++switched on — for this company only (its own ``ai_agent_enabled`` setting).
++The cases the agents are evaluated on:
++
++- Chilonzor — four workers left ten days ago, but the foreman keeps checking
++  them in and out from his own phone: one device, a minute apart, their
++  registration photo on a phone screen in his cabin, check-outs in one batch.
++  Before they left, each checked in from their own phone with a selfie;
++- Chilonzor — a worker whose phone gives a weak GPS: flags, twice outside the
++  fence, but live selfies and full days. Technology, not fraud;
++- Sergeli — two workers without smartphones, checked in by their honest
++  foreman from his phone: live selfies, on the site, each checks out on their own;
++- Yashnobod — a finishing crew arrives at 09:00 and leaves at 19:00 every day,
++  while the site's schedule says 08:00–18:00. The schedule is wrong, not the people.
++
++Faces are the AI-generated demo faces (docs/investment/demo-faces); the
++check-in photos are drawn from them by scripts/demo_photos.py.
++
++Usage (inside the backend container or a configured backend venv):
++    cd backend
++    python scripts/seed_construction_demo.py --password '...' [--reset]
++"""
++
++from __future__ import annotations
++
++import argparse
++import asyncio
++import hashlib
++import random
++from dataclasses import dataclass
++from datetime import UTC, datetime, time, timedelta
++from pathlib import Path
++from typing import Literal
++
++import seed_demo_company as base  # noqa: E402 — puts the backend on sys.path
++from demo_photos import live_photo, screen_photo  # noqa: E402
++
++from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine  # noqa: E402
++
++from app.core.config import get_settings  # noqa: E402
++from app.core.security import hash_password  # noqa: E402
++from app.models import (  # noqa: E402
++    AdminAccount,
++    BrowserDeviceBinding,
++    Company,
++    CompanyObject,
++    CompanySetting,
++    CompanyUser,
++    EmployeeObjectAssignment,
++    Person,
++)
++from app.services.permissions import ROLE_OWNER  # noqa: E402
++from app.services.work_schedule_resolver import WorkScheduleResolver  # noqa: E402
++from app.utils.images import save_image_bytes  # noqa: E402
++
++COMPANY_NAME = "Mustahkam Qurilish"
++FACES_DIR = base.BACKEND_DIR.parent / "docs" / "investment" / "demo-faces"
++
++SITES = {
++    "chilonzor": {
++        "name": "ЖК «Чиланзар Сити», блок 3",
++        "address": "г. Ташкент, Чиланзарский район, ул. Арнасой, 7",
++        "latitude": 41.28032,
++        "longitude": 69.19115,
++        "radius_meters": 150.0,
++    },
++    "sergeli": {
++        "name": "Склад-ангар, Сергели",
++        "address": "г. Ташкент, Сергелийский район, ул. Янги Сергели, 42",
++        "latitude": 41.22681,
++        "longitude": 69.21904,
++        "radius_meters": 120.0,
++    },
++    "yashnobod": {
++        "name": "ЖК «Яшнабад», отделка",
++        "address": "г. Ташкент, Яшнабадский район, ул. Махтумкули, 95",
++        "latitude": 41.30692,
++        "longitude": 69.33641,
++        "radius_meters": 100.0,
++    },
++}
++# Every site is configured for 08:00–18:00, six days a week. For Yashnobod that
++# is the mistake the agents should find.
++SITE_SCHEDULE = {"shift_start": "08:00", "shift_end": "18:00", "working_days": "1,2,3,4,5,6"}
++
++Kind = Literal["foreman", "worker", "left", "weak_gps", "foreman_honest", "no_phone", "late_crew"]
++
++
++@dataclass(frozen=True)
++class Worker:
++    name: str
++    face: str
++    site: str
++    kind: Kind
++
++
++ROSTER = (
++    Worker("Рустам Юлдашев", "face_11.jpg", "chilonzor", "foreman"),
++    Worker("Азамат Норматов", "face_00.jpg", "chilonzor", "worker"),
++    Worker("Бобур Каримов", "face_03.jpg", "chilonzor", "worker"),
++    Worker("Илхом Тураев", "face_16.jpg", "chilonzor", "worker"),
++    Worker("Нодира Сафарова", "face_04.jpg", "chilonzor", "worker"),
++    Worker("Шерзод Алимов", "face_15.jpg", "chilonzor", "weak_gps"),
++    Worker("Тимур Хасанов", "face_17.jpg", "chilonzor", "left"),
++    Worker("Гулчехра Ибрагимова", "face_06.jpg", "chilonzor", "left"),
++    Worker("Мохира Юнусова", "face_05.jpg", "chilonzor", "left"),
++    Worker("Феруза Каримова", "face_07.jpg", "chilonzor", "left"),
++    Worker("Дилшод Мирзаев", "face_12.jpg", "sergeli", "foreman_honest"),
++    Worker("Хуршид Рахмонов", "face_09.jpg", "sergeli", "no_phone"),
++    Worker("Анвар Бакиров", "face_13.jpg", "sergeli", "no_phone"),
++    Worker("Зухра Набиева", "face_01.jpg", "yashnobod", "late_crew"),
++    Worker("Камола Ташпулатова", "face_10.jpg", "yashnobod", "late_crew"),
++    Worker("Дилфуза Эргашева", "face_14.jpg", "yashnobod", "late_crew"),
++)
++WEAK_GPS_OUTSIDE_DAYS_AGO = (3, 8)
++ABSENCE_CHANCE = 0.04
++LATE_CHANCE = 0.1
++
++
++@dataclass
++class Staff:
++    worker: Worker
++    person: Person
++    obj: CompanyObject
++    assignment: EmployeeObjectAssignment
++    face: Path
++
++
++class Phones:
++    """Phones and their bindings: the same phone used by several people is one hash."""
++
++    def __init__(self, company_id, expires_at: datetime) -> None:
++        self.company_id = company_id
++        self.expires_at = expires_at
++        self.user_agents: dict[str, str] = {}
++        self.bindings: dict[tuple, BrowserDeviceBinding] = {}
++
++    @staticmethod
++    def of(owner: str) -> str:
++        return hashlib.sha256(f"mustahkam-phone|{owner}".encode()).hexdigest()
++
++    def user_agent(self, phone: str) -> str:
++        return self.user_agents.setdefault(phone, random.choice(base.USER_AGENTS))
++
++    def binding(self, session: AsyncSession, staff: Staff, phone: str, first_seen: datetime) -> BrowserDeviceBinding:
++        key = (staff.person.id, phone)
++        if key not in self.bindings:
++            binding = BrowserDeviceBinding(
++                company_id=self.company_id,
++                employee_id=staff.person.id,
++                browser_hash=phone,
++                allowed_object_ids=[str(staff.obj.id)],
++                issued_at=first_seen,
++                last_seen_at=first_seen,
++                expires_at=self.expires_at,
++                is_active=True,
++            )
++            session.add(binding)
++            self.bindings[key] = binding
++        return self.bindings[key]
++
++
++class Recorder:
++    """Adds check-in and check-out events with their photo, device and GPS."""
++
++    def __init__(self, session: AsyncSession, company: Company, phones: Phones, media_dir: Path, now_utc: datetime) -> None:
++        self.session = session
++        self.company = company
++        self.phones = phones
++        self.media_dir = media_dir
++        self.now_utc = now_utc
++        self.count = 0
++
++    def add(
++        self,
++        staff: Staff,
++        occurrence,
++        event_type: str,
++        at_utc: datetime,
++        *,
++        phone: str,
++        photo: bytes,
++        similarity: float,
++        check_in_at: datetime | None = None,
++        accuracy: float | None = None,
++        lat: float | None = None,
++        lon: float | None = None,
++        inside: bool = True,
++        risk_flags: list[str] | None = None,
++    ) -> bool:
++        if at_utc > self.now_utc:
++            return False
++        event = base._event(
++            company_id=self.company.id,
++            person=staff.person,
++            obj=staff.obj,
++            assignment=staff.assignment,
++            event_type=event_type,
++            at_utc=at_utc,
++            photo_url=save_image_bytes(photo, self.media_dir),
++            inside=inside,
++            lat=lat,
++            lon=lon,
++            risk_flags=risk_flags,
++            admin_notified_at=at_utc,  # synthetic history: never notify
++            check_in_at=check_in_at,
++            occurrence=occurrence,
++        )
++        event.similarity = round(similarity, 4)
++        event.user_agent = self.phones.user_agent(phone)
++        event.device_binding = self.phones.binding(self.session, staff, phone, at_utc)
++        if accuracy is not None:
++            event.accuracy_meters = round(accuracy, 1)
++        self.session.add(event)
++        self.count += 1
++        return True
++
++
++def _minutes(value: float) -> timedelta:
++    return timedelta(minutes=value)
++
++
++def _live(staff: Staff) -> bytes:
++    return live_photo(staff.face, random.Random(random.random()))
++
++
++def _on_own_phone(rec: Recorder, staff: Staff, occurrence, *, arrive: float, leave: float, **extra) -> None:
++    """A worker with a smartphone: their own phone, a selfie, check-out on their own."""
++    phone = Phones.of(staff.worker.name)
++    check_in_at = occurrence.planned_start_at + _minutes(arrive)
++    if not rec.add(staff, occurrence, "check_in", check_in_at, phone=phone, photo=_live(staff),
++                   similarity=random.uniform(0.72, 0.9), **extra):
++        return
++    rec.add(staff, occurrence, "check_out", occurrence.planned_end_at + _minutes(leave), phone=phone,
++            photo=_live(staff), similarity=random.uniform(0.72, 0.9), check_in_at=check_in_at, **extra)
++
++
++def _regular_times() -> tuple[float, float]:
++    late = random.random() < LATE_CHANCE
++    return (random.uniform(12, 30) if late else random.uniform(-12, 6)), random.uniform(-15, -2)
++
++
++def _dead_souls(rec: Recorder, foreman: Staff, souls: list[tuple[Staff, object]], foreman_in: datetime) -> None:
++    """The foreman checks in, then out, people who no longer come, from his cabin."""
++    phone = Phones.of(foreman.worker.name)
++    cabin_lat = foreman.obj.latitude + 0.00022
++    cabin_lon = foreman.obj.longitude - 0.00031
++    at = foreman_in + _minutes(random.uniform(2, 4))
++    check_ins = {}
++    for staff, occurrence in souls:
++        lat, lon = base._jitter_location(cabin_lat, cabin_lon, 2)
++        if rec.add(staff, occurrence, "check_in", at, phone=phone, photo=screen_photo(staff.face, random.Random(random.random())),
++                   similarity=random.uniform(0.55, 0.63), accuracy=random.uniform(6, 10), lat=lat, lon=lon):
++            check_ins[staff.person.id] = at
++        at += timedelta(seconds=random.uniform(40, 75))
++    if not souls:
++        return
++    at = souls[0][1].planned_end_at - _minutes(random.uniform(4, 6))
++    for staff, occurrence in souls:
++        if staff.person.id in check_ins:
++            lat, lon = base._jitter_location(cabin_lat, cabin_lon, 2)
++            rec.add(staff, occurrence, "check_out", at, phone=phone, photo=screen_photo(staff.face, random.Random(random.random())),
++                    similarity=random.uniform(0.55, 0.63), accuracy=random.uniform(6, 10), lat=lat, lon=lon,
++                    check_in_at=check_ins[staff.person.id])
++        at += timedelta(seconds=random.uniform(30, 60))
++
++
++def _without_smartphones(rec: Recorder, foreman: Staff, crew: list[tuple[Staff, object]], foreman_in: datetime) -> None:
++    """The honest foreman checks in his crew one by one: each on the site, each a selfie."""
++    phone = Phones.of(foreman.worker.name)
++    at = foreman_in + _minutes(random.uniform(2, 5))
++    for staff, occurrence in crew:
++        check_in_at = at
++        if rec.add(staff, occurrence, "check_in", check_in_at, phone=phone, photo=_live(staff),
++                   similarity=random.uniform(0.74, 0.88)):
++            rec.add(staff, occurrence, "check_out", occurrence.planned_end_at - _minutes(random.uniform(2, 18)),
++                    phone=phone, photo=_live(staff), similarity=random.uniform(0.74, 0.88), check_in_at=check_in_at)
++        at += timedelta(seconds=random.uniform(70, 200))
++
++
++def _weak_gps(rec: Recorder, staff: Staff, occurrence, day_offset: int) -> None:
++    arrive, leave = _regular_times()
++    if day_offset in WEAK_GPS_OUTSIDE_DAYS_AGO:
++        # The position jumps ~250 m off the site; the selfie and the hours are normal.
++        _on_own_phone(rec, staff, occurrence, arrive=arrive, leave=leave, accuracy=random.uniform(160, 240),
++                      lat=staff.obj.latitude + 0.0021, lon=staff.obj.longitude + 0.0012, inside=False,
++                      risk_flags=["accuracy_too_low", "gps_accuracy_warning"])
++        return
++    _on_own_phone(rec, staff, occurrence, arrive=arrive, leave=leave, accuracy=random.uniform(90, 150),
++                  risk_flags=["gps_accuracy_warning"])
++
++
++def _day(rec: Recorder, staff_list: list[Staff], resolver: WorkScheduleResolver, day, day_offset: int, left_days_ago: int) -> None:
++    on_shift = [(staff, occ) for staff in staff_list if (occ := resolver.occurrence(staff.assignment, day)) is not None]
++    by_kind: dict[str, list[tuple[Staff, object]]] = {}
++    for staff, occurrence in on_shift:
++        by_kind.setdefault(staff.worker.kind, []).append((staff, occurrence))
++    gone = day_offset <= left_days_ago
++
++    for kind, helped in (("foreman", "left"), ("foreman_honest", "no_phone")):
++        for foreman, occurrence in by_kind.get(kind, []):
++            arrive = -random.uniform(10, 18)
++            _on_own_phone(rec, foreman, occurrence, arrive=arrive, leave=random.uniform(1, 3))
++            foreman_in = occurrence.planned_start_at + _minutes(arrive)
++            crew = by_kind.get(helped, [])
++            if helped == "left" and gone:
++                _dead_souls(rec, foreman, crew, foreman_in)
++            elif helped == "no_phone":
++                _without_smartphones(rec, foreman, [item for item in crew if random.random() > ABSENCE_CHANCE], foreman_in)
++
++    for staff, occurrence in by_kind.get("worker", []) + ([] if gone else by_kind.get("left", [])):
++        if random.random() < ABSENCE_CHANCE:
++            continue
++        arrive, leave = _regular_times()
++        _on_own_phone(rec, staff, occurrence, arrive=arrive, leave=leave)
++    for staff, occurrence in by_kind.get("weak_gps", []):
++        _weak_gps(rec, staff, occurrence, day_offset)
++    for staff, occurrence in by_kind.get("late_crew", []):
++        # They work 09:00–19:00; the site says 08:00–18:00.
++        _on_own_phone(rec, staff, occurrence, arrive=60 + random.uniform(-6, 8), leave=60 + random.uniform(-4, 10))
++
++
++async def seed(session: AsyncSession, args: argparse.Namespace, settings) -> None:
++    await base.remove_previous_demo(session, email=args.email, reset=args.reset)
++    faces = Path(args.photos_dir)
++    missing = sorted(worker.face for worker in ROSTER if not (faces / worker.face).is_file())
++    if missing:
++        raise SystemExit(f"Missing photos in {faces}: {', '.join(missing)}")
++
++    now_utc = datetime.now(UTC)
++    today_local = now_utc.astimezone(base.TASHKENT).date()
++    origin_day = today_local - timedelta(days=args.days + 1)
++    origin_at = datetime.combine(origin_day, time(8, 0), tzinfo=base.TASHKENT).astimezone(UTC)
++
++    company = Company(
++        name=COMPANY_NAME,
++        contact_phone="+998 90 765 43 21",
++        default_language="ru",
++        is_demo=False,
++        subscription_plan="business",  # «Управление»: recording a check-in review is on it
++        subscription_status="active",
++        billing_period="monthly",
++        paid_until=datetime(2027, 1, 15, tzinfo=UTC),
++        seats=50,
++        created_at=origin_at,
++    )
++    session.add(company)
++    await session.flush()
++    admin = AdminAccount(
++        full_name="Демо Стройка",
++        email=args.email,
++        password_hash=hash_password(args.password),
++        preferred_language="ru",
++        is_active=True,
++        email_verified_at=origin_at,
++        created_at=origin_at,
++    )
++    session.add(admin)
++    await session.flush()
++    session.add(CompanyUser(company_id=company.id, account_id=admin.id, role=ROLE_OWNER, is_active=True, created_at=origin_at))
++    session.add(CompanySetting(company_id=company.id, late_grace_minutes=base.LATE_GRACE_MINUTES, ai_agent_enabled=True))
++
++    objects = {}
++    for key, spec in SITES.items():
++        obj = CompanyObject(company_id=company.id, is_active=True, late_grace_minutes=base.LATE_GRACE_MINUTES,
++                            created_at=origin_at, **spec, **SITE_SCHEDULE)
++        session.add(obj)
++        objects[key] = obj
++    await session.flush()
++
++    persons_dir = settings.media_path / "persons"
++    staff_list = []
++    for index, worker in enumerate(ROSTER):
++        person = Person(
++            company_id=company.id,
++            full_name=worker.name,
++            employee_id=f"MQ-{index + 1:03d}",
++            preview_image=save_image_bytes((faces / worker.face).read_bytes(), persons_dir),
++            is_active=True,
++            created_at=origin_at,
++        )
++        session.add(person)
++        await session.flush()
++        obj = objects[worker.site]
++        assignment = EmployeeObjectAssignment(company_id=company.id, employee_id=person.id, object_id=obj.id,
++                                              is_active=True, schedule_mode="object_default", created_at=origin_at)
++        assignment.object = obj
++        session.add(assignment)
++        staff_list.append(Staff(worker, person, obj, assignment, faces / worker.face))
++    await session.flush()
++
++    resolver = WorkScheduleResolver(
++        company_late_grace_minutes=base.LATE_GRACE_MINUTES,
++        not_before={staff.assignment.id: origin_day for staff in staff_list},
++    )
++    phones = Phones(company.id, now_utc + timedelta(days=90))
++    recorder = Recorder(session, company, phones, settings.media_path / "attendance", now_utc)
++    for day_offset in range(args.days, -1, -1):
++        _day(recorder, staff_list, resolver, today_local - timedelta(days=day_offset), day_offset, args.left_days_ago)
++    await session.flush()
++
++    summaries = await base.backfill_daily_summaries(
++        session,
++        company=company,
++        objects=list(objects.values()),
++        assignments=[(staff.obj, staff.assignment) for staff in staff_list],
++        resolver=resolver,
++        days=args.days,
++        today_local=today_local,
++        now_utc=now_utc,
++    )
++    await session.commit()
++    print(
++        f"Created '{COMPANY_NAME}': {len(staff_list)} employees on {len(objects)} sites, "
++        f"{recorder.count} attendance events, {summaries} daily summaries over {args.days} days; "
++        f"AI assistant on. Four workers left {args.left_days_ago} days ago."
++    )
++    print(f"Admin login: {args.email}")
++
++
++async def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
++    parser.add_argument("--email", default="stroyka@nazarhr.uz")
++    parser.add_argument("--password", required=True)
++    parser.add_argument("--photos-dir", default=str(FACES_DIR), help="directory with the demo face photos")
++    parser.add_argument("--days", type=int, default=21, help="days of history to generate")
++    parser.add_argument("--left-days-ago", type=int, default=10, help="when the four workers stopped coming")
++    parser.add_argument("--reset", action="store_true", help="drop the existing demo company first")
++    parser.add_argument("--seed", type=int, default=20261028, help="RNG seed for reproducibility")
++    args = parser.parse_args()
++    random.seed(args.seed)
++
++    settings = get_settings()
++    engine = create_async_engine(settings.database_url)
++    try:
++        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
++            await seed(session, args, settings)
++    finally:
++        await engine.dispose()
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(asyncio.run(main()))
