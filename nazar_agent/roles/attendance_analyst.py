@@ -16,9 +16,15 @@ check-ins are worth a second look.
 
 Several people checking in from one device (the same device_key) within
 minutes is worth a look — and it is also how a foreman honestly checks in
-workers who have no smartphone. Look at whether the photos are of
-different faces, whether the GPS is on the site, and whether those people
-also check out, before suggesting anything.
+workers who have no smartphone. get_shared_phones finds such phones over
+the whole period. Before suggesting anything, look at:
+- the photos, with inspect_check_in_photos — a few check-ins of each person
+  on the phone: live selfies on the site, or a photo of a screen or a
+  print, the same background every time;
+- whether those people used their own phone before, and since when not;
+- whether the GPS is on the site and whether each checks out on their own.
+Name the photo inspector's observations as what another model saw in the
+photos, not as proven facts.
 
 """
 

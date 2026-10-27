@@ -27,14 +27,11 @@ from nazar_agent.onboarding import DraftStore, ImportRow, Site, read_list, revie
 from nazar_agent.recommendations import Recommendations, Team, recommend
 from nazar_agent.roles import attendance_analyst, timesheet_analyst
 from nazar_agent.roles.dispatcher import Analyst, route
-from nazar_agent.tools import attendance_tools, timesheet_tools
+from nazar_agent.tools import PhotoInspector, analyst_tools
 from nazar_agent.tools.common import COMPANY_TZ, call_nazar
 from nazar_agent.views import answer_view
 
-ANALYSTS = {
-    "attendance": (attendance_analyst, attendance_tools),
-    "timesheet": (timesheet_analyst, timesheet_tools),
-}
+ANALYSTS = {"attendance": attendance_analyst, "timesheet": timesheet_analyst}
 log = logging.getLogger(__name__)
 
 
@@ -114,9 +111,13 @@ class Assistant:
         try:
             chosen = analyst or await route(analyst_llm, settings.analyst_model, question)
             log.info("question routed to the %s analyst", chosen)
-            make_role, make_tools = ANALYSTS[chosen]
-            role = make_role(model=settings.analyst_model, tools=make_tools(nazar), today=today)
+            # The photo inspector runs on the open-weights model, like the skeptic.
+            photos = PhotoInspector(skeptic_llm, settings.skeptic_model)
+            tools = analyst_tools(chosen, nazar, photos)
+            role = ANALYSTS[chosen](model=settings.analyst_model, tools=tools, today=today)
             analysis = await analyze(role, analyst_llm, question)
+            if photos.input_tokens:
+                log.info("photo inspector: %d/%d tokens on %s", photos.input_tokens, photos.output_tokens, photos.model)
             team = Team(skeptic_llm, settings.skeptic_model, analyst_llm, settings.analyst_model)
             recommendations = await recommend(analysis, team, nazar, today)
         finally:

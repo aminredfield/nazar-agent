@@ -36,7 +36,7 @@ a cheater; the agents write "worth checking" and "not confirmed".
 | Existed before Oct 26 | Built during the hackathon (this repository) |
 |---|---|
 | NAZAR: check-in by face + geofence + anti-spoofing, schedules, timesheet calculation, admin API, demo company seeding — closed source | Everything in this repository: agent engine, roles, tools over the NAZAR API, recommendations, executor, audit, assistant UI, Telegram bot, list import, evals |
-| | Small changes in NAZAR to connect the agent (feature flag, menu entry, service user) — published as a diff in [`nazar-changes/`](nazar-changes/) |
+| | Small changes in NAZAR, all behind a per-company AI switch: the switch itself, the menu entry, sign-in with a one-minute pass, the device key of a check-in; and the construction demo company — published as diffs in [`nazar-changes/`](nazar-changes/) |
 
 The git history of this repository starts on Oct 27, 2026.
 
@@ -48,7 +48,8 @@ Input: Telegram (text, voice), assistant window, schedule (morning brief)
    ▼
 Dispatcher ─────────── understands the request, picks the analysts
    │
-   ├─► Attendance analyst ─ check-ins, anti-fraud flags, devices, photos (vision)
+   ├─► Attendance analyst ─ check-ins, anti-fraud flags, shared phones (counted by code)
+   │      └─► Photo inspector (Muse Spark Open) ─ live selfie or a photo of a screen, background
    ├─► Timesheet analyst ── timesheet, schedules, absences, period readiness
    └─► Setup analyst ────── sites, geofences, employees, importing lists
    │       read-only, each with its own tools; output: findings = facts + hypothesis
@@ -77,6 +78,14 @@ Design rules:
 - **Not one AI.** The skeptic runs on a different model than the analysts and
   never sees their reasoning, only the facts. Two checks are deterministic
   code that cannot be talked into anything.
+- **Code counts, models interpret.** Which phones several people check in
+  from, and since when, is counted by code over every check-in of the
+  period; the analyst reads the summary instead of paging through events.
+- **Photos of people go only to open weights.** The analyst cannot see
+  images; it names check-ins, and the photo inspector — Muse Spark Open, a
+  model a company can run in its own country — describes what is in them.
+  It describes; it does not judge, and its words are cited as what another
+  model saw, not as proof.
 
 ## How a fact gets checked
 
@@ -174,6 +183,7 @@ goes only to the standard model or to self-hosted open weights.
 | Agent engine: roles, tool calling loop, step budget, trace | done |
 | NAZAR API client: session, refresh, error envelope | done |
 | Attendance analyst with read tools | done |
+| Shared phones counted by code; photo inspector on Muse Spark Open | done (live on the construction demo: the four "dead souls" found, high confidence, the honest foreman and the weak-GPS worker not accused) |
 | Timesheet analyst: reads NAZAR's timesheet and setup check, never recalculates | done |
 | Structured findings (structured output) and the fact checker with correction rounds | done |
 | Skeptic on a separate model; confidence merged by fixed rules in code | done (Muse Spark Open on Baseten; it always reasons, so it gets a large output budget) |

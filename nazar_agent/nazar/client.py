@@ -24,6 +24,7 @@ from typing import Any
 import httpx
 
 CLIENT_MARKER = "nazar_agent"
+MAX_FILE_BYTES = 8 * 1024 * 1024  # a check-in photo is far smaller
 
 
 class NazarApiError(Exception):
@@ -82,6 +83,15 @@ class NazarClient:
         """multipart/form-data, e.g. an employee with a photo."""
         return await self._request("POST", path, data=_drop_none(data), files=files)
 
+    async def get_bytes(self, path: str) -> bytes:
+        """A stored file, e.g. a check-in photo (``/media/...``), with the same session."""
+        response = await self._send("GET", path)
+        if response.is_error:
+            _unwrap(response)  # raises NazarApiError with NAZAR's message
+        if len(response.content) > MAX_FILE_BYTES:
+            raise NazarApiError(response.status_code, f"The file is larger than {MAX_FILE_BYTES} bytes.")
+        return response.content
+
     async def login(self) -> None:
         response = await self._http.post(
             "/auth/login",
@@ -103,16 +113,18 @@ class NazarClient:
         data: dict[str, Any] | None = None,
         files: list[tuple[str, tuple[str, bytes, str]]] | None = None,
     ) -> Any:
+        return _unwrap(await self._send(method, path, params=params, json=json, data=data, files=files))
+
+    async def _send(self, method: str, path: str, **request: Any) -> httpx.Response:
         if not self._authenticated:
             await self.login()
-        request = {"params": params, "json": json, "data": data, "files": files}
         response = await self._http.request(method, path, **request)
         if response.status_code == httpx.codes.UNAUTHORIZED:
             if self._person:
                 raise NazarApiError(httpx.codes.UNAUTHORIZED, SESSION_EXPIRED, "SESSION_EXPIRED")
             await self._renew_session()
             response = await self._http.request(method, path, **request)
-        return _unwrap(response)
+        return response
 
     async def _renew_session(self) -> None:
         refresh = await self._http.post("/auth/refresh")

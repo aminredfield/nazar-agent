@@ -19,6 +19,12 @@ from nazar_agent.tools.common import COMPANY_TZ, call_nazar, local_time
 
 MAX_RANGE_DAYS = 31
 MAX_EVENTS = 200
+PAGE_SIZE = 500  # NAZAR's own maximum for /attendance/logs
+MAX_SCANNED_EVENTS = 5_000
+MAX_SHARED_PHONES = 10
+# A check-in this soon after another person's on the same phone looks like
+# one person checking in others, honestly or not.
+BURST_MINUTES = 10
 
 # What NAZAR's anti-fraud flags mean (backend/app/core/risk_flags.py), so the
 # model explains them in words instead of repeating codes to a business owner.
@@ -45,21 +51,28 @@ class ListObjectsParams(ToolParams):
     include_inactive: bool = Field(default=False, description="Also return archived objects.")
 
 
-class AttendanceEventsParams(ToolParams):
+class PeriodParams(ToolParams):
     date_from: date = Field(description="First local day, YYYY-MM-DD.")
     date_to: date = Field(description=f"Last local day, YYYY-MM-DD. At most {MAX_RANGE_DAYS} days after date_from.")
-    object_id: UUID | None = Field(default=None, description="Only this object; leave out for all objects.")
-    employee_id: UUID | None = Field(default=None, description="Only this employee; leave out for everyone.")
-    suspicious_only: bool = Field(default=False, description="Only events flagged by anti-fraud checks.")
-    limit: int = Field(default=100, ge=1, le=MAX_EVENTS, description=f"How many events to return, 1–{MAX_EVENTS}.")
 
     @model_validator(mode="after")
-    def _check_range(self) -> AttendanceEventsParams:
+    def _check_range(self) -> PeriodParams:
         if self.date_to < self.date_from:
             raise ValueError("date_to is before date_from")
         if (self.date_to - self.date_from).days > MAX_RANGE_DAYS:
             raise ValueError(f"the range is longer than {MAX_RANGE_DAYS} days")
         return self
+
+
+class AttendanceEventsParams(PeriodParams):
+    object_id: UUID | None = Field(default=None, description="Only this object; leave out for all objects.")
+    employee_id: UUID | None = Field(default=None, description="Only this employee; leave out for everyone.")
+    suspicious_only: bool = Field(default=False, description="Only events flagged by anti-fraud checks.")
+    limit: int = Field(default=100, ge=1, le=MAX_EVENTS, description=f"How many events to return, 1–{MAX_EVENTS}.")
+
+
+class SharedPhonesParams(PeriodParams):
+    pass
 
 
 class EventDetailParams(ToolParams):
@@ -73,7 +86,30 @@ class PresenceTodayParams(ToolParams):
     )
 
 
-def attendance_tools(nazar: NazarClient) -> tuple[Tool, ...]:
+def attendance_tools(nazar: NazarClient, *, page_size: int = PAGE_SIZE) -> tuple[Tool, ...]:
+    async def get_shared_phones(params: SharedPhonesParams) -> dict[str, Any]:
+        events: list[dict[str, Any]] = []
+        while len(events) < MAX_SCANNED_EVENTS:
+            page = await call_nazar(
+                nazar.get(
+                    "/attendance/logs",
+                    {
+                        "date_from": _local_day_start(params.date_from).isoformat(),
+                        "date_to": _local_day_start(params.date_to + timedelta(days=1)).isoformat(),
+                        "limit": page_size,
+                        "offset": len(events),
+                    },
+                )
+            )
+            events.extend(page)
+            if len(page) < page_size:
+                break
+        return {
+            "phones": shared_phones(events)[:MAX_SHARED_PHONES],
+            "events_scanned": len(events),
+            "truncated": len(events) >= MAX_SCANNED_EVENTS,
+        }
+
     async def list_objects(params: ListObjectsParams) -> list[dict[str, Any]]:
         objects = await call_nazar(nazar.get("/objects", {"include_inactive": params.include_inactive}))
         return [_object_view(item) for item in objects]
@@ -125,6 +161,17 @@ def attendance_tools(nazar: NazarClient) -> tuple[Tool, ...]:
             ),
             params=AttendanceEventsParams,
             handler=get_attendance_events,
+        ),
+        Tool(
+            name="get_shared_phones",
+            description=(
+                "Phones used by several people in a period, counted by code over every check-in: who, "
+                "from when to when, how many check-ins came minutes after another person's on the same "
+                "phone, and when each person last checked in from a different phone. Start here when "
+                "the question is about who really comes to work."
+            ),
+            params=SharedPhonesParams,
+            handler=get_shared_phones,
         ),
         Tool(
             name="get_event_detail",
@@ -218,6 +265,63 @@ def _event_detail_view(item: dict[str, Any]) -> dict[str, Any]:
         "review_comment": item.get("review_comment"),
         "reviewed_by": item.get("reviewed_by_name"),
     }
+
+
+def shared_phones(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Phones that several people check in from, most people first.
+
+    Counted by code, not by the model: over every check-in of the period, so
+    the analyst sees a pattern that no single page of events shows — who
+    switched to someone else's phone, and from when.
+    """
+    by_phone: dict[str, list[dict[str, Any]]] = {}
+    for item in events:
+        if item.get("device_key"):
+            by_phone.setdefault(item["device_key"], []).append(item)
+
+    phones = []
+    for key, items in by_phone.items():
+        people = {item["employee_id"] for item in items}
+        if len(people) < 2:
+            continue
+        check_ins = sorted((item for item in items if item["event_type"] == "check_in"), key=_moment)
+        bursts = sum(
+            1
+            for previous, current in zip(check_ins, check_ins[1:])
+            if current["employee_id"] != previous["employee_id"]
+            and _moment(current) - _moment(previous) <= timedelta(minutes=BURST_MINUTES)
+        )
+        phones.append({
+            "id": key,
+            "people_count": len(people),
+            "objects": sorted({item.get("object_name") or "" for item in items} - {""}),
+            "days": len({_moment(item).astimezone(COMPANY_TZ).date() for item in items}),
+            "check_ins_minutes_after_another_person": bursts,
+            "people": sorted(
+                (_phone_user(key, employee, items, events) for employee in people), key=lambda person: person["first_at"]
+            ),
+        })
+    return sorted(phones, key=lambda phone: (-phone["people_count"], -phone["check_ins_minutes_after_another_person"]))
+
+
+def _phone_user(key: str, employee: str, items: list[dict[str, Any]], events: list[dict[str, Any]]) -> dict[str, Any]:
+    mine = sorted((item for item in items if item["employee_id"] == employee), key=_moment)
+    elsewhere = [
+        item for item in events if item["employee_id"] == employee and item.get("device_key") not in (None, key)
+    ]
+    return {
+        "employee_id": employee,
+        "employee_name": mine[0].get("employee_name"),
+        "check_ins": sum(1 for item in mine if item["event_type"] == "check_in"),
+        "check_outs": sum(1 for item in mine if item["event_type"] == "check_out"),
+        "first_at": local_time(mine[0]["received_at_server"]),
+        "last_at": local_time(mine[-1]["received_at_server"]),
+        "last_on_own_or_other_phone": local_time(max(elsewhere, key=_moment)["received_at_server"]) if elsewhere else None,
+    }
+
+
+def _moment(item: dict[str, Any]) -> datetime:
+    return datetime.fromisoformat(item["received_at_server"])
 
 
 def _presence_view(page: dict[str, Any]) -> dict[str, Any]:

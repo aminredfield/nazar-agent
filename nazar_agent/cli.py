@@ -24,19 +24,17 @@ from nazar_agent.llm.pricing import cost_usd
 from nazar_agent.nazar import NazarClient
 from nazar_agent.recommendations import Card, Recommendations, Team, Usage, ValidatedAction, recommend
 from nazar_agent.roles import attendance_analyst, timesheet_analyst
-from nazar_agent.tools import attendance_tools, timesheet_tools
+from nazar_agent.tools import PhotoInspector, analyst_tools
 from nazar_agent.tools.common import COMPANY_TZ
 
-ANALYSTS = {
-    "attendance": (attendance_analyst, attendance_tools),
-    "timesheet": (timesheet_analyst, timesheet_tools),
-}
+ANALYSTS = {"attendance": attendance_analyst, "timesheet": timesheet_analyst}
 
 
 @dataclass(frozen=True, slots=True)
 class Outcome:
     analysis: Analysis
     recommendations: Recommendations | None
+    photos: Usage | None = None  # what the photo inspector spent, if it was asked
 
 
 async def ask(question: str, analyst: str, *, review: bool) -> Outcome:
@@ -49,20 +47,25 @@ async def ask(question: str, analyst: str, *, review: bool) -> Outcome:
     )
     analyst_llm = settings.analyst_llm()
     skeptic_llm = settings.skeptic_llm()
-    make_role, make_tools = ANALYSTS[analyst]
+    # The photo inspector runs on the open-weights model, like the skeptic.
+    photos = PhotoInspector(skeptic_llm, settings.skeptic_model)
     today = datetime.now(COMPANY_TZ).date()
     try:
-        role = make_role(model=settings.analyst_model, tools=make_tools(nazar), today=today)
+        tools = analyst_tools(analyst, nazar, photos)
+        role = ANALYSTS[analyst](model=settings.analyst_model, tools=tools, today=today)
         analysis = await analyze(role, analyst_llm, question)
+        photo_usage = (
+            Usage("photos", photos.model, photos.input_tokens, photos.output_tokens) if photos.input_tokens else None
+        )
         if not review:
-            return Outcome(analysis, None)
+            return Outcome(analysis, None, photo_usage)
         team = Team(
             skeptic_llm=skeptic_llm,
             skeptic_model=settings.skeptic_model,
             writer_llm=analyst_llm,
             writer_model=settings.analyst_model,
         )
-        return Outcome(analysis, await recommend(analysis, team, nazar, today))
+        return Outcome(analysis, await recommend(analysis, team, nazar, today), photo_usage)
     finally:
         await nazar.aclose()
         await analyst_llm.aclose()
@@ -120,6 +123,8 @@ def _action_text(action: ValidatedAction) -> str:
 def render_stats(outcome: Outcome, analyst_model: str) -> str:
     analysis = outcome.analysis
     usage = [Usage("analyst", analyst_model, analysis.input_tokens, analysis.output_tokens)]
+    if outcome.photos is not None:
+        usage.append(outcome.photos)
     if outcome.recommendations is not None:
         usage.extend(outcome.recommendations.usage)
     costs = [cost_usd(item.model, item.input_tokens, item.output_tokens) for item in usage]

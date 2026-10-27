@@ -15,7 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-EvidenceKind = Literal["event", "employee", "object", "timesheet_day", "setup_finding"]
+EvidenceKind = Literal["event", "employee", "object", "device", "timesheet_day", "setup_finding"]
 SubjectKind = Literal["employee", "object", "company"]
 Confidence = Literal["low", "medium", "high"]
 

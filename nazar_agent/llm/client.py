@@ -108,8 +108,11 @@ class MetaResponsesClient:
 class ChatCompletionsClient:
     """A model behind the Chat Completions API — e.g. Muse Spark Open on Baseten.
 
-    Used for single-shot roles (the skeptic): one request, no tools, no
-    server-side conversation. Structured output maps to ``response_format``.
+    Used for single-shot roles (the skeptic, the photo inspector): one request,
+    no tools, no server-side conversation. Structured output maps to
+    ``response_format``. Input is text, or Responses-style messages with
+    ``input_text`` and ``input_image`` parts, sent as chat ``text`` and
+    ``image_url`` parts — so a role can move between the two APIs unchanged.
     """
 
     def __init__(
@@ -138,15 +141,13 @@ class ChatCompletionsClient:
         text_format: dict[str, Any] | None = None,
         max_output_tokens: int | None = None,
     ) -> ModelTurn:
-        if tools or not isinstance(input, str):
+        if tools:
             raise NotImplementedError("ChatCompletionsClient serves single-shot roles without tools.")
 
+        messages = [{"role": "user", "content": input}] if isinstance(input, str) else [_chat_message(item) for item in input]
         request: dict[str, Any] = {
             "model": model,
-            "messages": [
-                {"role": "system", "content": instructions},
-                {"role": "user", "content": input},
-            ],
+            "messages": [{"role": "system", "content": instructions}, *messages],
         }
         if text_format:
             request["response_format"] = {
@@ -172,3 +173,18 @@ class ChatCompletionsClient:
 
     async def aclose(self) -> None:
         await self._client.close()
+
+
+def _chat_message(message: dict[str, Any]) -> dict[str, Any]:
+    content = message["content"]
+    if isinstance(content, str):
+        return {"role": message["role"], "content": content}
+    return {"role": message["role"], "content": [_chat_part(part) for part in content]}
+
+
+def _chat_part(part: dict[str, Any]) -> dict[str, Any]:
+    if part["type"] == "input_text":
+        return {"type": "text", "text": part["text"]}
+    if part["type"] == "input_image":
+        return {"type": "image_url", "image_url": {"url": part["image_url"]}}
+    raise ValueError(f"Unsupported input part: {part['type']}")

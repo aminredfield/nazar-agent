@@ -47,7 +47,11 @@ For each case:
   strong and the skeptic agrees; never when the skeptic finds an innocent
   explanation likely. Fill only the fields the action lists; set the others
   to null.
-- why: one sentence on why you chose these actions, or why none.
+- A comment records what was seen and what is still to check, in neutral
+  words: never a verdict ("classic fraud", "clearly absent") — the owner
+  decides, and the AI can be wrong.
+- why: one sentence on why you propose these actions, or none — as a
+  proposal ("предлагаю…"), never as if it were already done.
 - Times carry the +05:00 offset. Copy them from the facts to the second;
   keep the counted end of a shift unless the facts show the end is wrong.
 
