@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NAZAR · Помощник</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #17202a; --muted: #5b6673; --line: #e3e7ec;
+    --accent: #1f6feb; --accent-text: #ffffff;
+    --high: #c2410c; --medium: #b45309; --low: #64748b;
+    --good: #15803d; --bad: #b91c1c; --soft: #eef2f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f141a; --panel: #161d25; --text: #e6edf3; --muted: #9aa7b4; --line: #26313d;
+      --accent: #4c8dff; --accent-text: #0b1220;
+      --high: #fb923c; --medium: #fbbf24; --low: #94a3b8;
+      --good: #4ade80; --bad: #f87171; --soft: #1d2631;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: baseline; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { margin: 0; font-size: 18px; }
+  header span { color: var(--muted); font-size: 13px; }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
+  .ask { display: grid; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .ask textarea { width: 100%; min-height: 70px; resize: vertical; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  select, input[type=text] { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+  button { font: inherit; border-radius: 8px; padding: 7px 14px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button:disabled { opacity: .55; cursor: default; }
+  .status { color: var(--muted); font-size: 14px; min-height: 21px; }
+  .error { color: var(--bad); }
+  .summary { margin: 20px 0 8px; font-size: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--low); border-radius: 12px; padding: 16px 18px; margin: 14px 0; }
+  .card.high { border-left-color: var(--high); } .card.medium { border-left-color: var(--medium); }
+  .card h2 { margin: 0; font-size: 17px; }
+  .who { color: var(--muted); font-size: 14px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+  .badge { background: var(--soft); border-radius: 999px; padding: 2px 10px; font-size: 13px; }
+  .section { margin-top: 12px; }
+  .section h3 { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  ul { margin: 0; padding-left: 20px; }
+  li { margin: 2px 0; }
+  .ref { color: var(--muted); font-size: 12px; margin-left: 4px; }
+  .action { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-top: 8px; background: var(--bg); }
+  .action .title { font-weight: 600; }
+  .action .level { font-size: 12px; color: var(--muted); }
+  table { border-collapse: collapse; margin: 8px 0; font-size: 14px; }
+  td, th { padding: 3px 12px 3px 0; text-align: left; }
+  th { color: var(--muted); font-weight: 500; }
+  .changed { font-weight: 600; color: var(--good); }
+  .done { color: var(--good); font-weight: 600; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .audit { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-top: 28px; }
+  .audit li { font-size: 14px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<header><h1>NAZAR · Помощник</h1><span>Команда ИИ-агентов предлагает — решаете вы</span></header>
+<main>
+  <form class="ask" id="ask">
+    <textarea id="question" maxlength="500" required placeholder="Например: Что в табеле за прошлую неделю стоит проверить перед выплатой?"></textarea>
+    <div class="row">
+      <select id="analyst">
+        <option value="timesheet">Табель</option>
+        <option value="attendance">Отметки</option>
+      </select>
+      <label class="muted">Вы: <input type="text" id="actor" value="Владелец" maxlength="80"></label>
+      <button class="primary" id="send" type="submit">Спросить</button>
+    </div>
+    <div class="status" id="status"></div>
+  </form>
+  <div id="answer"></div>
+  <section class="audit">
+    <div class="row"><strong>Журнал действий</strong><button type="button" id="refresh-audit">Обновить</button></div>
+    <ul id="audit"></ul>
+  </section>
+</main>
+<script>
+"use strict";
+const CONFIDENCE = { high: "высокая", medium: "средняя", low: "низкая" };
+const VERDICT = { concern_supported: "повод есть", inconclusive: "не уверен", innocent_likely: "скорее всё в порядке" };
+const ACTIONS = {
+  review_event: "Записать итог разбора отметки",
+  adjust_shift: "Исправить засчитанное время смены",
+  void_shift: "Не засчитывать день",
+};
+const REVIEW_STATUS = { no_violation: "нарушения нет", confirmed: "нарушение подтверждено", insufficient_data: "недостаточно данных", not_reviewed: "не разобрано" };
+const DAY_FIELDS = { worked_minutes: "Отработано, мин", paid_minutes: "К оплате, мин", late_minutes: "Опоздание, мин", early_leave_minutes: "Ранний уход, мин" };
+const EVENTS = { proposed: "предложено агентом", executed: "выполнено", declined: "отклонено", refused: "не выполнено", failed: "ошибка", undone: "отменено" };
+
+const $ = (id) => document.getElementById(id);
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key === "class") node.className = value; else node.setAttribute(key, value);
+  }
+  for (const child of children.flat()) {
+    if (child === null || child === undefined) continue;
+    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  }
+  return node;
+}
+
+async function api(path, body) {
+  const response = await fetch(path, body === undefined ? {} : {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : `Ошибка ${response.status}`);
+  return data;
+}
+
+function section(title, items) {
+  if (!items || !items.length) return null;
+  return el("div", { class: "section" }, el("h3", {}, title), el("ul", {}, items.map((item) => el("li", {}, item))));
+}
+
+function previewTable(preview) {
+  if (!preview || !preview.before) return null;
+  const rows = Object.entries(DAY_FIELDS).map(([field, label]) => {
+    const before = preview.before[field], after = preview.after ? preview.after[field] : null;
+    return el("tr", {}, el("th", {}, label), el("td", {}, before ?? "—"),
+      el("td", { class: before !== after ? "changed" : "" }, after ?? "—"));
+  });
+  return el("table", {}, el("tr", {}, el("th", {}, ""), el("th", {}, "Было"), el("th", {}, "Станет")), rows);
+}
+
+function describeParams(action) {
+  const params = action.params;
+  if (action.name === "review_event") return `Итог: ${REVIEW_STATUS[params.status] || params.status}. ${params.comment}`;
+  if (action.name === "adjust_shift") {
+    const spans = params.intervals.map((item) => `${item.start_at.slice(11, 16)}–${item.end_at.slice(11, 16)}`).join(", ");
+    return `${params.work_date}: засчитать ${spans}. ${params.reason}`;
+  }
+  return `${params.work_date}: ${params.reason}`;
+}
+
+function actionBlock(action) {
+  const result = el("div", { class: "muted" });
+  const buttons = el("div", { class: "row" });
+  const block = el("div", { class: "action" },
+    el("div", { class: "title" }, ACTIONS[action.name] || action.name),
+    el("div", { class: "level" }, action.level === "changes_pay" ? "Меняет оплату — NAZAR показывает было и станет" : "Не меняет оплату"),
+    el("div", {}, describeParams(action)),
+    previewTable(action.preview),
+    buttons, result);
+
+  const decide = async (kind, body) => {
+    for (const button of buttons.querySelectorAll("button")) button.disabled = true;
+    result.className = "muted"; result.textContent = "Выполняю…";
+    try {
+      const updated = await api(`/api/proposals/${action.proposal_id}/${kind}`, body);
+      render(updated.status);
+      loadAudit();
+    } catch (error) {
+      result.className = "error"; result.textContent = error.message;
+      for (const button of buttons.querySelectorAll("button")) button.disabled = false;
+    }
+  };
+
+  function askAgain(question, confirmLabel, onConfirm, withReason) {
+    const reason = withReason ? el("input", { type: "text", maxlength: "500", placeholder: "Например: у них правда нет смартфонов" }) : null;
+    const yes = el("button", { class: "primary", type: "button" }, confirmLabel);
+    const back = el("button", { type: "button" }, "Назад");
+    buttons.replaceChildren(el("span", {}, question), reason, yes, back);
+    yes.onclick = () => {
+      if (withReason && !reason.value.trim()) { reason.focus(); return; }
+      onConfirm(withReason ? reason.value : undefined);
+    };
+    back.onclick = () => render("pending");
+    (reason || yes).focus();
+  }
+
+  function render(status) {
+    buttons.replaceChildren();
+    result.className = "muted"; result.textContent = "";
+    if (status === "pending") {
+      buttons.append(
+        el("button", { class: "primary", type: "button" }, "Применить"),
+        el("button", { type: "button" }, "Не согласен"),
+        el("button", { type: "button" }, "Отложить"));
+      const [apply, disagree, later] = buttons.children;
+      apply.onclick = () => {
+        const run = () => decide("confirm", { actor: $("actor").value });
+        if (action.level === "changes_pay") askAgain("Это изменит оплату в NAZAR.", "Да, применить", run, false);
+        else run();
+      };
+      disagree.onclick = () => askAgain("Почему? Агент учтёт это дальше.", "Отправить",
+        (reason) => decide("decline", { actor: $("actor").value, reason }), true);
+      later.onclick = () => { buttons.replaceChildren(); result.textContent = "Отложено — предложение сохранено."; };
+    } else if (status === "executed") {
+      result.className = "done"; result.textContent = "Выполнено в NAZAR.";
+      const undo = el("button", { type: "button" }, "Отменить");
+      undo.onclick = () => decide("undo", { actor: $("actor").value });
+      buttons.append(undo);
+    } else {
+      result.textContent = { declined: "Отклонено.", undone: "Отменено — NAZAR вернул как было.", stale: "Данные изменились — спросите заново.", failed: "Не выполнено." }[status] || status;
+    }
+  }
+  render(action.status);
+  return block;
+}
+
+function cardView(card) {
+  const skeptic = card.skeptic ? VERDICT[card.skeptic.verdict] : "не высказался";
+  return el("article", { class: `card ${card.confidence}` },
+    el("h2", {}, card.title),
+    el("div", { class: "who" }, card.subject.name),
+    el("div", { class: "badges" },
+      el("span", { class: "badge" }, `Уверенность: ${CONFIDENCE[card.confidence]}`),
+      el("span", { class: "badge" }, `аналитик: ${CONFIDENCE[card.analyst_confidence]}`),
+      el("span", { class: "badge" }, `скептик: ${skeptic}`)),
+    section("Что видно в данных", card.facts.map((fact) => [
+      fact.text, el("span", { class: "ref" }, fact.evidence.map((ref) => `${ref.kind}:${ref.id.slice(0, 8)}`).join(", "))])),
+    section("Возможное объяснение — это предположение", [card.hypothesis]),
+    section("Может быть и иначе", card.alternatives),
+    section("Как проверить", card.check_steps),
+    card.actions.length || card.actions_why ? el("div", { class: "section" },
+      el("h3", {}, "Что можно сделать"),
+      card.actions_why ? el("div", { class: "muted" }, card.actions_why) : null,
+      card.actions.map(actionBlock)) : null);
+}
+
+function renderAnswer(data) {
+  const removed = data.removed_by_fact_checker.map((item) => `${item.fact || item.finding}: ${item.reasons.join("; ")}`);
+  const rounds = data.fact_checker_rounds.flat();
+  // replaceChildren is native: arrays must be spread and nulls dropped.
+  $("answer").replaceChildren(...[
+    el("p", { class: "summary" }, data.summary),
+    data.cards.map(cardView),
+    section("Чего не видно в данных", data.data_gaps.concat(data.notes)),
+    rounds.length || removed.length ? el("details", { class: "section" },
+      el("summary", {}, `Проверка фактов: ${rounds.length} замечаний исправлено, ${removed.length} удалено`),
+      el("ul", {}, rounds.concat(removed).map((item) => el("li", {}, item)))) : null,
+    el("p", { class: "muted" }, `${data.stats.tool_calls} запросов к NAZAR · ${data.stats.models.map((item) => `${item.role}: ${item.model}`).join(" · ")} · ~$${data.stats.cost_usd}`),
+  ].flat().filter(Boolean));
+}
+
+async function loadLast() {
+  try {
+    const last = await api("/api/last");
+    if (last) renderAnswer(last);
+  } catch (error) {
+    $("status").className = "status error"; $("status").textContent = error.message;
+  }
+}
+
+async function loadAudit() {
+  try {
+    const entries = await api("/api/audit?limit=30");
+    $("audit").replaceChildren(...entries.map((entry) => el("li", {},
+      `${entry.at.replace("T", " ").slice(0, 16)} · ${EVENTS[entry.event] || entry.event} · ${ACTIONS[entry.action] || entry.action || ""} · ${entry.subject || ""} · ${entry.actor}`,
+      entry.details.reason ? el("span", { class: "ref" }, `«${entry.details.reason}»`) : null,
+      entry.details.error ? el("span", { class: "ref" }, entry.details.error) : null)));
+  } catch (error) {
+    $("audit").replaceChildren(el("li", { class: "error" }, error.message));
+  }
+}
+
+$("ask").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  $("send").disabled = true;
+  $("status").className = "status";
+  $("status").textContent = "Аналитик смотрит данные NAZAR, проверщик сверяет факты, скептик ищет невиновные объяснения… обычно 1–3 минуты.";
+  try {
+    renderAnswer(await api("/api/ask", { question: $("question").value, analyst: $("analyst").value }));
+    $("status").textContent = "";
+    loadAudit();
+  } catch (error) {
+    $("status").className = "status error"; $("status").textContent = error.message;
+  } finally {
+    $("send").disabled = false;
+  }
+});
+$("refresh-audit").addEventListener("click", loadAudit);
+loadLast();
+loadAudit();
+</script>
+</body>
+</html>

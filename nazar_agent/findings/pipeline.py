@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
@@ -26,6 +27,7 @@ from nazar_agent.findings.models import AnalystReport, Finding
 from nazar_agent.llm import LLMClient
 
 DEFAULT_MAX_CORRECTIONS = 2
+log = logging.getLogger(__name__)
 
 REPORT_FORMAT: dict[str, Any] = {
     "type": "json_schema",
@@ -53,8 +55,9 @@ Now write your report for the owner, as JSON matching the schema.
   it, so do not repeat the name in the title.
 - The hypothesis is a hypothesis. Alternatives hold at least one innocent
   explanation. Confidence is low, medium or high.
-- Write the summary, titles, facts, hypothesis and alternatives in the
-  language of the owner's question, with no internal codes.
+- Write the summary, titles, facts, hypothesis, alternatives and data gaps
+  in the language of the owner's question, with no internal codes or field
+  names.
 """
 
 
@@ -100,6 +103,7 @@ async def analyze(
     caught: list[tuple[str, ...]] = []
 
     for attempt in range(max_corrections + 1):
+        log.info("%s: report, attempt %d", role.name, attempt + 1)
         turn = await llm.respond(
             model=role.model,
             instructions=role.instructions,

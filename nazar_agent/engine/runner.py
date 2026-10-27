@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -29,6 +30,7 @@ from nazar_agent.engine.tools import Tool
 from nazar_agent.llm.client import LLMClient, ToolCall
 
 DEFAULT_MAX_STEPS = 8
+log = logging.getLogger(__name__)
 
 
 class ToolExecutionError(Exception):
@@ -76,6 +78,7 @@ async def run_role(role: Role, llm: LLMClient, user_input: str) -> RoleRun:
     input_tokens = output_tokens = 0
 
     for turn_number in range(1, role.max_steps + 1):
+        log.info("%s: turn %d", role.name, turn_number)
         turn = await llm.respond(
             model=role.model,
             instructions=role.instructions,

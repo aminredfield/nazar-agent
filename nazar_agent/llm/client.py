@@ -16,6 +16,10 @@ from typing import Any, Protocol
 import httpx
 from openai import AsyncOpenAI
 
+# The SDK retries a timed-out request twice by default: a stuck call then
+# blocks for three timeouts (seen live: ~8 minutes for one question).
+MAX_RETRIES = 1
+
 
 @dataclass(frozen=True, slots=True)
 class ToolCall:
@@ -55,7 +59,11 @@ class MetaResponsesClient:
         http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self._client = AsyncOpenAI(
-            api_key=api_key, base_url=base_url, timeout=timeout_seconds, http_client=http_client
+            api_key=api_key,
+            base_url=base_url,
+            timeout=timeout_seconds,
+            max_retries=MAX_RETRIES,
+            http_client=http_client,
         )
 
     async def respond(
@@ -109,7 +117,11 @@ class ChatCompletionsClient:
         http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self._client = AsyncOpenAI(
-            api_key=api_key, base_url=base_url, timeout=timeout_seconds, http_client=http_client
+            api_key=api_key,
+            base_url=base_url,
+            timeout=timeout_seconds,
+            max_retries=MAX_RETRIES,
+            http_client=http_client,
         )
 
     async def respond(

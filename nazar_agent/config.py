@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     nazar_password: SecretStr
     nazar_timeout_seconds: float = 20.0
 
+    # Proposals and the audit trail (SQLite).
+    agent_db_path: str = "nazar_agent.sqlite3"
+
     def analyst_llm(self) -> MetaResponsesClient:
         return MetaResponsesClient(
             api_key=self.model_api_key.get_secret_value(),

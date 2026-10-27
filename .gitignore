@@ -10,6 +10,7 @@ build/
 dist/
 
 .pytest_cache/
+*.sqlite3
 .coverage
 htmlcov/
 

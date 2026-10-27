@@ -57,6 +57,9 @@ class NazarClient:
     async def post(self, path: str, json: dict[str, Any] | None = None) -> Any:
         return await self._request("POST", path, json=json)
 
+    async def delete(self, path: str) -> Any:
+        return await self._request("DELETE", path)
+
     async def login(self) -> None:
         response = await self._http.post(
             "/auth/login",

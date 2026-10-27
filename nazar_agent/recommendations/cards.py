@@ -11,6 +11,7 @@ own "before → after" when it changes pay.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date
 
@@ -24,6 +25,7 @@ from nazar_agent.recommendations.skeptic import SkepticView, merge_confidence, r
 
 _ORDER: dict[Confidence, int] = {"high": 0, "medium": 1, "low": 2}
 MAX_ALTERNATIVES = 3  # a card is read by a busy owner, not audited
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,11 +70,13 @@ async def recommend(analysis: Analysis, team: Team, nazar: NazarClient, today: d
     findings = analysis.report.findings
     evidence = Evidence.from_steps(analysis.run.steps)
 
+    log.info("skeptic: %d finding(s) on %s", len(findings), team.skeptic_model)
     skeptic = await run_skeptic(team.skeptic_llm, team.skeptic_model, analysis.report, evidence)
     cases = [
         CaseInput(finding, merge_confidence(finding.confidence, skeptic.views.get(index)), skeptic.views.get(index))
         for index, finding in enumerate(findings)
     ]
+    log.info("writer: recommendations on %s", team.writer_model)
     writer = await compose(team.writer_llm, team.writer_model, cases, today)
 
     cards = []

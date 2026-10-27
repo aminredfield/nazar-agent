@@ -11,7 +11,9 @@ then decides whether the proposal stands:
 4. for anything that changes pay, NAZAR itself computes "before → after"
    (``/timesheet/adjustments/preview``, nothing is saved).
 
-Nothing here writes to NAZAR. Execution after a human confirms is separate.
+Validation never writes to NAZAR. Each action also knows how to execute
+and how to undo itself, but only the executor calls that, and only after a
+human confirmed (``nazar_agent.actions``).
 """
 
 from __future__ import annotations
@@ -105,6 +107,10 @@ class ActionSpec:
     targets: Callable[[Any], list[str]]
     policy: Callable[[Any, Context], str | None]
     preview: Callable[[NazarClient, Any], Awaitable[Preview]] | None
+    # Run only by the executor, after a human confirmed. ``execute`` returns
+    # what ``undo`` needs to put NAZAR back (an adjustment id, a prior status).
+    execute: Callable[[NazarClient, Any], Awaitable[dict[str, Any]]]
+    undo: Callable[[NazarClient, Any, dict[str, Any]], Awaitable[None]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,8 +202,69 @@ async def _void_preview(nazar: NazarClient, params: VoidShiftParams) -> Preview:
     return await _preview_intervals(nazar, params.employee_id, params.work_date, [])
 
 
-def _day_fields(row: dict[str, Any]) -> dict[str, Any]:
-    return {field: row.get(field) for field in DAY_FIELDS}
+def _day_fields(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    return {field: row.get(field) for field in DAY_FIELDS} if row is not None else None
+
+
+async def _review_execute(nazar: NazarClient, params: ReviewEventParams) -> dict[str, Any]:
+    event = await call_nazar(nazar.get(f"/attendance/events/{params.event_id}"))
+    await call_nazar(
+        nazar.post(f"/attendance/events/{params.event_id}/review", {"status": params.status, "comment": params.comment})
+    )
+    return {"previous_status": event.get("review_status"), "previous_comment": event.get("review_comment")}
+
+
+async def _review_undo(nazar: NazarClient, params: ReviewEventParams, result: dict[str, Any]) -> None:
+    await call_nazar(
+        nazar.post(
+            f"/attendance/events/{params.event_id}/review",
+            {"status": result.get("previous_status") or "not_reviewed", "comment": result.get("previous_comment")},
+        )
+    )
+
+
+async def _adjust_execute(nazar: NazarClient, params: AdjustShiftParams) -> dict[str, Any]:
+    row = await _day_row(nazar, params.employee_id, params.work_date)
+    adjustment = await call_nazar(
+        nazar.post(
+            "/timesheet/adjustments",
+            {
+                "employee_id": str(params.employee_id),
+                "work_date": params.work_date.isoformat(),
+                **shift_target(row),
+                "intervals": [
+                    {"start_at": item.start_at.isoformat(), "end_at": item.end_at.isoformat()} for item in params.intervals
+                ],
+                "reason": params.reason,
+            },
+        )
+    )
+    return {"adjustment_id": adjustment["id"]}
+
+
+async def _adjust_undo(nazar: NazarClient, params: AdjustShiftParams, result: dict[str, Any]) -> None:
+    # NAZAR deactivates the adjustment; its history stays.
+    await call_nazar(nazar.delete(f"/timesheet/adjustments/{result['adjustment_id']}"))
+
+
+async def _void_execute(nazar: NazarClient, params: VoidShiftParams) -> dict[str, Any]:
+    row = await _day_row(nazar, params.employee_id, params.work_date)
+    adjustment = await call_nazar(
+        nazar.post(
+            "/timesheet/adjustments/void",
+            {
+                "employee_id": str(params.employee_id),
+                "work_date": params.work_date.isoformat(),
+                **shift_target(row),
+                "reason": params.reason,
+            },
+        )
+    )
+    return {"adjustment_id": adjustment["id"]}
+
+
+async def _void_undo(nazar: NazarClient, params: VoidShiftParams, result: dict[str, Any]) -> None:
+    await call_nazar(nazar.delete(f"/timesheet/adjustments/void/{result['adjustment_id']}"))
 
 
 CATALOG: dict[str, ActionSpec] = {
@@ -215,6 +282,8 @@ CATALOG: dict[str, ActionSpec] = {
             targets=lambda params: [str(params.event_id)],
             policy=_review_policy,
             preview=None,
+            execute=_review_execute,
+            undo=_review_undo,
         ),
         ActionSpec(
             name="adjust_shift",
@@ -228,6 +297,8 @@ CATALOG: dict[str, ActionSpec] = {
             targets=lambda params: [str(params.employee_id)],
             policy=lambda params, context: None,
             preview=_adjust_preview,
+            execute=_adjust_execute,
+            undo=_adjust_undo,
         ),
         ActionSpec(
             name="void_shift",
@@ -240,6 +311,8 @@ CATALOG: dict[str, ActionSpec] = {
             targets=lambda params: [str(params.employee_id)],
             policy=_void_policy,
             preview=_void_preview,
+            execute=_void_execute,
+            undo=_void_undo,
         ),
     )
 }

@@ -111,6 +111,28 @@ day needs high confidence *and* a skeptic who agrees), and for anything that
 changes pay, NAZAR's own preview of the day before and after. Actions in the
 employee's favour — counting a shift from the real arrival — are encouraged.
 
+## Applying an action
+
+Every valid action is stored as a pending proposal. Nothing reaches NAZAR
+until a person presses "Apply" (and, for anything that changes pay, confirms
+once more). The executor is plain code and the only part that writes:
+
+- it claims the proposal atomically, so a double click cannot run it twice;
+- it checks the policy again and asks NAZAR for the day once more — if the
+  day changed since the person saw "before → after", it refuses;
+- the reason written into NAZAR names the person who confirmed;
+- "Undo" uses NAZAR's own cancellation (an adjustment is deactivated, its
+  history stays); "Disagree" requires a reason and keeps it as feedback.
+
+Every step — proposed, executed, declined with the reason, refused, failed,
+undone — is in an append-only audit trail.
+
+Verified end to end on Oct 27 against a local NAZAR: the agent proposed
+counting a shift from the real arrival (09:06) instead of a duplicate
+check-in (10:14); NAZAR previewed late 74 → 0 min, paid 455 → 522 min;
+applied — NAZAR showed the corrected day with the confirming person in the
+reason; undone — NAZAR showed the day as before.
+
 ## Meta models
 
 | Role | Model |
@@ -135,8 +157,9 @@ goes only to the standard model or to self-hosted open weights.
 | Structured findings (structured output) and the fact checker with correction rounds | done |
 | Skeptic on a separate model; confidence merged by fixed rules in code | done (Muse Spark 1.2 until Muse Spark Open on Baseten is available) |
 | Recommendation writer, fixed action catalog, validation with policy in code and NAZAR's own before → after | done |
-| Executor after human confirmation, audit, undo | planned |
-| Assistant window, Telegram bot, voice | planned |
+| Executor after human confirmation: atomic claim, policy re-check, refuses if the day changed since it was shown; audit trail; undo | done |
+| Assistant window: ask, cards, apply / disagree / postpone / undo, audit trail | done (localhost; opening it from the NAZAR cabinet with a token is next) |
+| Telegram bot, voice | planned |
 | List import, evals, public demo account | planned |
 
 ## Run it
@@ -151,6 +174,7 @@ python -m venv .venv
 pip install -e ".[dev]"
 cp .env.example .env          # fill in MODEL_API_KEY and the NAZAR account
 python -m nazar_agent --trace "Who did not show up yesterday?"
+python -m nazar_agent.service   # the assistant window at http://127.0.0.1:8100
 ```
 
 Tests do not need network access or keys:

@@ -71,25 +71,53 @@ DAY_ROW = {
 }
 
 
-def nazar(preview_status: int = 200) -> tuple[NazarClient, list[httpx.Request]]:
-    """A NAZAR that answers the timesheet and its preview; returns the requests it saw."""
+ADJUSTMENT = "55555555-5555-5555-5555-555555555555"
+
+
+def ok(data):
+    return httpx.Response(200, json={"success": True, "data": data})
+
+
+def nazar_routes(preview_status: int = 200, day_row: dict | None = None, write_status: int = 200):
+    """Handler of a fake NAZAR: timesheet, preview, adjustments, event review.
+
+    ``day_row`` is a mutable dict the test may change, to simulate the day
+    changing in NAZAR between proposal and confirmation.
+    """
+    day = day_row if day_row is not None else dict(DAY_ROW)
     seen: list[httpx.Request] = []
 
     def route(request: httpx.Request) -> httpx.Response:
         seen.append(request)
-        path = request.url.path
+        path, method = request.url.path, request.method
         if path.endswith("/auth/login"):
-            return httpx.Response(200, json={"success": True, "data": {}})
+            return ok({})
         if path.endswith("/timesheet"):
-            return httpx.Response(200, json={"success": True, "data": {"days": [DAY_ROW]}})
+            return ok({"days": [day]})
         if path.endswith("/timesheet/adjustments/preview"):
             if preview_status != 200:
                 return httpx.Response(
                     preview_status,
                     json={"success": False, "error": {"code": "INVALID_ORIGIN", "message": "Request origin is required."}},
                 )
-            return httpx.Response(200, json={"success": True, "data": [{**DAY_ROW, "worked_minutes": 523, "paid_minutes": 523, "late_minutes": 6}]})
+            return ok([{**day, "worked_minutes": 523, "paid_minutes": 523, "late_minutes": 6}])
+        if write_status != 200 and method in {"POST", "DELETE"}:
+            return httpx.Response(write_status, json={"success": False, "error": {"code": "X", "message": "NAZAR said no."}})
+        if path.endswith("/timesheet/adjustments") and method == "POST":
+            return ok({"id": ADJUSTMENT})
+        if path.endswith(f"/timesheet/adjustments/{ADJUSTMENT}") and method == "DELETE":
+            return ok(None)
+        if path.endswith(f"/attendance/events/{EVENT}") and method == "GET":
+            return ok({"id": EVENT, "review_status": "not_reviewed", "review_comment": None})
+        if path.endswith(f"/attendance/events/{EVENT}/review") and method == "POST":
+            return ok({"id": EVENT})
         return httpx.Response(404, json={"success": False, "error": {"code": "NOT_FOUND", "message": path}})
 
+    return route, seen
+
+
+def nazar(preview_status: int = 200, day_row: dict | None = None, write_status: int = 200) -> tuple[NazarClient, list[httpx.Request]]:
+    """A fake NAZAR client; returns the requests it saw."""
+    route, seen = nazar_routes(preview_status, day_row, write_status)
     client = NazarClient(base_url="http://nazar.test/api", email="a", password="b", transport=httpx.MockTransport(route))
     return client, seen
