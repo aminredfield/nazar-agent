@@ -18,19 +18,21 @@ import asyncio
 import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from datetime import date
 from typing import Any, Literal
 
 import httpx
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from nazar_agent.actions import ExecutionError, ProposalStore
+from nazar_agent.actions import ExecutionError
 from nazar_agent.engine import ToolExecutionError
 from nazar_agent.onboarding import Draft, ImportRow, ParseError, PhotoRejected
-from nazar_agent.assistant import Assistant, AssistantBusy
+from nazar_agent.sessions import COOKIE, Person, SessionError, Sessions
+from nazar_agent.assistant import Assistant, Assistants, AssistantBusy
 from nazar_agent.config import Settings, get_settings
 from nazar_agent.nazar import NazarClient
 from nazar_agent.telegram import Bot, TelegramApi
@@ -49,7 +51,12 @@ class AskRequest(BaseModel):
 
 
 class DecisionRequest(BaseModel):
-    actor: str = Field(min_length=1, max_length=80)
+    # Used only by a local setup; a person signed in from NAZAR is named by NAZAR.
+    actor: str = Field(default="", max_length=80)
+
+
+class SessionRequest(BaseModel):
+    handoff: str = Field(min_length=20, max_length=4096)
 
 
 class DeclineRequest(DecisionRequest):
@@ -71,16 +78,24 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         active = settings or get_settings()
-        nazar = NazarClient(
-            base_url=active.nazar_base_url,
-            email=active.nazar_email,
-            password=active.nazar_password.get_secret_value(),
+        service = None
+        if active.has_service_account:
+            service = NazarClient(
+                base_url=active.nazar_base_url,
+                email=active.nazar_email,
+                password=active.nazar_password.get_secret_value(),
+                timeout_seconds=active.nazar_timeout_seconds,
+                transport=nazar_transport,
+            )
+        assistants = Assistants(active, service=service)
+        sessions = Sessions(
+            nazar_base_url=active.nazar_base_url,
+            agent_key=active.nazar_agent_key.get_secret_value(),
             timeout_seconds=active.nazar_timeout_seconds,
             transport=nazar_transport,
         )
-        assistant = Assistant(active, nazar, ProposalStore(active.agent_db_path))
-        app.state.assistant = assistant
-        background, telegram = _start_telegram(active, assistant)
+        app.state.settings, app.state.assistants, app.state.sessions = active, assistants, sessions
+        background, telegram = _start_telegram(active, assistants.service) if assistants.service else ([], None)
         try:
             yield
         finally:
@@ -91,58 +106,105 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
                     await task
             if telegram is not None:
                 await telegram.aclose()
-            await nazar.aclose()
+            await sessions.aclose()
+            if service is not None:
+                await service.aclose()
 
     app = FastAPI(title="NAZAR Agent", lifespan=lifespan)
 
-    def assistant() -> Assistant:
-        return app.state.assistant
+    async def caller(request: Request) -> AsyncIterator[Caller]:
+        """Who acts: the person who opened the window from NAZAR, else (locally) the service account."""
+        state = request.app.state
+        person = state.sessions.get(request.cookies.get(COOKIE))
+        if person is not None:
+            nazar = NazarClient(
+                base_url=state.settings.nazar_base_url,
+                access_token=person.access_token,
+                timeout_seconds=state.settings.nazar_timeout_seconds,
+                transport=nazar_transport,
+            )
+            try:
+                yield Caller(state.assistants.for_company(person.company_id), nazar, f"{person.full_name} (NAZAR)", person)
+            finally:
+                await nazar.aclose()
+            return
+        if state.assistants.service is not None and not state.settings.require_sign_in:
+            yield Caller(state.assistants.service, state.assistants.service.service, "", None)
+            return
+        raise HTTPException(401, "Откройте помощника из кабинета NAZAR.")
 
     @app.get("/", include_in_schema=False)
     async def window() -> FileResponse:
         return FileResponse(STATIC / "index.html")
 
-    @app.post("/api/ask")
-    async def ask(request: AskRequest) -> dict[str, Any]:
+    @app.post("/api/session")
+    async def open_session(request: SessionRequest, response: Response) -> dict[str, Any]:
+        """The cabinet's one-minute pass → this person's session in the window."""
         try:
-            answer = await assistant().ask(request.question, None if request.analyst == "auto" else request.analyst)
+            person = await app.state.sessions.open(request.handoff)
+        except SessionError as exc:
+            raise HTTPException(401, str(exc)) from exc
+        response.set_cookie(
+            COOKIE,
+            person.session_id,
+            httponly=True,
+            samesite="strict",
+            secure=app.state.settings.cookie_secure,
+            expires=person.expires_at,
+        )
+        return _person_view(person)
+
+    @app.get("/api/me")
+    async def me(current: Caller = Depends(caller)) -> dict[str, Any]:
+        return _person_view(current.person) if current.person else {"mode": "service"}
+
+    @app.post("/api/ask")
+    async def ask(request: AskRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
+        analyst = None if request.analyst == "auto" else request.analyst
+        try:
+            answer = await current.assistant.ask(request.question, analyst, nazar=current.nazar)
         except AssistantBusy:
             raise HTTPException(429, "The agent is already working on a question. Wait for it to finish.") from None
+        except ToolExecutionError as exc:
+            raise HTTPException(502, str(exc)) from exc
         return answer.view
 
     @app.get("/api/last")
-    async def last() -> dict[str, Any] | None:
+    async def last(current: Caller = Depends(caller)) -> dict[str, Any] | None:
         """The last answer, with each proposal's status as it is now."""
-        current = assistant()
-        if current.last is None:
+        assistant = current.assistant
+        if assistant.last is None:
             return None
-        view = current.last.view
+        view = assistant.last.view
         return {
             **view,
             "cards": [
-                {**card, "actions": [proposal_view(current.store.get(action["proposal_id"])) for action in card["actions"]]}
+                {**card, "actions": [proposal_view(assistant.store.get(action["proposal_id"])) for action in card["actions"]]}
                 for card in view["cards"]
             ],
         }
 
     @app.post("/api/proposals/{proposal_id}/confirm")
-    async def confirm(proposal_id: str, request: DecisionRequest) -> dict[str, Any]:
-        return await _decide(assistant().executor.confirm(proposal_id, request.actor))
+    async def confirm(proposal_id: str, request: DecisionRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
+        executor = current.assistant.executor(current.nazar)
+        return await _decide(executor.confirm(proposal_id, current.actor_for(request.actor)))
 
     @app.post("/api/proposals/{proposal_id}/decline")
-    async def decline(proposal_id: str, request: DeclineRequest) -> dict[str, Any]:
+    async def decline(proposal_id: str, request: DeclineRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
         try:
-            return proposal_view(assistant().executor.decline(proposal_id, request.actor, request.reason))
+            executor = current.assistant.executor(current.nazar)
+            return proposal_view(executor.decline(proposal_id, current.actor_for(request.actor), request.reason))
         except ExecutionError as exc:
             raise HTTPException(_ERROR_STATUS[exc.code], exc.message) from exc
 
     @app.post("/api/proposals/{proposal_id}/undo")
-    async def undo(proposal_id: str, request: DecisionRequest) -> dict[str, Any]:
-        return await _decide(assistant().executor.undo(proposal_id, request.actor))
+    async def undo(proposal_id: str, request: DecisionRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
+        executor = current.assistant.executor(current.nazar)
+        return await _decide(executor.undo(proposal_id, current.actor_for(request.actor)))
 
     @app.get("/api/audit")
-    async def audit(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
-        store = assistant().store
+    async def audit(limit: int = Query(50, ge=1, le=500), current: Caller = Depends(caller)) -> list[dict[str, Any]]:
+        store = current.assistant.store
         entries = store.audit(limit=limit)
         proposals: dict[str, Any] = {}
         for entry in entries:
@@ -154,40 +216,47 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         return [audit_view(entry, proposals[entry.proposal_id]) for entry in entries]
 
     @app.post("/api/import/read")
-    async def read_import(text: str | None = Form(None), file: UploadFile | None = File(None)) -> dict[str, Any]:
+    async def read_import(
+        text: str | None = Form(None), file: UploadFile | None = File(None), current: Caller = Depends(caller)
+    ) -> dict[str, Any]:
         content = await _read_upload(file)
         try:
-            rows, sites = await assistant().read_list(
-                text=text, file=content, content_type=file.content_type if file else None
+            rows, sites = await current.assistant.read_list(
+                text=text, file=content, content_type=file.content_type if file else None, nazar=current.nazar
             )
         except ParseError as exc:
             raise HTTPException(422, str(exc)) from exc
         return {"rows": [_row_view(row) for row in rows], "sites": [{"id": site.id, "name": site.name} for site in sites]}
 
     @app.post("/api/import/drafts")
-    async def create_drafts(request: DraftsRequest) -> list[dict[str, Any]]:
-        current = assistant()
-        sites = {site.id: site.name for site in await current.sites()}
+    async def create_drafts(request: DraftsRequest, current: Caller = Depends(caller)) -> list[dict[str, Any]]:
+        sites = {site.id: site.name for site in await current.assistant.sites(nazar=current.nazar)}
         unknown = [row.site_id for row in request.rows if row.site_id and row.site_id not in sites]
         if unknown:
             raise HTTPException(422, f"Unknown site: {unknown[0]}")
-        drafts = current.drafts.add_many(
+        drafts = current.assistant.drafts.add_many(
             [(" ".join(row.full_name.split()), row.site_id, sites.get(row.site_id or "")) for row in request.rows],
             request.consent_signed_at,
-            request.actor,
+            current.actor_for(request.actor),
         )
         return [_draft_view(draft) for draft in drafts]
 
     @app.get("/api/import/drafts")
-    async def waiting_drafts() -> list[dict[str, Any]]:
-        return [_draft_view(draft) for draft in assistant().drafts.waiting()]
+    async def waiting_drafts(current: Caller = Depends(caller)) -> list[dict[str, Any]]:
+        return [_draft_view(draft) for draft in current.assistant.drafts.waiting()]
 
     @app.post("/api/import/drafts/{draft_id}/photo")
-    async def photograph(draft_id: str, actor: str = Form(..., min_length=1, max_length=80), photo: UploadFile = File(...)) -> dict[str, Any]:
-        current = assistant()
+    async def photograph(
+        draft_id: str,
+        actor: str = Form("", max_length=80),
+        photo: UploadFile = File(...),
+        current: Caller = Depends(caller),
+    ) -> dict[str, Any]:
         content = await _read_upload(photo)
         try:
-            draft = await current.drafts.photograph(draft_id, content or b"", photo.content_type or "image/jpeg", current.nazar, actor)
+            draft = await current.assistant.drafts.photograph(
+                draft_id, content or b"", photo.content_type or "image/jpeg", current.nazar, current.actor_for(actor)
+            )
         except KeyError:
             raise HTTPException(404, "No such draft.") from None
         except PhotoRejected as exc:
@@ -198,16 +267,39 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         return _draft_view(draft)
 
     @app.post("/api/import/drafts/{draft_id}/discard")
-    async def discard(draft_id: str, request: DecisionRequest) -> dict[str, Any]:
-        drafts = assistant().drafts
+    async def discard(draft_id: str, request: DecisionRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
+        drafts = current.assistant.drafts
         try:
-            if not drafts.discard(draft_id, request.actor):
+            if not drafts.discard(draft_id, current.actor_for(request.actor)):
                 raise HTTPException(409, "Only a person still waiting for a photo can be removed.")
             return _draft_view(drafts.get(draft_id))
         except KeyError:
             raise HTTPException(404, "No such draft.") from None
 
     return app
+
+
+@dataclass(frozen=True, slots=True)
+class Caller:
+    assistant: Assistant
+    nazar: NazarClient | None
+    # The name NAZAR knows the person by; empty for the local service account.
+    name: str
+    person: Person | None
+
+    def actor_for(self, typed: str) -> str:
+        """Who decided: from the NAZAR session, never from the window — a typed name is used only locally."""
+        return self.name or typed.strip() or "Владелец"
+
+
+def _person_view(person: Person) -> dict[str, Any]:
+    return {
+        "mode": "person",
+        "full_name": person.full_name,
+        "company_name": person.company_name,
+        "role": person.role,
+        "expires_at": person.expires_at.isoformat(),
+    }
 
 
 async def _read_upload(file: UploadFile | None) -> bytes | None:

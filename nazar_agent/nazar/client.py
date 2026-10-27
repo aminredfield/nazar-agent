@@ -1,11 +1,17 @@
 """HTTP client for the existing NAZAR API.
 
 NAZAR is the product that existed before the hackathon; the agent uses its
-public admin API as any other client would. Authentication is the regular
-admin session: ``POST /auth/login`` sets httpOnly cookies, an expired access
-token is renewed with ``POST /auth/refresh``, and if that fails the client
-logs in again. The agent signs in as its own admin user, so NAZAR's audit log
-attributes every change to the agent account.
+public admin API as any other client would, in one of two ways:
+
+- **as the person who opened the assistant** (``access_token``): NAZAR issued
+  this token in exchange for the cabinet's one-minute pass, so every request
+  is checked against that person's own rights and NAZAR's audit log names
+  them. It is not renewed: when it expires, the person opens the assistant
+  from the cabinet again;
+- **as a service account** (``email`` and ``password``), for local
+  development and the Telegram bot: ``POST /auth/login`` sets httpOnly
+  cookies, an expired token is renewed with ``POST /auth/refresh``, and if
+  that fails the client logs in again.
 
 Every NAZAR response is an envelope ``{success, data, error}``; this client
 returns ``data`` or raises ``NazarApiError`` with the API's own message.
@@ -28,28 +34,38 @@ class NazarApiError(Exception):
         self.code = code
 
 
+SESSION_EXPIRED = "Сессия NAZAR истекла — откройте помощника из кабинета заново."
+
+
 class NazarClient:
     def __init__(
         self,
         *,
         base_url: str,
-        email: str,
-        password: str,
+        email: str = "",
+        password: str = "",
+        access_token: str | None = None,
         timeout_seconds: float = 20.0,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._email = email
         self._password = password
+        self._person = access_token is not None
+        headers = {
+            # NAZAR rejects unsafe requests that carry a session cookie but no
+            # Origin (a CSRF guard for browsers). A server-side client names
+            # itself instead; NAZAR trusts this marker (nazar-changes/0001).
+            "X-Request-Origin": CLIENT_MARKER,
+        }
+        if access_token is not None:
+            headers["Authorization"] = f"Bearer {access_token}"
         self._http = httpx.AsyncClient(
             base_url=base_url.rstrip("/"),
             timeout=timeout_seconds,
             transport=transport,
-            # NAZAR rejects unsafe requests that carry a session cookie but no
-            # Origin (a CSRF guard for browsers). A server-side client names
-            # itself instead; NAZAR trusts this marker (nazar-changes/0001).
-            headers={"X-Request-Origin": CLIENT_MARKER},
+            headers=headers,
         )
-        self._authenticated = False
+        self._authenticated = self._person
 
     async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         return await self._request("GET", path, params=_drop_none(params))
@@ -92,6 +108,8 @@ class NazarClient:
         request = {"params": params, "json": json, "data": data, "files": files}
         response = await self._http.request(method, path, **request)
         if response.status_code == httpx.codes.UNAUTHORIZED:
+            if self._person:
+                raise NazarApiError(httpx.codes.UNAUTHORIZED, SESSION_EXPIRED, "SESSION_EXPIRED")
             await self._renew_session()
             response = await self._http.request(method, path, **request)
         return _unwrap(response)

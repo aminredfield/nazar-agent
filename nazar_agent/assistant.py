@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from nazar_agent.actions import Executor, Proposal, ProposalStore
@@ -51,12 +53,18 @@ class Answer:
 
 
 class Assistant:
-    def __init__(self, settings: Settings, nazar: NazarClient, store: ProposalStore) -> None:
+    """One company's assistant: its proposals, drafts, audit trail and last answer.
+
+    Every call names the NAZAR client to act with — the person who opened the
+    window, or the service account of a local setup or the Telegram bot — so
+    NAZAR checks that identity's rights and logs it.
+    """
+
+    def __init__(self, settings: Settings, store: ProposalStore, *, service: NazarClient | None = None) -> None:
         self.settings = settings
-        self.nazar = nazar
         self.store = store
-        self.executor = Executor(store, nazar)
-        self.drafts = DraftStore(settings.agent_db_path, store)
+        self.service = service
+        self.drafts = DraftStore(store.path, store)
         self.last: Answer | None = None
         self._lock = asyncio.Lock()
 
@@ -64,31 +72,41 @@ class Assistant:
     def busy(self) -> bool:
         return self._lock.locked()
 
-    async def ask(self, question: str, analyst: Analyst | None = None) -> Answer:
+    def executor(self, nazar: NazarClient | None = None) -> Executor:
+        return Executor(self.store, self._acting(nazar))
+
+    async def ask(self, question: str, analyst: Analyst | None = None, *, nazar: NazarClient | None = None) -> Answer:
         if self._lock.locked():
             raise AssistantBusy
         async with self._lock:
-            self.last = await self._answer(question, analyst)
+            self.last = await self._answer(question, analyst, self._acting(nazar))
             return self.last
 
     async def read_list(
-        self, *, text: str | None, file: bytes | None, content_type: str | None
+        self, *, text: str | None, file: bytes | None, content_type: str | None, nazar: NazarClient | None = None
     ) -> tuple[list[ImportRow], list[Site]]:
         """A list of people → rows checked against the company's sites and employees."""
+        acting = self._acting(nazar)
         llm = self.settings.analyst_llm()
         try:
             people = await read_list(llm, self.settings.analyst_model, text=text, file=file, content_type=content_type)
         finally:
             await llm.aclose()
-        sites = await self.sites()
-        employees = await call_nazar(self.nazar.get("/employees"))
+        sites = await self.sites(nazar=acting)
+        employees = await call_nazar(acting.get("/employees"))
         return review(people, sites, employees), sites
 
-    async def sites(self) -> list[Site]:
-        objects = await call_nazar(self.nazar.get("/objects", {"include_inactive": False}))
+    async def sites(self, *, nazar: NazarClient | None = None) -> list[Site]:
+        objects = await call_nazar(self._acting(nazar).get("/objects", {"include_inactive": False}))
         return [Site(item["id"], item["name"], item.get("address") or "") for item in objects]
 
-    async def _answer(self, question: str, analyst: Analyst | None) -> Answer:
+    def _acting(self, nazar: NazarClient | None) -> NazarClient:
+        acting = nazar or self.service
+        if acting is None:
+            raise RuntimeError("No NAZAR identity to act with.")
+        return acting
+
+    async def _answer(self, question: str, analyst: Analyst | None, nazar: NazarClient) -> Answer:
         settings = self.settings
         analyst_llm = settings.analyst_llm()
         skeptic_llm = settings.skeptic_llm()
@@ -97,13 +115,35 @@ class Assistant:
             chosen = analyst or await route(analyst_llm, settings.analyst_model, question)
             log.info("question routed to the %s analyst", chosen)
             make_role, make_tools = ANALYSTS[chosen]
-            role = make_role(model=settings.analyst_model, tools=make_tools(self.nazar), today=today)
+            role = make_role(model=settings.analyst_model, tools=make_tools(nazar), today=today)
             analysis = await analyze(role, analyst_llm, question)
             team = Team(skeptic_llm, settings.skeptic_model, analyst_llm, settings.analyst_model)
-            recommendations = await recommend(analysis, team, self.nazar, today)
+            recommendations = await recommend(analysis, team, nazar, today)
         finally:
             await analyst_llm.aclose()
             await skeptic_llm.aclose()
-        proposals = self.executor.propose(recommendations.cards, question)
+        proposals = Executor(self.store, nazar).propose(recommendations.cards, question)
         view = answer_view(analysis, recommendations, proposals, settings.analyst_model)
         return Answer(question, chosen, analysis, recommendations, proposals, {**view, "analyst": chosen})
+
+
+class Assistants:
+    """One assistant per company, each with its own database file.
+
+    Proposals, drafts and the audit trail of one company never share a file
+    with another's. The service assistant (local setup, Telegram) keeps the
+    configured file.
+    """
+
+    def __init__(self, settings: Settings, *, service: NazarClient | None = None) -> None:
+        self._settings = settings
+        self._by_company: dict[str, Assistant] = {}
+        self.service = (
+            Assistant(settings, ProposalStore(settings.agent_db_path), service=service) if service is not None else None
+        )
+
+    def for_company(self, company_id: str) -> Assistant:
+        if company_id not in self._by_company:
+            path = Path(self._settings.agent_db_path).with_name(f"agent-{uuid.UUID(company_id)}.sqlite3")
+            self._by_company[company_id] = Assistant(self._settings, ProposalStore(path))
+        return self._by_company[company_id]

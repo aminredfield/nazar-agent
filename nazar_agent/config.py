@@ -28,9 +28,19 @@ class Settings(BaseSettings):
     skeptic_api_key: SecretStr | None = None  # defaults to model_api_key
 
     nazar_base_url: str
-    nazar_email: str
-    nazar_password: SecretStr
+    # The assistant key NAZAR shares with this service (AI_AGENT_KEY there):
+    # only with it is the cabinet's pass exchanged for the person's session.
+    nazar_agent_key: SecretStr = SecretStr("")
+    # A service account, for a local setup and the Telegram bot. The window
+    # opened from the cabinet never uses it.
+    nazar_email: str = ""
+    nazar_password: SecretStr = SecretStr("")
     nazar_timeout_seconds: float = 20.0
+    # Production: the window works only for people who opened it from NAZAR.
+    # Off for a local setup, where the window falls back to the service account.
+    require_sign_in: bool = False
+    # The window's session cookie; must be true behind HTTPS.
+    cookie_secure: bool = False
 
     # Proposals and the audit trail (SQLite).
     agent_db_path: str = "nazar_agent.sqlite3"
@@ -50,6 +60,10 @@ class Settings(BaseSettings):
     @property
     def allowed_chat_ids(self) -> frozenset[int]:
         return frozenset(int(part) for part in self.telegram_allowed_chats.split(",") if part.strip())
+
+    @property
+    def has_service_account(self) -> bool:
+        return bool(self.nazar_email and self.nazar_password.get_secret_value())
 
     def analyst_llm(self) -> MetaResponsesClient:
         return MetaResponsesClient(

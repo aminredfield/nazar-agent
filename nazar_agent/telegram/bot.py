@@ -178,9 +178,9 @@ class Bot:
             await self.api.edit_keyboard(entry.chat_id, entry.message_id, confirm_keyboard(proposal_id, index))
             await self.api.answer_callback(callback["id"], "Это изменит оплату в NAZAR — подтвердите.")
         elif verb in {"a", "y"}:
-            await self._decide(callback, entry, self.assistant.executor.confirm(proposal_id, actor), "Выполнено в NAZAR.")
+            await self._decide(callback, entry, self.assistant.executor().confirm(proposal_id, actor), "Выполнено в NAZAR.")
         elif verb == "u":
-            await self._decide(callback, entry, self.assistant.executor.undo(proposal_id, actor), "Отменено, NAZAR вернул как было.")
+            await self._decide(callback, entry, self.assistant.executor().undo(proposal_id, actor), "Отменено, NAZAR вернул как было.")
         elif verb == "d":
             self._awaiting_reason[chat_id] = proposal_id
             await self.api.answer_callback(callback["id"])
@@ -205,7 +205,7 @@ class Bot:
 
     async def _decline(self, chat_id: int, proposal_id: str, actor: str, reason: str) -> None:
         try:
-            self.assistant.executor.decline(proposal_id, actor, reason)
+            self.assistant.executor().decline(proposal_id, actor, reason)
         except ExecutionError as exc:
             await self.api.send_message(chat_id, escape(exc.message))
             return

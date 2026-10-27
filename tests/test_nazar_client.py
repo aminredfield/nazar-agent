@@ -113,3 +113,22 @@ async def test_wrong_password_is_an_error():
 
     with pytest.raises(NazarApiError, match="Bad credentials"):
         await nazar.client().get("/objects")
+
+
+async def test_as_the_person_it_sends_their_token_and_never_logs_in():
+    seen = []
+
+    def route(request):
+        seen.append((request.url.path, request.headers.get("authorization")))
+        if request.url.path.endswith("/objects"):
+            return ok([])
+        return fail(401, "Token has expired.")
+
+    client = NazarClient(base_url="http://nazar.test/api", access_token="person-token", transport=httpx.MockTransport(route))
+
+    assert await client.get("/objects") == []
+    with pytest.raises(NazarApiError) as expired:
+        await client.get("/timesheet")
+
+    assert seen == [("/api/objects", "Bearer person-token"), ("/api/timesheet", "Bearer person-token")]
+    assert expired.value.code == "SESSION_EXPIRED" and "откройте помощника" in expired.value.message

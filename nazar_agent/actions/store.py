@@ -82,6 +82,7 @@ class AuditEntry:
 class ProposalStore:
     def __init__(self, path: Path | str) -> None:
         self._path = str(path)
+        self.path = self._path
         # executescript commits on its own, so it runs outside a Transaction.
         connection = sqlite3.connect(self._path)
         try:

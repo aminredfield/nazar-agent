@@ -48,12 +48,15 @@ class FakeAssistant:
 
     def __init__(self, store, nazar, cards):
         self.store = store
-        self.executor = Executor(store, nazar)
+        self._nazar = nazar
         self.cards = cards
         self.busy = False
         self.questions: list[str] = []
 
-    async def ask(self, question, analyst=None):
+    def executor(self, nazar=None):
+        return Executor(self.store, nazar or self._nazar)
+
+    async def ask(self, question, analyst=None, *, nazar=None):
         if self.busy:
             raise AssistantBusy
         self.questions.append(question)

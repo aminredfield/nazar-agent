@@ -24,6 +24,7 @@
   header { display: flex; align-items: baseline; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--line); background: var(--panel); }
   header h1 { margin: 0; font-size: 18px; }
   header span { color: var(--muted); font-size: 13px; }
+  header .who { margin-left: auto; color: var(--text); font-weight: 600; }
   main { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
   .ask { display: grid; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
   .ask textarea { width: 100%; min-height: 70px; resize: vertical; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
@@ -72,7 +73,8 @@
 </style>
 </head>
 <body>
-<header><h1>NAZAR · Помощник</h1><span>Команда ИИ-агентов предлагает — решаете вы</span></header>
+<header><h1>NAZAR · Помощник</h1><span>Команда ИИ-агентов предлагает — решаете вы</span><span id="who" class="who"></span></header>
+<div id="sign-in-notice" class="status error" hidden style="padding: 12px 24px"></div>
 <main>
   <nav class="tabs">
     <button type="button" id="tab-ask-button" aria-selected="true">Вопрос</button>
@@ -106,7 +108,7 @@
         <option value="timesheet">Табель</option>
         <option value="attendance">Отметки</option>
       </select>
-      <label class="muted">Вы: <input type="text" id="actor" value="Владелец" maxlength="80"></label>
+      <label class="muted" id="actor-label">Вы: <input type="text" id="actor" value="Владелец" maxlength="80"></label>
       <button class="primary" id="send" type="submit">Спросить</button>
     </div>
     <div class="status" id="status"></div>
@@ -473,8 +475,45 @@ $("start-shooting").addEventListener("click", async () => { await loadWaiting();
 $("refresh-waiting").addEventListener("click", loadWaiting);
 
 $("refresh-audit").addEventListener("click", loadAudit);
-loadLast();
-loadAudit();
+// ---- Who is here --------------------------------------------------------
+// Opened from the NAZAR cabinet, the address carries a one-minute pass in the
+// fragment. It is removed from the address bar at once and exchanged by this
+// service for the person's own NAZAR session; from then on decisions carry
+// the name NAZAR knows them by, not the name field.
+async function signIn() {
+  const pass = location.hash.match(/^#handoff=(.+)$/);
+  if (pass) {
+    history.replaceState(null, "", location.pathname);
+    try {
+      await api("/api/session", { handoff: decodeURIComponent(pass[1]) });
+    } catch (error) {
+      notice(error.message);
+      return false;
+    }
+  }
+  try {
+    const me = await api("/api/me");
+    if (me.mode === "person") {
+      $("who").textContent = `${me.full_name} · ${me.company_name}`;
+      $("actor-label").hidden = true;
+    }
+    return true;
+  } catch (error) {
+    notice(error.message);
+    return false;
+  }
+}
+
+function notice(text) {
+  $("sign-in-notice").hidden = false;
+  $("sign-in-notice").textContent = text;
+}
+
+signIn().then((ready) => {
+  if (!ready) return;
+  loadLast();
+  loadAudit();
+});
 </script>
 </body>
 </html>

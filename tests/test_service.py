@@ -71,7 +71,7 @@ def test_unknown_proposal_is_404(setup):
 
 def test_one_question_at_a_time(setup):
     client, _, _ = setup
-    lock = client.app.state.assistant._lock  # lives on the app's event loop
+    lock = client.app.state.assistants.service._lock  # lives on the app's event loop
     client.portal.call(lock.acquire)
     try:
         busy = client.post("/api/ask", json={"question": "Что проверить?", "analyst": "timesheet"})
@@ -86,7 +86,7 @@ def test_last_answer_shows_proposals_as_they_are_now(setup):
     assert client.get("/api/last").json() is None
 
     proposal = propose(store)
-    client.app.state.assistant.last = SimpleNamespace(
+    client.app.state.assistants.service.last = SimpleNamespace(
         view={"summary": "s", "cards": [{"title": "t", "actions": [{"proposal_id": proposal.id}]}]}
     )
     client.post(f"/api/proposals/{proposal.id}/confirm", json={"actor": "Шерзод"})

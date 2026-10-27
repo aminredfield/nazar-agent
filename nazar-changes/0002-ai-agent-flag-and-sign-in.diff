@@ -1,0 +1,960 @@
+diff --git a/backend/app/core/config.py b/backend/app/core/config.py
+index 2b1f2a81..807c1eaf 100644
+--- a/backend/app/core/config.py
++++ b/backend/app/core/config.py
+@@ -90,6 +90,12 @@ class Settings(BaseSettings):
+     max_upload_pixels: int = 24_000_000
+     upload_read_chunk_size_kb: int = 256
+     frontend_origin: str = "http://localhost:5173,http://127.0.0.1:5173"
++    # ИИ-помощник (NAZAR Agent, отдельный сервис). Адрес его окна; пусто —
++    # помощник не подключён и пункт «Помощник» не открывается. Ключ — общий
++    # секрет NAZAR и агента: только с ним пропуск из кабинета меняется на
++    # сессию (POST /ai-agent/session).
++    ai_agent_url: str = ""
++    ai_agent_key: str = ""
+     allowed_hosts: str = "localhost,127.0.0.1,testserver"
+     internal_healthcheck_host: str = "localhost"
+     media_root: str = str(BACKEND_DIR / "media")
+@@ -408,6 +414,8 @@ class Settings(BaseSettings):
+             problems.append("JWT_SECRET_KEY must be a strong, non-default value of at least 32 characters")
+         if not self.auth_cookie_secure:
+             problems.append("AUTH_COOKIE_SECURE must be true (session and device cookies require HTTPS)")
++        if self.ai_agent_url and len(self.ai_agent_key) < 32:
++            problems.append("AI_AGENT_KEY must be at least 32 characters when AI_AGENT_URL is set")
+         if self.auth_cookie_samesite.strip().lower() == "none" and not self.auth_cookie_secure:
+             problems.append("AUTH_COOKIE_SAMESITE=none requires AUTH_COOKIE_SECURE=true")
+         if (
+diff --git a/backend/app/core/security.py b/backend/app/core/security.py
+index ee6efbc3..6e8af855 100644
+--- a/backend/app/core/security.py
++++ b/backend/app/core/security.py
+@@ -177,6 +177,37 @@ def decode_access_token(token: str, settings: Settings) -> TokenPayload:
+         raise InvalidTokenError("Token payload is invalid.") from exc
+ 
+ 
++AGENT_HANDOFF_TOKEN_USE = "agent_handoff"
++# Пропуск из кабинета в окно помощника живёт минуту: столько нужно, чтобы
++# открылась вкладка и агент обменял его на сессию.
++AGENT_HANDOFF_SECONDS = 60
++
++
++def create_agent_handoff_token(
++    *, account_id: uuid.UUID, company_id: uuid.UUID, settings: Settings
++) -> tuple[str, datetime]:
++    """Пропуск в помощника. Не вход: проверка сессии пускает только ``access``."""
++    issued_at = datetime.now(UTC)
++    expires_at = issued_at + timedelta(seconds=AGENT_HANDOFF_SECONDS)
++    payload = {
++        "user_id": str(account_id),
++        "company_id": str(company_id),
++        "subject_type": "company_user",
++        "token_use": AGENT_HANDOFF_TOKEN_USE,
++        "jti": str(uuid.uuid4()),
++        "iat": int(issued_at.timestamp()),
++        "exp": int(expires_at.timestamp()),
++    }
++    return _encode_jwt(payload, settings.jwt_secret_key), expires_at
++
++
++def decode_agent_handoff_token(token: str, settings: Settings) -> TokenPayload:
++    payload = decode_access_token(token, settings)
++    if payload.token_use != AGENT_HANDOFF_TOKEN_USE or payload.company_id is None:
++        raise InvalidTokenError("Token is not an assistant pass.")
++    return payload
++
++
+ def create_device_token(
+     *,
+     binding_id: uuid.UUID,
+diff --git a/backend/app/main.py b/backend/app/main.py
+index 3c4f3476..12b60ac4 100644
+--- a/backend/app/main.py
++++ b/backend/app/main.py
+@@ -10,6 +10,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
+ 
+ from app.api.responses import error_response
+ from app.api.routes import (
++    ai_agent,
+     assignments,
+     absences,
+     analytics,
+@@ -219,6 +220,8 @@ if settings.rate_limit_enabled:
+         # Страница самостоятельной регистрации: публичная, с распознаванием
+         # лица на каждой заявке и перебираемым токеном в адресе.
+         f"{settings.api_prefix}/public/registration",
++        # Обмен пропуска помощника на сессию: перебор ключа отсекается здесь.
++        f"{settings.api_prefix}/ai-agent",
+     )
+     # Tight limit on the sensitive routes (face submit / login) ...
+     app.add_middleware(
+@@ -296,6 +299,7 @@ async def unhandled_exception_handler(_, exc: Exception):
+ 
+ 
+ app.include_router(media.router, prefix=settings.api_prefix)
++app.include_router(ai_agent.router, prefix=settings.api_prefix)
+ app.include_router(auth.router, prefix=settings.api_prefix)
+ app.include_router(billing.router, prefix=settings.api_prefix)
+ app.include_router(payments.router, prefix=settings.api_prefix)
+diff --git a/backend/app/models/company_setting.py b/backend/app/models/company_setting.py
+index 0d12a97f..cdf95592 100644
+--- a/backend/app/models/company_setting.py
++++ b/backend/app/models/company_setting.py
+@@ -101,6 +101,12 @@ class CompanySetting(Base):
+     plan_feature_overrides: Mapped[dict] = mapped_column(
+         JSONB, nullable=False, default=dict, server_default="{}"
+     )
++    # ИИ-помощник (NAZAR Agent): суперадмин включает компании отдельно, вне
++    # тарифа — помощник читает данные компании моделью Meta, и это решение
++    # о данных компании, а не функция, которую покупают кнопкой.
++    ai_agent_enabled: Mapped[bool] = mapped_column(
++        Boolean, nullable=False, default=False, server_default="false"
++    )
+     # Ночные смены (§188) и согласия на биометрию — за флагом, как расчёт и
+     # камеры: обкатываем на пилотных компаниях, остальные не видят ни экранов,
+     # ни строки в чек-листе. Числа флаг не трогает.
+diff --git a/backend/app/repositories/company_settings_repository.py b/backend/app/repositories/company_settings_repository.py
+index 24876447..e35a2d83 100644
+--- a/backend/app/repositories/company_settings_repository.py
++++ b/backend/app/repositories/company_settings_repository.py
+@@ -174,6 +174,18 @@ class CompanySettingsRepository:
+         await self.session.refresh(item)
+         return item
+ 
++    async def update_ai_agent_enabled(
++        self,
++        company_id: uuid.UUID,
++        *,
++        enabled: bool,
++    ) -> CompanySetting:
++        item = await self.get_or_create(company_id)
++        item.ai_agent_enabled = enabled
++        await self.session.flush()
++        await self.session.refresh(item)
++        return item
++
+     async def update_payroll_enabled(
+         self,
+         company_id: uuid.UUID,
+diff --git a/backend/app/schemas/auth.py b/backend/app/schemas/auth.py
+index da3d9a18..540e63a4 100644
+--- a/backend/app/schemas/auth.py
++++ b/backend/app/schemas/auth.py
+@@ -58,6 +58,8 @@ class SessionFeatureFlagsResponse(BaseModel):
+     weekly_report: bool = False
+     route_tracking: bool = False
+     extra_roles: bool = False
++    # ИИ-помощник (NAZAR Agent): отдельный выключатель суперадмина, не тариф.
++    ai_agent: bool = False
+     plan_code: str | None = None
+     # standard / business / enterprise; None — тариф не распознан.
+     plan_tier: str | None = None
+diff --git a/backend/app/schemas/billing.py b/backend/app/schemas/billing.py
+index baa1c0c6..10f4f20c 100644
+--- a/backend/app/schemas/billing.py
++++ b/backend/app/schemas/billing.py
+@@ -249,6 +249,8 @@ class BillingPlanResponse(BaseModel):
+     night_review_enforced: bool = False
+     # Ручные исключения функций поверх тарифа (суперадмин).
+     plan_feature_overrides: dict[str, bool] = Field(default_factory=dict)
++    # ИИ-помощник: отдельный выключатель суперадмина, не функция тарифа.
++    ai_agent_enabled: bool = False
+     custom_monthly_price_usd: float | None = None
+     custom_employee_limit: int | None = None
+     custom_object_limit: int | None = None
+@@ -293,6 +295,7 @@ class UpdateBillingPlanRequest(BaseModel):
+     # Исключения функций поверх тарифа целиком: что прислано, то и хранится.
+     # Пусто (`{}`) — убрать все исключения; None — не трогать.
+     plan_feature_overrides: dict[str, bool] | None = None
++    ai_agent_enabled: bool | None = None
+ 
+     @field_validator("plan_feature_overrides")
+     @classmethod
+diff --git a/backend/app/services/auth_service.py b/backend/app/services/auth_service.py
+index 4d9ac7e2..fba21f44 100644
+--- a/backend/app/services/auth_service.py
++++ b/backend/app/services/auth_service.py
+@@ -857,6 +857,7 @@ class AuthService:
+             weekly_report=plan.has(FEATURE_WEEKLY_REPORT),
+             route_tracking=plan.has(FEATURE_ROUTE_TRACKING),
+             extra_roles=plan.has(FEATURE_EXTRA_ROLES),
++            ai_agent=bool(getattr(company_settings, "ai_agent_enabled", False)),
+             plan_code=plan.plan_code,
+             plan_tier=plan.tier,
+             is_legacy_plan=plan.is_legacy,
+diff --git a/backend/app/services/billing_service.py b/backend/app/services/billing_service.py
+index de626560..fbe17cbc 100644
+--- a/backend/app/services/billing_service.py
++++ b/backend/app/services/billing_service.py
+@@ -492,6 +492,7 @@ class BillingService:
+                 company_settings and company_settings.night_review_enforced
+             ),
+             plan_feature_overrides=_overrides_of(company_settings),
++            ai_agent_enabled=bool(company_settings and company_settings.ai_agent_enabled),
+         )
+ 
+     async def list_company_plans(self) -> list[BillingPlanResponse]:
+@@ -538,6 +539,7 @@ class BillingService:
+                         company_settings and company_settings.night_review_enforced
+                     ),
+                     plan_feature_overrides=_overrides_of(company_settings),
++                    ai_agent_enabled=bool(company_settings and company_settings.ai_agent_enabled),
+                 )
+             )
+         return responses
+@@ -658,6 +660,11 @@ class BillingService:
+                 company_id,
+                 enabled=payload.night_review_enforced,
+             )
++        if payload.ai_agent_enabled is not None and self.company_settings_repository is not None:
++            await self.company_settings_repository.update_ai_agent_enabled(
++                company_id,
++                enabled=payload.ai_agent_enabled,
++            )
+         if payload.plan_feature_overrides is not None and self.company_settings_repository is not None:
+             await self.company_settings_repository.update_plan_feature_overrides(
+                 company_id,
+@@ -1221,6 +1228,7 @@ def build_billing_response(
+     night_rules_enabled: bool = False,
+     night_review_enforced: bool = False,
+     plan_feature_overrides: dict[str, bool] | None = None,
++    ai_agent_enabled: bool = False,
+ ) -> BillingPlanResponse:
+     now = datetime.now(UTC)
+     definitions = _merge_plan_definitions(plan_definitions)
+@@ -1302,6 +1310,7 @@ def build_billing_response(
+         night_rules_enabled=night_rules_enabled,
+         night_review_enforced=night_review_enforced,
+         plan_feature_overrides=dict(plan_feature_overrides or {}),
++        ai_agent_enabled=ai_agent_enabled,
+         custom_monthly_price_usd=getattr(company, "custom_monthly_price_usd", None),
+         custom_employee_limit=getattr(company, "custom_employee_limit", None),
+         custom_object_limit=getattr(company, "custom_object_limit", None),
+diff --git a/backend/tests/test_route_permissions.py b/backend/tests/test_route_permissions.py
+index 43f3c50e..b35f6699 100644
+--- a/backend/tests/test_route_permissions.py
++++ b/backend/tests/test_route_permissions.py
+@@ -49,6 +49,10 @@ EXEMPT: dict[tuple[str, str], str] = {
+     ("DELETE", "/api/settings/telegram/link"): "Unlinks the caller's own Telegram account.",
+     ("POST", "/api/settings/telegram/test"): "Sends a test notification to the caller themselves.",
+     ("GET", "/api/media/{file_path:path}"): "Authorises per file: the handler checks that the media belongs to the caller's company.",
++    ("POST", "/api/ai-agent/handoff"): (
++        "Opens the AI assistant with the caller's own session: every request it makes is checked "
++        "against the caller's permissions, so an observer's assistant can only read."
++    ),
+ }
+ 
+ 
+diff --git a/frontend/src/App.tsx b/frontend/src/App.tsx
+index b9cd71a5..f98e866a 100644
+--- a/frontend/src/App.tsx
++++ b/frontend/src/App.tsx
+@@ -34,6 +34,9 @@ const TimesheetDisputesPage = lazy(() =>
+     default: module.TimesheetDisputesPage,
+   })),
+ );
++const AssistantPage = lazy(() =>
++  import("./pages/AssistantPage").then((module) => ({ default: module.AssistantPage })),
++);
+ const PayrollPage = lazy(() =>
+   import("./pages/PayrollPage").then((module) => ({ default: module.PayrollPage })),
+ );
+@@ -471,6 +474,14 @@ function App() {
+               </CompanyRoute>
+             }
+           />
++          <Route
++            path="/app/assistant"
++            element={
++              <CompanyRoute>
++                <AssistantPage />
++              </CompanyRoute>
++            }
++          />
+           <Route
+             path="/app/payroll"
+             element={
+diff --git a/frontend/src/api/client.ts b/frontend/src/api/client.ts
+index a0e37965..5726827c 100644
+--- a/frontend/src/api/client.ts
++++ b/frontend/src/api/client.ts
+@@ -17,3 +17,4 @@ export * from "./absences";
+ export * from "./publicAttendance";
+ export * from "./cameras";
+ export * from "./timesheet";
++export * from "./aiAgent";
+diff --git a/frontend/src/components/layout/AppShell.tsx b/frontend/src/components/layout/AppShell.tsx
+index d1a652a7..fd794401 100644
+--- a/frontend/src/components/layout/AppShell.tsx
++++ b/frontend/src/components/layout/AppShell.tsx
+@@ -36,6 +36,7 @@ export function AppShell({ children }: PropsWithChildren) {
+   const withPlanState = useCallback(
+     (item: NavigationItem): NavigationItem | null => {
+       if (item.requiredPermission !== undefined && !hasPermission(item.requiredPermission)) return null;
++      if (item.requiredFlag !== undefined && features?.[item.requiredFlag] !== true) return null;
+       if (!item.requiredFeature || hasFeature(features, item.requiredFeature)) return item;
+       const lockedTier = planLockFor(features, item.requiredFeature);
+       return lockedTier ? { ...item, lockedTier } : null;
+diff --git a/frontend/src/components/layout/icons.tsx b/frontend/src/components/layout/icons.tsx
+index de2160f7..41fc72fe 100644
+--- a/frontend/src/components/layout/icons.tsx
++++ b/frontend/src/components/layout/icons.tsx
+@@ -131,6 +131,19 @@ export function IconSupport() {
+   );
+ }
+ 
++export function IconSparkle() {
++  return (
++    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
++      <path
++        d="M9 2.5l1.4 3.6L14 7.5l-3.6 1.4L9 12.5 7.6 8.9 4 7.5l3.6-1.4L9 2.5zM14 12l.6 1.4L16 14l-1.4.6L14 16l-.6-1.4L12 14l1.4-.6L14 12z"
++        stroke="currentColor"
++        strokeWidth="1.3"
++        strokeLinejoin="round"
++      />
++    </svg>
++  );
++}
++
+ export function IconSun() {
+   return (
+     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+diff --git a/frontend/src/components/layout/navigation.tsx b/frontend/src/components/layout/navigation.tsx
+index 58f1693d..33c39510 100644
+--- a/frontend/src/components/layout/navigation.tsx
++++ b/frontend/src/components/layout/navigation.tsx
+@@ -14,6 +14,7 @@ import {
+   IconPresence,
+   IconSettings,
+   IconShield,
++  IconSparkle,
+   IconSupport,
+   IconWallet,
+ } from "./icons";
+@@ -31,6 +32,8 @@ export interface NavigationItem {
+   // The right the page needs. The sidebar hides an entry the server would
+   // refuse anyway, so a role never faces a screen that only 403s.
+   requiredPermission?: CompanyPermission;
++  /** Флаг компании вне тарифа: выключен — пункт скрыт, без «есть в тарифе». */
++  requiredFlag?: "ai_agent";
+   icon: ReactNode;
+ }
+ 
+@@ -60,6 +63,9 @@ export const companyNavigationGroups: NavigationGroup[] = [
+     items: [
+       { to: "/app", label: "Дашборд", exact: true, mobilePrimary: true, icon: <IconDashboard /> },
+       { to: "/app/presence", label: "Присутствие", mobilePrimary: true, icon: <IconPresence />, requiredPermission: "attendance.view" },
++      // ИИ-помощник работает правами того, кто его открыл, поэтому права у
++      // пункта нет: наблюдатель через помощника только читает.
++      { to: "/app/assistant", label: "Помощник", icon: <IconSparkle />, requiredFlag: "ai_agent" },
+     ],
+   },
+   {
+diff --git a/frontend/src/i18n/dictionaries/shell.ts b/frontend/src/i18n/dictionaries/shell.ts
+index 0acf8617..cd8b0089 100644
+--- a/frontend/src/i18n/dictionaries/shell.ts
++++ b/frontend/src/i18n/dictionaries/shell.ts
+@@ -185,4 +185,34 @@ export const shellFallback: Record<string, TranslationMap> = {
+     uz: "JPG, PNG yoki WEBP. Sudrab tashlang yoki bosing.",
+     en: "JPG, PNG, or WEBP. Drag here or click.",
+   },
++  // ИИ-помощник (NAZAR Agent).
++  "ИИ": { uz: "SI", en: "AI" },
++  "ИИ-помощник": { uz: "SI yordamchi", en: "AI assistant" },
++  "Помощник": { uz: "Yordamchi", en: "Assistant" },
++  "Открыть помощника": { uz: "Yordamchini ochish", en: "Open the assistant" },
++  "Открываю…": { uz: "Ochilmoqda…", en: "Opening…" },
++  "Не получилось открыть помощника.": {
++    uz: "Yordamchini ochib bo'lmadi.",
++    en: "Could not open the assistant.",
++  },
++  "Команда ИИ-агентов разбирает отметки и табель и приносит рекомендации с доказательствами.": {
++    uz: "SI agentlari jamoasi belgilar va tabelni tahlil qilib, dalillar bilan tavsiyalar beradi.",
++    en: "A team of AI agents reviews check-ins and the timesheet and brings recommendations with evidence.",
++  },
++  "Спросите словами: «Что в табеле за прошлую неделю стоит проверить перед выплатой?»": {
++    uz: "Oddiy so'z bilan so'rang: «O'tgan haftaning tabelida to'lovdan oldin nimani tekshirish kerak?»",
++    en: "Ask in plain words: “What in last week's timesheet is worth checking before paying?”",
++  },
++  "Каждый вывод — со ссылками на отметки и дни табеля; отдельный агент ищет невиновное объяснение.": {
++    uz: "Har bir xulosa belgilar va tabel kunlariga havolalar bilan; alohida agent aybsiz izohni qidiradi.",
++    en: "Every conclusion links to check-ins and timesheet days; a separate agent looks for an innocent explanation.",
++  },
++  "Ничего не меняется без вашего подтверждения; любое действие можно отменить.": {
++    uz: "Sizning tasdig'ingizsiz hech narsa o'zgarmaydi; har qanday amalni bekor qilish mumkin.",
++    en: "Nothing changes without your confirmation; any action can be undone.",
++  },
++  "Помощник работает с вашими правами: чего нельзя вам в кабинете, того нельзя и ему.": {
++    uz: "Yordamchi sizning huquqlaringiz bilan ishlaydi: kabinetda sizga mumkin bo'lmagan narsa unga ham mumkin emas.",
++    en: "The assistant works with your rights: what you cannot do in the cabinet, it cannot do either.",
++  },
+ };
+diff --git a/frontend/src/pages/SuperAdminBillingPage.tsx b/frontend/src/pages/SuperAdminBillingPage.tsx
+index 47a4bed0..805d674c 100644
+--- a/frontend/src/pages/SuperAdminBillingPage.tsx
++++ b/frontend/src/pages/SuperAdminBillingPage.tsx
+@@ -106,6 +106,7 @@ function toDraft(plan: BillingPlanResponse): UpdateBillingPlanRequest {
+     camera_integrations_enabled: plan.camera_integrations_enabled,
+     payroll_enabled: plan.payroll_enabled,
+     plan_feature_overrides: plan.plan_feature_overrides ?? {},
++    ai_agent_enabled: plan.ai_agent_enabled ?? false,
+     custom_monthly_price_usd: plan.custom_monthly_price_usd,
+     custom_employee_limit: plan.custom_employee_limit,
+     custom_object_limit: plan.custom_object_limit,
+@@ -576,6 +577,7 @@ export function SuperAdminCompaniesSection() {
+                   {plan.experimental_mobile_enabled ? <span className="badge-blue">mobile exp</span> : null}
+                   {plan.camera_integrations_enabled ? <span className="badge-blue">камеры</span> : null}
+                   {plan.payroll_enabled ? <span className="badge-blue">расчёт</span> : null}
++                  {plan.ai_agent_enabled ? <span className="badge-blue">ИИ</span> : null}
+                 </div>
+                 <div className="mt-1 truncate text-xs text-muted">
+                   {plan.plan_name}, {plan.billing_period_label}, {money(plan.current_period_price_usd)} ·
+@@ -673,6 +675,7 @@ function CompanyEditModal({
+             {plan.is_demo ? <span className="badge-yellow">demo</span> : null}
+             {plan.experimental_mobile_enabled ? <span className="badge-blue">mobile exp</span> : null}
+             {plan.camera_integrations_enabled ? <span className="badge-blue">камеры</span> : null}
++            {plan.ai_agent_enabled ? <span className="badge-blue">ИИ</span> : null}
+           </div>
+           <div className="mt-2">
+             Сейчас: {plan.plan_name}, {plan.billing_period_label}, {money(plan.current_period_price_usd)}
+@@ -879,6 +882,21 @@ function CompanyEditModal({
+               </span>
+             </span>
+           </label>
++          <label className="flex items-center gap-3 rounded-lg bg-surface px-3 py-3">
++            <input
++              type="checkbox"
++              className="h-4 w-4 accent-primary"
++              checked={draft.ai_agent_enabled === true}
++              onChange={(event) => patch({ ai_agent_enabled: event.target.checked })}
++            />
++            <span>
++              <span className="block text-sm font-semibold text-ink">ИИ-помощник</span>
++              <span className="block text-xs text-muted">
++                Пункт «Помощник» в кабинете. Включается отдельно от тарифа: помощник читает данные компании
++                моделью Meta. Ничего не меняет без подтверждения администратора.
++              </span>
++            </span>
++          </label>
+         </div>
+ 
+         <FeatureOverridesField
+diff --git a/frontend/src/types/api.ts b/frontend/src/types/api.ts
+index 1e926165..a7c0009f 100644
+--- a/frontend/src/types/api.ts
++++ b/frontend/src/types/api.ts
+@@ -206,6 +206,8 @@ export interface BillingPlanResponse {
+   payroll_enabled: boolean;
+   /** Ручные исключения функций поверх тарифа: {"payroll": true}. */
+   plan_feature_overrides?: Record<string, boolean>;
++  /** ИИ-помощник: отдельный выключатель суперадмина, не функция тарифа. */
++  ai_agent_enabled?: boolean;
+   custom_monthly_price_usd: number | null;
+   custom_employee_limit: number | null;
+   custom_object_limit: number | null;
+@@ -231,6 +233,7 @@ export interface UpdateBillingPlanRequest {
+   payroll_enabled?: boolean | null;
+   /** Все исключения целиком; `{}` — убрать все, не передано — не трогать. */
+   plan_feature_overrides?: Record<string, boolean> | null;
++  ai_agent_enabled?: boolean | null;
+   custom_monthly_price_usd?: number | null;
+   custom_employee_limit?: number | null;
+   custom_object_limit?: number | null;
+@@ -421,6 +424,8 @@ export interface SessionFeatureFlags {
+   weekly_report?: boolean;
+   route_tracking?: boolean;
+   extra_roles?: boolean;
++  /** ИИ-помощник (NAZAR Agent): суперадмин включает компании отдельно, вне тарифа. */
++  ai_agent?: boolean;
+   plan_code?: string | null;
+   /** standard / business / enterprise; null — тариф не распознан. */
+   plan_tier?: PlanTier | null;
+diff --git a/backend/migrations/versions/0094_ai_agent_flag.py b/backend/migrations/versions/0094_ai_agent_flag.py
+new file mode 100644
+index 00000000..ad855112
+--- /dev/null
++++ b/backend/migrations/versions/0094_ai_agent_flag.py
+@@ -0,0 +1,32 @@
++"""ИИ-помощник (NAZAR Agent): выключатель по компании.
++
++Суперадмин включает помощника компании отдельно, вне тарифа: помощник читает
++данные компании моделью Meta, и решение об этом принимается по каждой
++компании, а не кнопкой «купить». По умолчанию выключен у всех.
++
++Revision ID: 0094_ai_agent_flag
++Revises: 0093_standard_timesheet_adjust
++Create Date: 2026-10-27
++"""
++
++from __future__ import annotations
++
++from alembic import op
++import sqlalchemy as sa
++
++
++revision = "0094_ai_agent_flag"
++down_revision = "0093_standard_timesheet_adjust"
++branch_labels = None
++depends_on = None
++
++
++def upgrade() -> None:
++    op.add_column(
++        "company_settings",
++        sa.Column("ai_agent_enabled", sa.Boolean(), nullable=False, server_default=sa.text("false")),
++    )
++
++
++def downgrade() -> None:
++    op.drop_column("company_settings", "ai_agent_enabled")
+diff --git a/backend/app/api/routes/ai_agent.py b/backend/app/api/routes/ai_agent.py
+new file mode 100644
+index 00000000..67c5c5d1
+--- /dev/null
++++ b/backend/app/api/routes/ai_agent.py
+@@ -0,0 +1,156 @@
++"""Вход в ИИ-помощника (NAZAR Agent) из кабинета.
++
++Помощник — отдельный сервис (github.com/aminredfield/nazar-agent). Он работает
++с данными компании **правами того, кто его открыл**, а не общим служебным
++аккаунтом: что человек не может в кабинете, того не сможет и помощник, и в
++аудите действия помощника записаны на этого человека.
++
++1. ``POST /ai-agent/handoff`` — кабинет просит пропуск. Пропуск живёт минуту
++   и сам по себе не вход: проверка сессии пускает только токены ``access``.
++   Кабинет открывает окно помощника, передавая пропуск во фрагменте адреса
++   (``#handoff=…``) — фрагмент не уходит на сервер и не оседает в логах.
++2. ``POST /ai-agent/session`` — сервер помощника меняет пропуск на обычный
++   токен доступа этого человека. Только с общим ключом ``AI_AGENT_KEY``:
++   перехваченный пропуск без ключа бесполезен.
++
++Помощник включается суперадмином для каждой компании отдельно
++(``company_settings.ai_agent_enabled``); выключили — новые пропуска и обмены
++не выдаются.
++"""
++
++from __future__ import annotations
++
++import hmac
++import uuid
++from datetime import datetime
++
++from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
++from pydantic import BaseModel, Field
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from app.api.dependencies import get_audit_service, get_auth_context, get_db_session
++from app.api.responses import success_response
++from app.core.auth_context import AuthContext
++from app.core.config import get_settings
++from app.core.security import (
++    InvalidTokenError,
++    create_access_token,
++    create_agent_handoff_token,
++    decode_agent_handoff_token,
++)
++from app.repositories.audit_repository import AuditLogRepository
++from app.repositories.company_repository import CompanyRepository
++from app.repositories.company_settings_repository import CompanySettingsRepository
++from app.repositories.company_user_repository import CompanyUserRepository
++from app.schemas.common import ApiResponse
++from app.services.audit_service import AuditService
++
++router = APIRouter(prefix="/ai-agent", tags=["ai-agent"])
++settings = get_settings()
++
++
++class AgentHandoffResponse(BaseModel):
++    url: str
++    expires_at: datetime
++
++
++class AgentSessionRequest(BaseModel):
++    handoff: str = Field(min_length=20, max_length=4096)
++
++
++class AgentSessionResponse(BaseModel):
++    access_token: str
++    expires_at: datetime
++    company_id: uuid.UUID
++    company_name: str
++    full_name: str
++    email: str
++    role: str
++
++
++async def _enabled(session: AsyncSession, company_id: uuid.UUID) -> bool:
++    company_settings = await CompanySettingsRepository(session).get(company_id)
++    return bool(company_settings and company_settings.ai_agent_enabled)
++
++
++@router.post(
++    "/handoff",
++    response_model=ApiResponse[AgentHandoffResponse],
++    summary="A one-minute pass that opens the AI assistant for this admin",
++)
++async def create_handoff(
++    auth_context: AuthContext = Depends(get_auth_context),
++    session: AsyncSession = Depends(get_db_session),
++    audit: AuditService = Depends(get_audit_service),
++):
++    if not settings.ai_agent_url:
++        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "AI_AGENT_NOT_CONFIGURED: Помощник не подключён.")
++    if auth_context.company_id is None or auth_context.account_id is None:
++        raise HTTPException(status.HTTP_403_FORBIDDEN, "FORBIDDEN: Company context is required.")
++    if not await _enabled(session, auth_context.company_id):
++        raise HTTPException(status.HTTP_403_FORBIDDEN, "AI_AGENT_DISABLED: Помощник не включён для компании.")
++
++    token, expires_at = create_agent_handoff_token(
++        account_id=auth_context.account_id, company_id=auth_context.company_id, settings=settings
++    )
++    await audit.record("ai_agent.handoff", entity_type="ai_agent")
++    return success_response(
++        data=AgentHandoffResponse(url=f"{settings.ai_agent_url.rstrip('/')}/#handoff={token}", expires_at=expires_at)
++    )
++
++
++@router.post(
++    "/session",
++    response_model=ApiResponse[AgentSessionResponse],
++    summary="The assistant service exchanges a pass for the admin's own session",
++    include_in_schema=False,
++)
++async def create_session(
++    payload: AgentSessionRequest,
++    request: Request,
++    agent_key: str = Header(default="", alias="X-Agent-Key"),
++    session: AsyncSession = Depends(get_db_session),
++):
++    # Без настроенного ключа обмена нет вовсе; сравнение — за постоянное время.
++    if not settings.ai_agent_key or not hmac.compare_digest(agent_key.encode(), settings.ai_agent_key.encode()):
++        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Assistant key is invalid.")
++    try:
++        handoff = decode_agent_handoff_token(payload.handoff, settings)
++    except InvalidTokenError as exc:
++        raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc)) from exc
++
++    company_id = handoff.company_id
++    users = CompanyUserRepository(session)
++    account = await users.get_account(handoff.user_id)
++    membership = await users.get_membership_for_account(company_id=company_id, account_id=handoff.user_id)
++    company = await CompanyRepository(session).get(company_id)
++    if account is None or not account.is_active or membership is None or not membership.is_active or company is None:
++        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User is inactive.")
++    # Выключили помощника, пока пропуск был в пути, — сессии не будет.
++    if not await _enabled(session, company_id):
++        raise HTTPException(status.HTTP_403_FORBIDDEN, "AI_AGENT_DISABLED: Помощник не включён для компании.")
++
++    access_token, expires_at = create_access_token(user_id=account.id, settings=settings, company_id=company_id)
++    try:
++        await AuditLogRepository(session).create(
++            company_id=company_id,
++            actor_user_id=membership.id,
++            actor_type="company_user",
++            actor_email=membership.email,
++            action="ai_agent.session",
++            request_ip=request.client.host if request.client else None,
++        )
++        await session.commit()
++    except Exception:  # pragma: no cover - audit must never break the sign-in
++        await session.rollback()
++    return success_response(
++        data=AgentSessionResponse(
++            access_token=access_token,
++            expires_at=expires_at,
++            company_id=company_id,
++            company_name=company.name,
++            full_name=membership.full_name,
++            email=membership.email,
++            role=str(getattr(membership, "role", "")),
++        )
++    )
+diff --git a/backend/tests/test_ai_agent.py b/backend/tests/test_ai_agent.py
+new file mode 100644
+index 00000000..c0dde254
+--- /dev/null
++++ b/backend/tests/test_ai_agent.py
+@@ -0,0 +1,70 @@
++"""The pass into the AI assistant: short-lived, never a session by itself."""
++
++import uuid
++from datetime import UTC, datetime
++
++import pytest
++from pydantic import ValidationError
++
++from app.core.config import Settings
++from app.core.security import (
++    AGENT_HANDOFF_SECONDS,
++    InvalidTokenError,
++    _encode_jwt,
++    create_access_token,
++    create_agent_handoff_token,
++    decode_access_token,
++    decode_agent_handoff_token,
++)
++from tests.test_config import _production
++
++SETTINGS = Settings(_env_file=None, jwt_secret_key="test-secret-for-assistant-passes-0123456789")
++ACCOUNT = uuid.uuid4()
++COMPANY = uuid.uuid4()
++
++
++def test_pass_carries_the_person_and_the_company_and_lives_a_minute():
++    token, expires_at = create_agent_handoff_token(account_id=ACCOUNT, company_id=COMPANY, settings=SETTINGS)
++
++    payload = decode_agent_handoff_token(token, SETTINGS)
++
++    assert (payload.user_id, payload.company_id) == (ACCOUNT, COMPANY)
++    assert 0 < (expires_at - datetime.now(UTC)).total_seconds() <= AGENT_HANDOFF_SECONDS
++
++
++def test_pass_is_not_a_session():
++    """The session check accepts only token_use == "access"; a pass says otherwise."""
++    token, _ = create_agent_handoff_token(account_id=ACCOUNT, company_id=COMPANY, settings=SETTINGS)
++
++    assert decode_access_token(token, SETTINGS).token_use == "agent_handoff"
++
++
++def test_a_session_is_not_a_pass():
++    access, _ = create_access_token(user_id=ACCOUNT, settings=SETTINGS, company_id=COMPANY)
++
++    with pytest.raises(InvalidTokenError, match="not an assistant pass"):
++        decode_agent_handoff_token(access, SETTINGS)
++
++
++def test_expired_or_foreign_pass_is_refused():
++    expired = _encode_jwt(
++        {"user_id": str(ACCOUNT), "company_id": str(COMPANY), "subject_type": "company_user",
++         "token_use": "agent_handoff", "exp": int(datetime.now(UTC).timestamp()) - 1},
++        SETTINGS.jwt_secret_key,
++    )
++    foreign, _ = create_agent_handoff_token(
++        account_id=ACCOUNT, company_id=COMPANY, settings=Settings(_env_file=None, jwt_secret_key="x" * 40)
++    )
++
++    with pytest.raises(InvalidTokenError, match="expired"):
++        decode_agent_handoff_token(expired, SETTINGS)
++    with pytest.raises(InvalidTokenError, match="signature"):
++        decode_agent_handoff_token(foreign, SETTINGS)
++
++
++def test_production_needs_a_strong_assistant_key():
++    with pytest.raises(ValidationError, match="AI_AGENT_KEY"):
++        Settings(**_production(ai_agent_url="https://agent.example.com", ai_agent_key="short"))
++
++    Settings(**_production(ai_agent_url="https://agent.example.com", ai_agent_key="k" * 40))
++    Settings(**_production())  # no assistant configured: nothing to check
+diff --git a/backend/tests/test_ai_agent_http_postgres.py b/backend/tests/test_ai_agent_http_postgres.py
+new file mode 100644
+index 00000000..01c276a9
+--- /dev/null
++++ b/backend/tests/test_ai_agent_http_postgres.py
+@@ -0,0 +1,111 @@
++"""Opening the AI assistant from the cabinet, over real HTTP.
++
++The pass from the cabinet → the assistant service exchanges it, with its key,
++for the admin's own session → that session works like the cabinet's. The pass
++alone is never a session, and switching the assistant off stops both steps.
++
++SKIPPED unless ``DATABASE_URL`` = ``TEST_DATABASE_URL`` (postgres).
++"""
++
++import asyncio
++import os
++import uuid
++
++import pytest
++from sqlalchemy import text
++from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
++
++from app.core.security import create_access_token
++from app.db.base import Base
++from app.models import AdminAccount, Company, CompanyUser
++from app.models.company_setting import CompanySetting
++from app.services.permissions import ROLE_OWNER
++
++TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
++DATABASE_URL = os.getenv("DATABASE_URL")
++AGENT_URL = "https://agent.example.com"
++AGENT_KEY = "k" * 40
++
++pytestmark = pytest.mark.skipif(
++    not TEST_DATABASE_URL or DATABASE_URL != TEST_DATABASE_URL,
++    reason="Set DATABASE_URL=TEST_DATABASE_URL (postgres) to run the assistant HTTP tests.",
++)
++
++
++def _client():
++    from sqlalchemy.ext.asyncio import AsyncSession
++    from sqlalchemy.pool import NullPool
++    from starlette.testclient import TestClient
++
++    import app.api.routes.ai_agent as ai_agent_routes
++    import app.db.session as db_session
++    from app.core.config import Settings
++    from app.main import app
++    from app.main import settings as app_settings
++
++    ai_agent_routes.settings = Settings(database_url=TEST_DATABASE_URL, ai_agent_url=AGENT_URL, ai_agent_key=AGENT_KEY)
++    db_session.SessionLocal = async_sessionmaker(
++        create_async_engine(TEST_DATABASE_URL, poolclass=NullPool, future=True),
++        expire_on_commit=False,
++        class_=AsyncSession,
++    )
++    return TestClient(app, base_url=f"http://{app_settings.trusted_hosts[0]}")
++
++
++async def _seed(enabled: bool) -> tuple[uuid.UUID, uuid.UUID, str]:
++    engine = create_async_engine(TEST_DATABASE_URL, future=True)
++    async with engine.begin() as conn:
++        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
++        await conn.run_sync(Base.metadata.create_all)
++    session_factory = async_sessionmaker(engine, expire_on_commit=False)
++    async with session_factory() as session:
++        company = Company(name=f"Agent Co {uuid.uuid4().hex[:6]}", is_demo=True, subscription_plan="demo")
++        session.add(company)
++        await session.flush()
++        account = AdminAccount(full_name="Owner", email=f"owner-{uuid.uuid4().hex[:8]}@example.com", password_hash="x", is_active=True)
++        session.add(account)
++        await session.flush()
++        session.add(CompanyUser(company_id=company.id, account_id=account.id, is_active=True, role=ROLE_OWNER))
++        session.add(CompanySetting(company_id=company.id, ai_agent_enabled=enabled))
++        await session.commit()
++        company_id, account_id = company.id, account.id
++    await engine.dispose()
++    from app.core.config import get_settings
++
++    session_token, _ = create_access_token(user_id=account_id, settings=get_settings(), company_id=company_id)
++    return company_id, account_id, session_token
++
++
++def test_cabinet_pass_becomes_the_admins_own_session():
++    company_id, _, session_token = asyncio.run(_seed(enabled=True))
++    client = _client()
++    cabinet = {"Authorization": f"Bearer {session_token}"}
++
++    handoff = client.post("/api/ai-agent/handoff", headers=cabinet)
++    assert handoff.status_code == 200, handoff.text
++    url = handoff.json()["data"]["url"]
++    assert url.startswith(f"{AGENT_URL}/#handoff=")
++    pass_token = url.split("#handoff=", 1)[1]
++
++    # The pass by itself opens nothing.
++    assert client.get("/api/objects", headers={"Authorization": f"Bearer {pass_token}"}).status_code == 401
++    # Only the assistant service, with its key, can exchange it.
++    assert client.post("/api/ai-agent/session", json={"handoff": pass_token}).status_code == 401
++    assert client.post("/api/ai-agent/session", json={"handoff": pass_token}, headers={"X-Agent-Key": "wrong" * 8}).status_code == 401
++
++    exchanged = client.post("/api/ai-agent/session", json={"handoff": pass_token}, headers={"X-Agent-Key": AGENT_KEY})
++    assert exchanged.status_code == 200, exchanged.text
++    data = exchanged.json()["data"]
++    assert data["company_id"] == str(company_id) and data["role"] == ROLE_OWNER
++    agent = {"Authorization": f"Bearer {data['access_token']}"}
++    assert client.get("/api/objects", headers=agent).status_code == 200
++    assert client.get("/api/auth/me", headers=agent).json()["data"]["features"]["ai_agent"] is True
++
++
++def test_switched_off_assistant_gives_no_pass():
++    _, _, session_token = asyncio.run(_seed(enabled=False))
++    client = _client()
++
++    refused = client.post("/api/ai-agent/handoff", headers={"Authorization": f"Bearer {session_token}"})
++
++    assert refused.status_code == 403 and "AI_AGENT_DISABLED" in refused.text
+diff --git a/frontend/src/api/aiAgent.ts b/frontend/src/api/aiAgent.ts
+new file mode 100644
+index 00000000..3c2baadc
+--- /dev/null
++++ b/frontend/src/api/aiAgent.ts
+@@ -0,0 +1,16 @@
++// ИИ-помощник (NAZAR Agent) — отдельный сервис; кабинет только открывает его.
++import { PUBLIC_API_URL, apiFetch, buildHeaders, handleResponse } from "./http";
++
++export interface AssistantHandoff {
++  /** Адрес окна помощника с одноразовым пропуском во фрагменте (#handoff=…). */
++  url: string;
++  expires_at: string;
++}
++
++export async function createAssistantHandoff(): Promise<AssistantHandoff> {
++  const response = await apiFetch(`${PUBLIC_API_URL}/ai-agent/handoff`, {
++    method: "POST",
++    headers: buildHeaders(),
++  });
++  return handleResponse<AssistantHandoff>(response);
++}
+diff --git a/frontend/src/pages/AssistantPage.tsx b/frontend/src/pages/AssistantPage.tsx
+new file mode 100644
+index 00000000..93119469
+--- /dev/null
++++ b/frontend/src/pages/AssistantPage.tsx
+@@ -0,0 +1,69 @@
++/**
++ * «Помощник» — вход в ИИ-помощника (NAZAR Agent), отдельный сервис.
++ *
++ * Страница только открывает его: просит у сервера одноразовый пропуск и
++ * открывает окно помощника. Помощник работает правами того, кто его открыл, и
++ * ничего не меняет без подтверждения — это и сказано на странице, чтобы
++ * человек знал, что отдаёт, прежде чем нажать.
++ *
++ * Пункт меню и страница есть только у компаний, которым суперадмин включил
++ * помощника (`features.ai_agent`); остальных страница уводит на дашборд.
++ */
++import { useState } from "react";
++import { Navigate } from "react-router-dom";
++
++import { createAssistantHandoff } from "../api/client";
++import { useAuth } from "../hooks/useAuth";
++import { useI18n } from "../i18n/I18nProvider";
++
++export function AssistantPage() {
++  const { t } = useI18n();
++  const { session } = useAuth();
++  const [opening, setOpening] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++
++  if (session?.features.ai_agent !== true) return <Navigate to="/app" replace />;
++
++  const open = async () => {
++    setOpening(true);
++    setError(null);
++    // The tab is opened inside the click, before the request: a window
++    // opened after an await is what popup blockers stop.
++    const tab = window.open("", "_blank");
++    try {
++      const { url } = await createAssistantHandoff();
++      if (tab) {
++        tab.opener = null;
++        tab.location.href = url;
++      } else {
++        window.location.assign(url);
++      }
++    } catch (failure) {
++      tab?.close();
++      setError(failure instanceof Error ? failure.message : t("Не получилось открыть помощника."));
++    } finally {
++      setOpening(false);
++    }
++  };
++
++  return (
++    <div className="max-w-2xl space-y-5">
++      <div>
++        <h1 className="text-xl font-bold text-ink">{t("Помощник")}</h1>
++        <p className="text-sm text-muted">
++          {t("Команда ИИ-агентов разбирает отметки и табель и приносит рекомендации с доказательствами.")}
++        </p>
++      </div>
++      <ul className="list-disc space-y-1 pl-5 text-sm text-ink">
++        <li>{t("Спросите словами: «Что в табеле за прошлую неделю стоит проверить перед выплатой?»")}</li>
++        <li>{t("Каждый вывод — со ссылками на отметки и дни табеля; отдельный агент ищет невиновное объяснение.")}</li>
++        <li>{t("Ничего не меняется без вашего подтверждения; любое действие можно отменить.")}</li>
++        <li>{t("Помощник работает с вашими правами: чего нельзя вам в кабинете, того нельзя и ему.")}</li>
++      </ul>
++      <button type="button" className="btn-primary" disabled={opening} onClick={open}>
++        {opening ? t("Открываю…") : t("Открыть помощника")}
++      </button>
++      {error ? <p className="text-sm text-danger-text">{error}</p> : null}
++    </div>
++  );
++}
