@@ -58,11 +58,46 @@
   .audit { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-top: 28px; }
   .audit li { font-size: 14px; }
   details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  nav.tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+  nav.tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .people { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  .people td, .people th { border-bottom: 1px solid var(--line); padding: 6px 8px 6px 0; vertical-align: top; }
+  .people tr.attention { background: color-mix(in srgb, var(--medium) 12%, transparent); }
+  .people input[type=text] { width: 100%; min-width: 160px; }
+  .issue { color: var(--medium); font-size: 13px; }
+  .shoot { background: var(--panel); border: 2px solid var(--accent); border-radius: 14px; padding: 20px; margin-top: 16px; text-align: center; }
+  .shoot .next { font-size: 22px; font-weight: 600; margin: 6px 0; }
+  .shoot label.camera { display: inline-block; margin: 14px 0; padding: 14px 26px; font-size: 18px; border-radius: 12px; background: var(--accent); color: var(--accent-text); cursor: pointer; }
+  .shoot input[type=file] { display: none; }
 </style>
 </head>
 <body>
 <header><h1>NAZAR · Помощник</h1><span>Команда ИИ-агентов предлагает — решаете вы</span></header>
 <main>
+  <nav class="tabs">
+    <button type="button" id="tab-ask-button" aria-selected="true">Вопрос</button>
+    <button type="button" id="tab-import-button" aria-selected="false">Импорт сотрудников</button>
+  </nav>
+  <section id="tab-import" hidden>
+    <form class="ask" id="import-form">
+      <textarea id="import-text" maxlength="20000" placeholder="Вставьте список, например:&#10;Объект Чиланзар — Иванов Алишер, Каримова Дилноза&#10;Объект Юнусабад — Сидоров"></textarea>
+      <div class="row">
+        <label class="muted">или фото / Excel / CSV: <input type="file" id="import-file" accept="image/jpeg,image/png,image/webp,.xlsx,.csv,.txt"></label>
+        <button class="primary" id="import-read" type="submit">Разобрать список</button>
+      </div>
+      <div class="status" id="import-status"></div>
+    </form>
+    <div id="import-review"></div>
+    <section class="audit" id="waiting-section">
+      <div class="row"><strong>Ждут фото</strong>
+        <button type="button" id="start-shooting">Очередь съёмки</button>
+        <button type="button" id="refresh-waiting">Обновить</button></div>
+      <div class="muted">NAZAR создаёт сотрудника только с фото лица — по нему потом идёт отметка. Сопоставлять лица с именами ИИ не пытается: каждого снимает человек.</div>
+      <div id="shooting"></div>
+      <ul id="waiting"></ul>
+    </section>
+  </section>
+  <section id="tab-ask">
   <form class="ask" id="ask">
     <textarea id="question" maxlength="500" required placeholder="Например: Что в табеле за прошлую неделю стоит проверить перед выплатой?"></textarea>
     <div class="row">
@@ -77,6 +112,7 @@
     <div class="status" id="status"></div>
   </form>
   <div id="answer"></div>
+  </section>
   <section class="audit">
     <div class="row"><strong>Журнал действий</strong><button type="button" id="refresh-audit">Обновить</button></div>
     <ul id="audit"></ul>
@@ -93,7 +129,10 @@ const ACTIONS = {
 };
 const REVIEW_STATUS = { no_violation: "нарушения нет", confirmed: "нарушение подтверждено", insufficient_data: "недостаточно данных", not_reviewed: "не разобрано" };
 const DAY_FIELDS = { worked_minutes: "Отработано, мин", paid_minutes: "К оплате, мин", late_minutes: "Опоздание, мин", early_leave_minutes: "Ранний уход, мин" };
-const EVENTS = { proposed: "предложено агентом", executed: "выполнено", declined: "отклонено", refused: "не выполнено", failed: "ошибка", undone: "отменено" };
+const EVENTS = {
+  proposed: "предложено агентом", executed: "выполнено", declined: "отклонено", refused: "не выполнено", failed: "ошибка", undone: "отменено",
+  draft_created: "добавлен, ждёт фото", employee_created: "создан в NAZAR", photo_rejected: "фото не подошло", draft_discarded: "убран из списка",
+};
 
 const $ = (id) => document.getElementById(id);
 
@@ -257,7 +296,8 @@ async function loadAudit() {
   try {
     const entries = await api("/api/audit?limit=30");
     $("audit").replaceChildren(...entries.map((entry) => el("li", {},
-      `${entry.at.replace("T", " ").slice(0, 16)} · ${EVENTS[entry.event] || entry.event} · ${ACTIONS[entry.action] || entry.action || ""} · ${entry.subject || ""} · ${entry.actor}`,
+      `${entry.at.replace("T", " ").slice(0, 16)} · ${EVENTS[entry.event] || entry.event} · ${ACTIONS[entry.action] || entry.action || ""} · ${entry.subject || entry.details.full_name || ""} · ${entry.actor}`,
+      entry.details.reasons ? el("span", { class: "ref" }, entry.details.reasons.join("; ")) : null,
       entry.details.reason ? el("span", { class: "ref" }, `«${entry.details.reason}»`) : null,
       entry.details.error ? el("span", { class: "ref" }, entry.details.error) : null)));
   } catch (error) {
@@ -280,6 +320,158 @@ $("ask").addEventListener("submit", async (event) => {
     $("send").disabled = false;
   }
 });
+// ---- Import of employees -------------------------------------------------
+
+function showTab(name) {
+  for (const tab of ["ask", "import"]) {
+    $(`tab-${tab}`).hidden = tab !== name;
+    $(`tab-${tab}-button`).setAttribute("aria-selected", String(tab === name));
+  }
+  if (name === "import") loadWaiting();
+}
+$("tab-ask-button").addEventListener("click", () => showTab("ask"));
+$("tab-import-button").addEventListener("click", () => showTab("import"));
+
+async function upload(path, form) {
+  const response = await fetch(path, { method: "POST", body: form });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = data.detail;
+    const message = detail && detail.photo_rejected ? `Фото не подошло: ${detail.photo_rejected.join("; ")}`
+      : typeof detail === "string" ? detail : `Ошибка ${response.status}`;
+    throw new Error(message);
+  }
+  return data;
+}
+
+$("import-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = new FormData();
+  if ($("import-text").value.trim()) form.append("text", $("import-text").value);
+  if ($("import-file").files[0]) form.append("file", $("import-file").files[0]);
+  $("import-read").disabled = true;
+  $("import-status").className = "status";
+  $("import-status").textContent = "Агент читает список и сверяет его с сотрудниками и объектами NAZAR…";
+  try {
+    renderReview(await upload("/api/import/read", form));
+    $("import-status").textContent = "";
+  } catch (error) {
+    $("import-status").className = "status error"; $("import-status").textContent = error.message;
+  } finally {
+    $("import-read").disabled = false;
+  }
+});
+
+function renderReview(data) {
+  const siteSelect = (selected) => el("select", {},
+    el("option", { value: "" }, "— без объекта —"),
+    data.sites.map((site) => {
+      const option = el("option", { value: site.id }, site.name);
+      if (site.id === selected) option.selected = true;
+      return option;
+    }));
+  const rows = data.rows.map((row) => {
+    const include = el("input", { type: "checkbox" }); include.checked = true;
+    const name = el("input", { type: "text", maxlength: "120" }); name.value = row.full_name;
+    const site = siteSelect(row.site_id);
+    const tr = el("tr", { class: row.issues.length ? "attention" : "" },
+      el("td", {}, include), el("td", {}, name, el("div", { class: "muted" }, row.as_written)),
+      el("td", {}, site, row.site_hint ? el("div", { class: "muted" }, `в списке: ${row.site_hint}`) : null),
+      el("td", {}, row.issues.map((issue) => el("div", { class: "issue" }, issue))));
+    return { tr, include, name, site };
+  });
+  const attention = data.rows.filter((row) => row.issues.length).length;
+  const consent = el("input", { type: "date" });
+  const create = el("button", { class: "primary", type: "button" }, "Создать — будут ждать фото");
+  const result = el("div", { class: "status" });
+  create.onclick = async () => {
+    const chosen = rows.filter((row) => row.include.checked && row.name.value.trim())
+      .map((row) => ({ full_name: row.name.value.trim(), site_id: row.site.value || null }));
+    if (!chosen.length) return;
+    create.disabled = true;
+    try {
+      await api("/api/import/drafts", { actor: $("actor").value, rows: chosen, consent_signed_at: consent.value || null });
+      $("import-review").replaceChildren(el("p", { class: "done" }, `Добавлено ${chosen.length}. Теперь снимите каждого — «Очередь съёмки».`));
+      loadWaiting(); loadAudit();
+    } catch (error) {
+      result.className = "status error"; result.textContent = error.message; create.disabled = false;
+    }
+  };
+  $("import-review").replaceChildren(
+    el("p", {}, `Найдено ${data.rows.length}. ${attention ? `Посмотрите подсвеченные строки (${attention}) — остальное агент разложил сам.` : "Всё разобрано, проверять нечего."}`),
+    el("table", { class: "people" },
+      el("tr", {}, el("th", {}, ""), el("th", {}, "ФИО"), el("th", {}, "Объект"), el("th", {}, "Что проверить")),
+      rows.map((row) => row.tr)),
+    el("div", { class: "row section" },
+      el("label", { class: "muted" }, "Согласия на биометрию подписаны (дата), если в компании это обязательно: ", consent),
+      create),
+    result);
+}
+
+let waiting = [];
+
+async function loadWaiting() {
+  try {
+    waiting = await api("/api/import/drafts");
+    $("waiting").replaceChildren(...waiting.map((draft) => {
+      const pick = el("input", { type: "file", accept: "image/*" });
+      pick.onchange = () => pick.files[0] && photograph(draft, pick.files[0], null);
+      const remove = el("button", { type: "button" }, "Убрать");
+      remove.onclick = async () => { await api(`/api/import/drafts/${draft.id}/discard`, { actor: $("actor").value }); loadWaiting(); loadAudit(); };
+      return el("li", {}, `${draft.full_name} · ${draft.site_name || "без объекта"} `, el("label", { class: "muted" }, " фото: ", pick), remove);
+    }));
+    if (!waiting.length) $("waiting").replaceChildren(el("li", { class: "muted" }, "Никто не ждёт фото."));
+  } catch (error) {
+    $("waiting").replaceChildren(el("li", { class: "error" }, error.message));
+  }
+}
+
+async function photograph(draft, file, status) {
+  const form = new FormData();
+  form.append("actor", $("actor").value);
+  form.append("photo", file);
+  const note = status || $("import-status");
+  note.className = "status"; note.textContent = `Проверяю фото ${draft.full_name} и создаю в NAZAR…`;
+  try {
+    await upload(`/api/import/drafts/${draft.id}/photo`, form);
+    note.className = "status done"; note.textContent = `${draft.full_name} — создан в NAZAR.`;
+    await loadWaiting(); loadAudit();
+    return true;
+  } catch (error) {
+    note.className = "status error"; note.textContent = error.message;
+    return false;
+  }
+}
+
+// The shooting queue: on a phone the foreman walks along the brigade —
+// "Next: Ivanov Alisher" → photo → NAZAR checks it → next.
+function shootNext(skipped = new Set()) {
+  const next = waiting.find((draft) => !skipped.has(draft.id));
+  if (!next) {
+    $("shooting").replaceChildren(el("div", { class: "shoot" }, el("div", { class: "next" }, "Все сняты."),
+      el("button", { type: "button" }, "Закрыть")));
+    $("shooting").querySelector("button").onclick = () => $("shooting").replaceChildren();
+    return;
+  }
+  const camera = el("input", { type: "file", accept: "image/*", capture: "environment", id: "camera" });
+  const status = el("div", { class: "status" });
+  const skip = el("button", { type: "button" }, "Пропустить");
+  const stop = el("button", { type: "button" }, "Закончить");
+  camera.onchange = async () => {
+    if (camera.files[0] && await photograph(next, camera.files[0], status)) shootNext(skipped);
+  };
+  skip.onclick = () => { skipped.add(next.id); shootNext(skipped); };
+  stop.onclick = () => $("shooting").replaceChildren();
+  $("shooting").replaceChildren(el("div", { class: "shoot" },
+    el("div", { class: "muted" }, `Осталось: ${waiting.filter((draft) => !skipped.has(draft.id)).length}`),
+    el("div", { class: "next" }, `Следующий: ${next.full_name}`),
+    el("div", { class: "muted" }, next.site_name || "без объекта"),
+    el("label", { class: "camera", for: "camera" }, "📷 Снять"), camera,
+    status, el("div", { class: "row", style: "justify-content:center" }, skip, stop)));
+}
+$("start-shooting").addEventListener("click", async () => { await loadWaiting(); shootNext(); });
+$("refresh-waiting").addEventListener("click", loadWaiting);
+
 $("refresh-audit").addEventListener("click", loadAudit);
 loadLast();
 loadAudit();

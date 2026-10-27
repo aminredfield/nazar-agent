@@ -72,6 +72,15 @@ DAY_ROW = {
 
 
 ADJUSTMENT = "55555555-5555-5555-5555-555555555555"
+SITE = "66666666-6666-6666-6666-666666666666"
+NEW_EMPLOYEE = "77777777-7777-7777-7777-777777777777"
+SITES = [
+    {"id": SITE, "name": "Магазин Чиланзар", "address": "Чиланзар, 9 квартал"},
+    {"id": "88888888-8888-8888-8888-888888888888", "name": "Магазин Юнусабад", "address": "Юнусабад"},
+]
+EMPLOYEES = [{"id": EMPLOYEE, "full_name": "Зарина Хакимова"}]
+# What NAZAR's quality check says; tests replace it to simulate a bad photo.
+PHOTO_CHECK: dict = {"face_detected": True, "face_count": 1, "blocking_reasons": [], "warnings": []}
 
 
 def ok(data):
@@ -111,6 +120,18 @@ def nazar_routes(preview_status: int = 200, day_row: dict | None = None, write_s
             return ok({"id": EVENT, "review_status": "not_reviewed", "review_comment": None})
         if path.endswith(f"/attendance/events/{EVENT}/review") and method == "POST":
             return ok({"id": EVENT})
+        if path.endswith("/face/quality-check"):
+            if PHOTO_CHECK is None:  # what NAZAR does when there is no face at all
+                return httpx.Response(422, json={"success": False, "error": {"code": "VALIDATION", "message": "Лицо не найдено на изображении."}})
+            return ok(PHOTO_CHECK)
+        if path.endswith("/employees") and method == "POST":
+            return ok({"id": NEW_EMPLOYEE, "full_name": "x"})
+        if path.endswith("/employees") and method == "GET":
+            return ok(EMPLOYEES)
+        if path.endswith("/objects") and method == "GET":
+            return ok(SITES)
+        if path.endswith(f"/objects/{SITE}/assignments"):
+            return ok({"object_id": SITE, "assignments": [{"employee_id": EMPLOYEE, "is_active": True}]})
         return httpx.Response(404, json={"success": False, "error": {"code": "NOT_FOUND", "message": path}})
 
     return route, seen

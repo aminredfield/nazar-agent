@@ -133,6 +133,27 @@ check-in (10:14); NAZAR previewed late 74 → 0 min, paid 455 → 522 min;
 applied — NAZAR showed the corrected day with the confirming person in the
 reason; undone — NAZAR showed the day as before.
 
+## Importing a list of employees
+
+A new site starts with a list the foreman already has — often a photo of a
+notebook. Muse Spark reads it (vision for a photo; an Excel or CSV becomes
+text) and only reports what is written, marking what it could not read.
+Code then checks every row against NAZAR and highlights only what needs a
+decision: illegible, only a surname, looks like an existing employee, twice
+in the list, site not found. The person fixes those rows and confirms.
+
+NAZAR creates an employee only with a face photo, and a model must not try to
+match faces to names. So confirmed people wait for a photo; the foreman walks
+along the brigade with a phone — "Next: Ivanov Alisher" → photo — and each
+one becomes a NAZAR employee: NAZAR's own photo check, the employee, then the
+assignment to the site, keeping everyone already assigned there.
+
+Verified on Oct 27 against a local NAZAR: a handwritten-style notebook photo
+came back as six rows with an existing employee, a surname-only row and a
+duplicate flagged; a photo without a face was refused in NAZAR's own words;
+NAZAR's seat limit was reported as is; with a face photo the employee was
+created and added to the site, the site's other assignments unchanged.
+
 ## Meta models
 
 | Role | Model |
@@ -163,7 +184,8 @@ goes only to the standard model or to self-hosted open weights.
 | Telegram bot: text and voice questions, cards with buttons, a reason to disagree, undo; allowlisted chats | done |
 | Voice: Telegram Ogg/Opus → WAV → Muse Spark 1.2 audio input (Russian verified; Uzbek still to verify) | done |
 | Morning brief at a set local time and on `/brief` | done |
-| List import, evals, public demo account | planned |
+| Importing a list of employees: photo of a notebook / Excel / CSV / text → checked table → waiting for a photo → shooting queue → employee in NAZAR | done |
+| Evals, public demo account | planned |
 
 ## Run it
 

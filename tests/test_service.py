@@ -93,3 +93,35 @@ def test_last_answer_shows_proposals_as_they_are_now(setup):
 
     [card] = client.get("/api/last").json()["cards"]
     assert card["actions"][0]["status"] == "executed"
+
+
+def test_import_from_rows_to_an_employee_in_nazar(setup):
+    client, store, seen = setup
+
+    created = client.post("/api/import/drafts", json={
+        "actor": "Шерзод",
+        "rows": [{"full_name": "  Иванов   Алишер ", "site_id": factories.SITE}, {"full_name": "Сидоров", "site_id": None}],
+    })
+    [ivanov, sidorov] = created.json()
+    photo = client.post(f"/api/import/drafts/{ivanov['id']}/photo", data={"actor": "Шерзод"},
+                        files={"photo": ("face.jpg", b"jpeg", "image/jpeg")})
+    removed = client.post(f"/api/import/drafts/{sidorov['id']}/discard", json={"actor": "Шерзод"})
+
+    assert ivanov["full_name"] == "Иванов Алишер" and ivanov["site_name"] == "Магазин Чиланзар"
+    assert photo.status_code == 200 and photo.json()["status"] == "created"
+    assert removed.json()["status"] == "discarded"
+    assert client.get("/api/import/drafts").json() == []
+    events = [entry["event"] for entry in client.get("/api/audit").json()]
+    assert events[:2] == ["draft_discarded", "employee_created"]
+
+
+def test_import_refuses_an_unknown_site_and_a_bad_photo(setup, monkeypatch):
+    client, _, _ = setup
+    unknown = client.post("/api/import/drafts", json={"actor": "x", "rows": [{"full_name": "Иванов Алишер", "site_id": "nope"}]})
+    [draft] = client.post("/api/import/drafts", json={"actor": "x", "rows": [{"full_name": "Иванов Алишер"}]}).json()
+    monkeypatch.setattr(factories, "PHOTO_CHECK", {"face_detected": False, "blocking_reasons": ["FACE_NOT_FOUND: Лицо не найдено."]})
+
+    bad = client.post(f"/api/import/drafts/{draft['id']}/photo", data={"actor": "x"}, files={"photo": ("f.jpg", b"x", "image/jpeg")})
+
+    assert unknown.status_code == 422
+    assert bad.status_code == 422 and bad.json()["detail"] == {"photo_rejected": ["Лицо не найдено."]}

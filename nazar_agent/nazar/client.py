@@ -60,6 +60,12 @@ class NazarClient:
     async def delete(self, path: str) -> Any:
         return await self._request("DELETE", path)
 
+    async def post_form(
+        self, path: str, data: dict[str, Any], files: list[tuple[str, tuple[str, bytes, str]]]
+    ) -> Any:
+        """multipart/form-data, e.g. an employee with a photo."""
+        return await self._request("POST", path, data=_drop_none(data), files=files)
+
     async def login(self) -> None:
         response = await self._http.post(
             "/auth/login",
@@ -78,13 +84,16 @@ class NazarClient:
         *,
         params: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        files: list[tuple[str, tuple[str, bytes, str]]] | None = None,
     ) -> Any:
         if not self._authenticated:
             await self.login()
-        response = await self._http.request(method, path, params=params, json=json)
+        request = {"params": params, "json": json, "data": data, "files": files}
+        response = await self._http.request(method, path, **request)
         if response.status_code == httpx.codes.UNAUTHORIZED:
             await self._renew_session()
-            response = await self._http.request(method, path, params=params, json=json)
+            response = await self._http.request(method, path, **request)
         return _unwrap(response)
 
     async def _renew_session(self) -> None:

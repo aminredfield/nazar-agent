@@ -19,14 +19,17 @@ import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from datetime import date
 from typing import Any, Literal
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from nazar_agent.actions import ExecutionError, ProposalStore
+from nazar_agent.engine import ToolExecutionError
+from nazar_agent.onboarding import Draft, ImportRow, ParseError, PhotoRejected
 from nazar_agent.assistant import Assistant, AssistantBusy
 from nazar_agent.config import Settings, get_settings
 from nazar_agent.nazar import NazarClient
@@ -36,6 +39,7 @@ from nazar_agent.views import audit_view, proposal_view
 from nazar_agent.voice import transcribe
 
 STATIC = Path(__file__).parent / "static"
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 _ERROR_STATUS = {"not_found": 404, "wrong_status": 409, "refused": 409, "stale": 409, "failed": 502}
 
 
@@ -50,6 +54,17 @@ class DecisionRequest(BaseModel):
 
 class DeclineRequest(DecisionRequest):
     reason: str = Field(min_length=1, max_length=500)
+
+
+class DraftRow(BaseModel):
+    full_name: str = Field(min_length=2, max_length=120)
+    site_id: str | None = None
+
+
+class DraftsRequest(DecisionRequest):
+    rows: list[DraftRow] = Field(min_length=1, max_length=300)
+    # Biometric consent is signed on paper before the photo; NAZAR may require the date.
+    consent_signed_at: date | None = None
 
 
 def create_app(settings: Settings | None = None, *, nazar_transport: httpx.AsyncBaseTransport | None = None) -> FastAPI:
@@ -138,7 +153,90 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
                     proposals[entry.proposal_id] = None
         return [audit_view(entry, proposals[entry.proposal_id]) for entry in entries]
 
+    @app.post("/api/import/read")
+    async def read_import(text: str | None = Form(None), file: UploadFile | None = File(None)) -> dict[str, Any]:
+        content = await _read_upload(file)
+        try:
+            rows, sites = await assistant().read_list(
+                text=text, file=content, content_type=file.content_type if file else None
+            )
+        except ParseError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        return {"rows": [_row_view(row) for row in rows], "sites": [{"id": site.id, "name": site.name} for site in sites]}
+
+    @app.post("/api/import/drafts")
+    async def create_drafts(request: DraftsRequest) -> list[dict[str, Any]]:
+        current = assistant()
+        sites = {site.id: site.name for site in await current.sites()}
+        unknown = [row.site_id for row in request.rows if row.site_id and row.site_id not in sites]
+        if unknown:
+            raise HTTPException(422, f"Unknown site: {unknown[0]}")
+        drafts = current.drafts.add_many(
+            [(" ".join(row.full_name.split()), row.site_id, sites.get(row.site_id or "")) for row in request.rows],
+            request.consent_signed_at,
+            request.actor,
+        )
+        return [_draft_view(draft) for draft in drafts]
+
+    @app.get("/api/import/drafts")
+    async def waiting_drafts() -> list[dict[str, Any]]:
+        return [_draft_view(draft) for draft in assistant().drafts.waiting()]
+
+    @app.post("/api/import/drafts/{draft_id}/photo")
+    async def photograph(draft_id: str, actor: str = Form(..., min_length=1, max_length=80), photo: UploadFile = File(...)) -> dict[str, Any]:
+        current = assistant()
+        content = await _read_upload(photo)
+        try:
+            draft = await current.drafts.photograph(draft_id, content or b"", photo.content_type or "image/jpeg", current.nazar, actor)
+        except KeyError:
+            raise HTTPException(404, "No such draft.") from None
+        except PhotoRejected as exc:
+            raise HTTPException(422, {"photo_rejected": exc.reasons}) from exc
+        except ToolExecutionError as exc:
+            # Mostly something a person can fix: consent date, a photo NAZAR rejects.
+            raise HTTPException(422, str(exc)) from exc
+        return _draft_view(draft)
+
+    @app.post("/api/import/drafts/{draft_id}/discard")
+    async def discard(draft_id: str, request: DecisionRequest) -> dict[str, Any]:
+        drafts = assistant().drafts
+        try:
+            if not drafts.discard(draft_id, request.actor):
+                raise HTTPException(409, "Only a person still waiting for a photo can be removed.")
+            return _draft_view(drafts.get(draft_id))
+        except KeyError:
+            raise HTTPException(404, "No such draft.") from None
+
     return app
+
+
+async def _read_upload(file: UploadFile | None) -> bytes | None:
+    if file is None:
+        return None
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "The file is larger than 10 MB.")
+    return content
+
+
+def _row_view(row: ImportRow) -> dict[str, Any]:
+    return {
+        "full_name": row.full_name,
+        "as_written": row.as_written,
+        "site_hint": row.site_hint,
+        "site_id": row.site_id,
+        "issues": list(row.issues),
+    }
+
+
+def _draft_view(draft: Draft) -> dict[str, Any]:
+    return {
+        "id": draft.id,
+        "status": draft.status,
+        "full_name": draft.full_name,
+        "site_name": draft.site_name,
+        "employee_id": draft.employee_id,
+    }
 
 
 def _start_telegram(settings: Settings, assistant: Assistant) -> tuple[list[asyncio.Task[None]], TelegramApi | None]:

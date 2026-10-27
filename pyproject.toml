@@ -13,8 +13,10 @@ dependencies = [
     "fastapi>=0.115",
     "httpx[socks]>=0.27",
     "openai>=1.60",
+    "openpyxl>=3.1",
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
+    "python-multipart>=0.0.9",
     "tzdata>=2024.1",
     "uvicorn>=0.30",
 ]

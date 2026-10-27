@@ -21,11 +21,12 @@ from nazar_agent.actions import Executor, Proposal, ProposalStore
 from nazar_agent.config import Settings
 from nazar_agent.findings import Analysis, analyze
 from nazar_agent.nazar import NazarClient
+from nazar_agent.onboarding import DraftStore, ImportRow, Site, read_list, review
 from nazar_agent.recommendations import Recommendations, Team, recommend
 from nazar_agent.roles import attendance_analyst, timesheet_analyst
 from nazar_agent.roles.dispatcher import Analyst, route
 from nazar_agent.tools import attendance_tools, timesheet_tools
-from nazar_agent.tools.common import COMPANY_TZ
+from nazar_agent.tools.common import COMPANY_TZ, call_nazar
 from nazar_agent.views import answer_view
 
 ANALYSTS = {
@@ -55,6 +56,7 @@ class Assistant:
         self.nazar = nazar
         self.store = store
         self.executor = Executor(store, nazar)
+        self.drafts = DraftStore(settings.agent_db_path, store)
         self.last: Answer | None = None
         self._lock = asyncio.Lock()
 
@@ -68,6 +70,23 @@ class Assistant:
         async with self._lock:
             self.last = await self._answer(question, analyst)
             return self.last
+
+    async def read_list(
+        self, *, text: str | None, file: bytes | None, content_type: str | None
+    ) -> tuple[list[ImportRow], list[Site]]:
+        """A list of people → rows checked against the company's sites and employees."""
+        llm = self.settings.analyst_llm()
+        try:
+            people = await read_list(llm, self.settings.analyst_model, text=text, file=file, content_type=content_type)
+        finally:
+            await llm.aclose()
+        sites = await self.sites()
+        employees = await call_nazar(self.nazar.get("/employees"))
+        return review(people, sites, employees), sites
+
+    async def sites(self) -> list[Site]:
+        objects = await call_nazar(self.nazar.get("/objects", {"include_inactive": False}))
+        return [Site(item["id"], item["name"], item.get("address") or "") for item in objects]
 
     async def _answer(self, question: str, analyst: Analyst | None) -> Answer:
         settings = self.settings

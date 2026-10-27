@@ -21,7 +21,11 @@ from pathlib import Path
 from typing import Any, Literal
 
 ProposalStatus = Literal["pending", "executing", "executed", "declined", "stale", "failed", "undoing", "undone"]
-AuditEvent = Literal["proposed", "executed", "declined", "refused", "failed", "undone"]
+AuditEvent = Literal[
+    "proposed", "executed", "declined", "refused", "failed", "undone",
+    # Importing a list of employees (nazar_agent.onboarding).
+    "draft_created", "employee_created", "photo_rejected", "draft_discarded",
+]
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS proposals (
@@ -78,7 +82,7 @@ class AuditEntry:
 class ProposalStore:
     def __init__(self, path: Path | str) -> None:
         self._path = str(path)
-        # executescript commits on its own, so it runs outside _Closing's transaction.
+        # executescript commits on its own, so it runs outside a Transaction.
         connection = sqlite3.connect(self._path)
         try:
             connection.executescript(_SCHEMA)
@@ -154,17 +158,21 @@ class ProposalStore:
             for row in rows
         ]
 
-    def _connect(self) -> _Closing:
-        connection = sqlite3.connect(self._path, isolation_level=None)  # autocommit; one statement = one change
-        connection.row_factory = sqlite3.Row
-        return _Closing(connection)
+    def _connect(self) -> Transaction:
+        return Transaction.open(self._path)
 
 
-class _Closing:
+class Transaction:
     """sqlite3's own context manager commits but does not close; this one does both."""
 
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._connection = connection
+
+    @classmethod
+    def open(cls, path: str) -> Transaction:
+        connection = sqlite3.connect(path, isolation_level=None)  # transactions are explicit
+        connection.row_factory = sqlite3.Row
+        return cls(connection)
 
     def __enter__(self) -> sqlite3.Connection:
         self._connection.execute("BEGIN IMMEDIATE")
