@@ -7,11 +7,11 @@ see exactly what was added to the existing product.
 
 | # | Change | Why | Diff |
 |---|---|---|---|
-| 0001 | NAZAR trusts requests marked `X-Request-Origin: nazar_agent`, as it already trusts its mobile app | NAZAR's CSRF guard rejects state-changing requests that carry a session cookie but no `Origin`. That guard protects browsers; the agent is a server-side client and sends no `Origin`. A browser cannot set this custom header cross-site without a CORS preflight, which NAZAR grants only to its own origins. | [0001-trust-agent-client-marker.diff](0001-trust-agent-client-marker.diff) |
+| 0001 | NAZAR trusts requests marked `X-Request-Origin: nazar_agent`, as it already trusts its mobile app. NAZAR commit `ccf9ba8c`, Oct 27 | NAZAR's CSRF guard rejects state-changing requests that carry a session cookie but no `Origin`. That guard protects browsers; the agent is a server-side client and sends no `Origin`. A browser cannot set this custom header cross-site without a CORS preflight, which NAZAR grants only to its own origins. | [0001-trust-agent-client-marker.diff](0001-trust-agent-client-marker.diff) |
 
-Demo data, not code: the local demo company runs on the Business plan,
-because the Standard plan excludes timesheet corrections and event reviews —
-the two things the agent proposes.
+Demo data, not code: the demo company runs on the "Management" plan
+(`business`). Timesheet corrections are on every plan, but recording the
+review of a check-in is not on the entry plan.
 
 Planned:
 
