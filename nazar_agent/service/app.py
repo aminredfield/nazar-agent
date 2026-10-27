@@ -145,7 +145,7 @@ def _start_telegram(settings: Settings, assistant: Assistant) -> tuple[list[asyn
     """The bot and the morning brief, when a bot token is configured."""
     if settings.telegram_bot_token is None or not settings.telegram_bot_token.get_secret_value():
         return [], None
-    api = TelegramApi(settings.telegram_bot_token.get_secret_value())
+    api = TelegramApi(settings.telegram_bot_token.get_secret_value(), proxy=settings.telegram_proxy)
 
     async def voice_to_text(audio: bytes) -> str:
         llm = settings.analyst_llm()

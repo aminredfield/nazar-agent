@@ -18,10 +18,18 @@ class TelegramError(Exception):
 
 
 class TelegramApi:
-    def __init__(self, token: str, *, transport: httpx.AsyncBaseTransport | None = None) -> None:
+    def __init__(
+        self,
+        token: str,
+        *,
+        proxy: str | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
         self._token = token
-        # Long polling holds the request open for POLL_TIMEOUT_SECONDS.
-        self._http = httpx.AsyncClient(timeout=POLL_TIMEOUT_SECONDS + 15, transport=transport)
+        # Long polling holds the request open for POLL_TIMEOUT_SECONDS. The
+        # proxy is for networks where api.telegram.org is blocked (seen on the
+        # development machine in Uzbekistan, while the Telegram app works).
+        self._http = httpx.AsyncClient(timeout=POLL_TIMEOUT_SECONDS + 15, proxy=proxy or None, transport=transport)
 
     async def get_updates(self, offset: int | None) -> list[dict[str, Any]]:
         params: dict[str, Any] = {"timeout": POLL_TIMEOUT_SECONDS, "allowed_updates": '["message","callback_query"]'}

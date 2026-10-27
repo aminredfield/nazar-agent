@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -202,3 +203,26 @@ def test_card_renders_only_safe_html():
 
     assert "<script>" not in text and "&lt;script&gt;" in text
     assert card_keyboard(view) == []
+
+
+async def test_polling_survives_a_blocked_network(setup, monkeypatch):
+    import httpx
+
+    bot, api, _, _, _ = setup
+    calls = {"n": 0}
+
+    async def get_updates(offset):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise httpx.ConnectTimeout("timed out")
+        raise asyncio.CancelledError  # stop the loop after the retry
+
+    async def no_wait(seconds):
+        return None
+
+    api.get_updates = get_updates
+    monkeypatch.setattr("nazar_agent.telegram.bot.asyncio.sleep", no_wait)
+
+    with pytest.raises(asyncio.CancelledError):
+        await bot.run()
+    assert calls["n"] == 2

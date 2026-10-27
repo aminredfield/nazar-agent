@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 from html import escape
 from typing import Any, Protocol
 
+import httpx
+
 from nazar_agent.actions import ExecutionError
 from nazar_agent.assistant import Assistant, AssistantBusy
 from nazar_agent.telegram.api import TelegramApi, TelegramError
@@ -65,7 +67,8 @@ class Bot:
         while True:
             try:
                 updates = await self.api.get_updates(offset)
-            except (TelegramError, OSError) as exc:
+            except (TelegramError, httpx.HTTPError, OSError) as exc:
+                # A blocked or flaky network must not end the bot: retry.
                 log.warning("telegram polling failed: %s", exc)
                 await asyncio.sleep(5)
                 continue
@@ -151,7 +154,7 @@ class Bot:
             await self.api.send_message(chat_id, answer_footer(view))
 
     async def _keep_typing(self, chat_ids: list[int]) -> None:
-        with contextlib.suppress(asyncio.CancelledError, TelegramError):
+        with contextlib.suppress(asyncio.CancelledError, TelegramError, httpx.HTTPError):
             while True:
                 for chat_id in chat_ids:
                     await self.api.send_chat_action(chat_id)

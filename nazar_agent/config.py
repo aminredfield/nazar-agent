@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     # Telegram: the agent's own bot. Only these chat ids may use it.
     telegram_bot_token: SecretStr | None = None
     telegram_allowed_chats: str = ""  # comma-separated chat ids
+    # Only where api.telegram.org is blocked: http://host:port or socks5://host:port
+    telegram_proxy: str = ""
     # Morning brief to every allowed chat at this local time, e.g. "08:30"; empty = off.
     brief_time: str = ""
 
