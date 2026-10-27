@@ -119,7 +119,8 @@ def attendance_tools(nazar: NazarClient) -> tuple[Tool, ...]:
             name="get_attendance_events",
             description=(
                 "Check-in and check-out events for a period, newest first, with anti-fraud flags, "
-                "GPS accuracy and review status. One call covers the whole company: filter by "
+                "GPS accuracy, review status and the device key (the same key on check-ins of "
+                "different people means one phone). One call covers the whole company: filter by "
                 "object or employee only when the question is about them."
             ),
             params=AttendanceEventsParams,
@@ -188,6 +189,8 @@ def _event_view(item: dict[str, Any]) -> dict[str, Any]:
         "flags": _explain_flags([*item.get("risk_flags", []), *item.get("suspicious_flags", [])]),
         "review_status": item.get("review_status"),
         "has_photo": bool(item.get("photo_url")),
+        # The same key on check-ins of different people: one phone (NAZAR change 0003).
+        "device_key": item.get("device_key"),
     }
 
 

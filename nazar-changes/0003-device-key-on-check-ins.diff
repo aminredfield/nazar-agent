@@ -1,0 +1,105 @@
+diff --git a/backend/app/repositories/attendance_repository.py b/backend/app/repositories/attendance_repository.py
+index 8e4d47b2..3af29f05 100644
+--- a/backend/app/repositories/attendance_repository.py
++++ b/backend/app/repositories/attendance_repository.py
+@@ -900,6 +900,7 @@ SELECT assigned, scheduled_today, expected_now,
+             .options(
+                 joinedload(AttendanceEvent.employee),
+                 joinedload(AttendanceEvent.object),
++                joinedload(AttendanceEvent.device_binding),
+             )
+             .where(
+                 AttendanceEvent.company_id == company_id,
+diff --git a/backend/app/schemas/attendance.py b/backend/app/schemas/attendance.py
+index 7a091d4d..6ecf6885 100644
+--- a/backend/app/schemas/attendance.py
++++ b/backend/app/schemas/attendance.py
+@@ -107,6 +107,10 @@ class AttendanceEventListItem(BaseModel):
+     review_status: str = "not_reviewed"
+     photo_url: str | None
+     received_at_server: datetime
++    # Короткий ключ устройства отметки: одинаковый у отметок разных людей —
++    # значит, с одного телефона. Это начало хеша браузера из привязки
++    # (browser_hash), не сам отпечаток; без привязки — null.
++    device_key: str | None = None
+ 
+ 
+ class AttendancePreviousEventInfo(BaseModel):
+@@ -146,6 +150,10 @@ class AttendanceEventDetailResponse(BaseModel):
+     risk_score: int = 0
+     risk_level: str = "low"
+     received_at_server: datetime
++    # Короткий ключ устройства отметки: одинаковый у отметок разных людей —
++    # значит, с одного телефона. Это начало хеша браузера из привязки
++    # (browser_hash), не сам отпечаток; без привязки — null.
++    device_key: str | None = None
+     previous_event: AttendancePreviousEventInfo | None
+     admin_notified_at: datetime | None
+     review_status: str
+diff --git a/backend/app/services/attendance_service.py b/backend/app/services/attendance_service.py
+index ac8c7dca..88f730e8 100644
+--- a/backend/app/services/attendance_service.py
++++ b/backend/app/services/attendance_service.py
+@@ -121,6 +121,16 @@ class AttendanceOutcome:
+     device_expires_at: datetime | None = None
+ 
+ 
++DEVICE_KEY_LENGTH = 16
++
++
++def device_key_of(event) -> str | None:
++    """Начало хеша браузера из привязки устройства — чтобы видеть общий телефон."""
++    binding = getattr(event, "device_binding", None)
++    browser_hash = getattr(binding, "browser_hash", None)
++    return browser_hash[:DEVICE_KEY_LENGTH] if browser_hash else None
++
++
+ class AttendanceService:
+     def __init__(
+         self,
+@@ -573,6 +583,7 @@ class AttendanceService:
+             review_status=getattr(event, "review_status", None) or DEFAULT_REVIEW_STATUS,
+             photo_url=event.photo_url,
+             received_at_server=event.received_at_server,
++            device_key=device_key_of(event),
+         )
+ 
+     async def list_employee_events(
+@@ -716,6 +727,7 @@ class AttendanceService:
+             photo_url=event.photo_url,
+             captured_at_client=event.captured_at_client,
+             received_at_server=event.received_at_server,
++            device_key=device_key_of(event),
+             previous_event=previous_info,
+             location_samples=getattr(event, "location_samples", None) or [],
+             network_context=getattr(event, "network_context", None) or {},
+diff --git a/backend/tests/test_attendance_device_key.py b/backend/tests/test_attendance_device_key.py
+new file mode 100644
+index 00000000..b22482a4
+--- /dev/null
++++ b/backend/tests/test_attendance_device_key.py
+@@ -0,0 +1,24 @@
++"""The device key on an attendance event: enough to see one phone used by several people."""
++
++from types import SimpleNamespace
++
++from app.services.attendance_service import DEVICE_KEY_LENGTH, device_key_of
++
++
++def test_two_people_on_one_phone_share_the_key():
++    phone = "a1b2c3d4e5f6a7b8c9d0" * 3
++    first = SimpleNamespace(device_binding=SimpleNamespace(browser_hash=phone))
++    second = SimpleNamespace(device_binding=SimpleNamespace(browser_hash=phone))
++
++    assert device_key_of(first) == device_key_of(second) == phone[:DEVICE_KEY_LENGTH]
++
++
++def test_only_the_start_of_the_hash_leaves_nazar():
++    key = device_key_of(SimpleNamespace(device_binding=SimpleNamespace(browser_hash="f" * 64)))
++
++    assert len(key) == DEVICE_KEY_LENGTH
++
++
++def test_no_binding_no_key():
++    assert device_key_of(SimpleNamespace(device_binding=None)) is None
++    assert device_key_of(SimpleNamespace()) is None

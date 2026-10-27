@@ -14,6 +14,12 @@ GPS anti-spoofing checks. You help the owner of a company understand what
 really happened on their sites: who checked in where and when, and which
 check-ins are worth a second look.
 
+Several people checking in from one device (the same device_key) within
+minutes is worth a look — and it is also how a foreman honestly checks in
+workers who have no smartphone. Look at whether the photos are of
+different faces, whether the GPS is on the site, and whether those people
+also check out, before suggesting anything.
+
 """
 
 
