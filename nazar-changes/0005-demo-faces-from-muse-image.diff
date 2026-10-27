@@ -1,0 +1,191 @@
+diff --git a/backend/scripts/seed_construction_demo.py b/backend/scripts/seed_construction_demo.py
+index c4263f11..d5d27920 100644
+--- a/backend/scripts/seed_construction_demo.py
++++ b/backend/scripts/seed_construction_demo.py
+@@ -15,8 +15,9 @@ The cases the agents are evaluated on:
+ - Yashnobod — a finishing crew arrives at 09:00 and leaves at 19:00 every day,
+   while the site's schedule says 08:00–18:00. The schedule is wrong, not the people.
+ 
+-Faces are the AI-generated demo faces (docs/investment/demo-faces); the
+-check-in photos are drawn from them by scripts/demo_photos.py.
++Faces are fictional people generated for their names with Meta Muse Image
++(docs/investment/demo-faces, provenance in faces.csv); the check-in photos
++are drawn from them by scripts/demo_photos.py.
+ 
+ Usage (inside the backend container or a configured backend venv):
+     cd backend
+@@ -97,22 +98,22 @@ class Worker:
+ 
+ 
+ ROSTER = (
+-    Worker("Рустам Юлдашев", "face_11.jpg", "chilonzor", "foreman"),
+-    Worker("Азамат Норматов", "face_00.jpg", "chilonzor", "worker"),
+-    Worker("Бобур Каримов", "face_03.jpg", "chilonzor", "worker"),
+-    Worker("Илхом Тураев", "face_16.jpg", "chilonzor", "worker"),
+-    Worker("Нодира Сафарова", "face_04.jpg", "chilonzor", "worker"),
+-    Worker("Шерзод Алимов", "face_15.jpg", "chilonzor", "weak_gps"),
+-    Worker("Тимур Хасанов", "face_17.jpg", "chilonzor", "left"),
+-    Worker("Гулчехра Ибрагимова", "face_06.jpg", "chilonzor", "left"),
+-    Worker("Мохира Юнусова", "face_05.jpg", "chilonzor", "left"),
+-    Worker("Феруза Каримова", "face_07.jpg", "chilonzor", "left"),
+-    Worker("Дилшод Мирзаев", "face_12.jpg", "sergeli", "foreman_honest"),
+-    Worker("Хуршид Рахмонов", "face_09.jpg", "sergeli", "no_phone"),
+-    Worker("Анвар Бакиров", "face_13.jpg", "sergeli", "no_phone"),
+-    Worker("Зухра Набиева", "face_01.jpg", "yashnobod", "late_crew"),
+-    Worker("Камола Ташпулатова", "face_10.jpg", "yashnobod", "late_crew"),
+-    Worker("Дилфуза Эргашева", "face_14.jpg", "yashnobod", "late_crew"),
++    Worker("Рустам Юлдашев", "rustam_yuldashev.jpg", "chilonzor", "foreman"),
++    Worker("Азамат Норматов", "azamat_normatov.jpg", "chilonzor", "worker"),
++    Worker("Бобур Каримов", "bobur_karimov.jpg", "chilonzor", "worker"),
++    Worker("Илхом Тураев", "ilhom_turaev.jpg", "chilonzor", "worker"),
++    Worker("Нодира Сафарова", "nodira_safarova.jpg", "chilonzor", "worker"),
++    Worker("Шерзод Алимов", "sherzod_alimov.jpg", "chilonzor", "weak_gps"),
++    Worker("Тимур Хасанов", "timur_hasanov.jpg", "chilonzor", "left"),
++    Worker("Гулчехра Ибрагимова", "gulchehra_ibragimova.jpg", "chilonzor", "left"),
++    Worker("Мохира Юнусова", "mohira_yunusova.jpg", "chilonzor", "left"),
++    Worker("Феруза Каримова", "feruza_karimova.jpg", "chilonzor", "left"),
++    Worker("Дилшод Мирзаев", "dilshod_mirzaev.jpg", "sergeli", "foreman_honest"),
++    Worker("Хуршид Рахмонов", "hurshid_rahmonov.jpg", "sergeli", "no_phone"),
++    Worker("Анвар Бакиров", "anvar_bakirov.jpg", "sergeli", "no_phone"),
++    Worker("Зухра Набиева", "zuhra_nabieva.jpg", "yashnobod", "late_crew"),
++    Worker("Камола Ташпулатова", "kamola_tashpulatova.jpg", "yashnobod", "late_crew"),
++    Worker("Дилфуза Эргашева", "dilfuza_ergasheva.jpg", "yashnobod", "late_crew"),
+ )
+ WEAK_GPS_OUTSIDE_DAYS_AGO = (3, 8)
+ ABSENCE_CHANCE = 0.04
+diff --git a/backend/scripts/seed_demo_company.py b/backend/scripts/seed_demo_company.py
+index 5a48bf7b..364093c3 100644
+--- a/backend/scripts/seed_demo_company.py
++++ b/backend/scripts/seed_demo_company.py
+@@ -73,26 +73,25 @@ LATE_GRACE_MINUTES = 10
+ COMPANY_NAME = "Bahor Market"
+ # (full name, photo file). The pairing is explicit rather than positional:
+ # handing out photos in directory order put men's faces on women's names, and
+-# that is the first thing a viewer notices in a demo.
+-# face_02 and face_08 are deliberately unused — they are children's faces and
+-# have no business in a shop's employee roster.
++# that is the first thing a viewer notices in a demo. Every face was generated
++# for its name (docs/investment/demo-faces/faces.csv).
+ EMPLOYEES = [
+-    ("Азиз Каримов", "face_00.jpg"),
+-    ("Дильноза Юсупова", "face_01.jpg"),
+-    ("Жасур Тошматов", "face_03.jpg"),
+-    ("Нилуфар Рахимова", "face_04.jpg"),
+-    ("Сардор Абдуллаев", "face_09.jpg"),
+-    ("Мадина Исмаилова", "face_05.jpg"),
+-    ("Бехзод Назаров", "face_11.jpg"),
+-    ("Гульнора Саидова", "face_06.jpg"),
+-    ("Отабек Эргашев", "face_12.jpg"),
+-    ("Зарина Хакимова", "face_07.jpg"),
+-    ("Шахзод Умаров", "face_13.jpg"),
+-    ("Севара Мирзаева", "face_10.jpg"),
+-    ("Улугбек Холматов", "face_15.jpg"),
+-    ("Лола Ахмедова", "face_14.jpg"),
+-    ("Фаррух Султанов", "face_16.jpg"),
+-    ("Джавохир Раупов", "face_17.jpg"),
++    ("Азиз Каримов", "aziz_karimov.jpg"),
++    ("Дильноза Юсупова", "dilnoza_yusupova.jpg"),
++    ("Жасур Тошматов", "jasur_toshmatov.jpg"),
++    ("Нилуфар Рахимова", "nilufar_rahimova.jpg"),
++    ("Сардор Абдуллаев", "sardor_abdullaev.jpg"),
++    ("Мадина Исмаилова", "madina_ismailova.jpg"),
++    ("Бехзод Назаров", "behzod_nazarov.jpg"),
++    ("Гульнора Саидова", "gulnora_saidova.jpg"),
++    ("Отабек Эргашев", "otabek_ergashev.jpg"),
++    ("Зарина Хакимова", "zarina_hakimova.jpg"),
++    ("Шахзод Умаров", "shahzod_umarov.jpg"),
++    ("Севара Мирзаева", "sevara_mirzaeva.jpg"),
++    ("Улугбек Холматов", "ulugbek_holmatov.jpg"),
++    ("Лола Ахмедова", "lola_ahmedova.jpg"),
++    ("Фаррух Султанов", "farrukh_sultanov.jpg"),
++    ("Джавохир Раупов", "javohir_raupov.jpg"),
+ ]
+ 
+ EMPLOYEE_NAMES = [name for name, _ in EMPLOYEES]
+diff --git a/docs/investment/demo-akkaunt-instrukciya.md b/docs/investment/demo-akkaunt-instrukciya.md
+index 8c56413c..3bf22bfc 100644
+--- a/docs/investment/demo-akkaunt-instrukciya.md
++++ b/docs/investment/demo-akkaunt-instrukciya.md
+@@ -23,8 +23,8 @@
+ ## Шаг 1. Обновить код на сервере
+ 
+ И скрипт, и фото лежат в репозитории (`backend/scripts/seed_demo_company.py`,
+-`docs/investment/demo-faces/` — 18 AI-сгенерированных лиц, настоящих людей нет,
+-ПДн-рисков нет). Поэтому ничего копировать с локальной машины не нужно:
++`docs/investment/demo-faces/` — 32 вымышленных человека, сгенерированных под свои
++имена через Meta Muse Image; происхождение каждого фото — в `faces.csv`). Поэтому ничего копировать с локальной машины не нужно:
+ 
+ ```bash
+ cd /opt/faceid-startup-mvp && git pull && docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+diff --git a/docs/investment/demo-faces/faces.csv b/docs/investment/demo-faces/faces.csv
+new file mode 100644
+index 00000000..a47707fb
+--- /dev/null
++++ b/docs/investment/demo-faces/faces.csv
+@@ -0,0 +1,33 @@
++file,name,company,gender,age,source,model,generated_at,prompt,processing,sha256
++rustam_yuldashev.jpg,Рустам Юлдашев,Mustahkam Qurilish,man,46,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:32:25+00:00,"Photorealistic photo of a fictional 46-year-old Uzbek man with a heavyset round full face, a broad flat nose, narrow eyes with epicanthic folds, dark tanned skin; foreman, short greying hair, trimmed black mustache, broad face, dark work jacket. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",ebec63c61af32a68c1f61994e87939908b947bb7ba942b96041fb353f2f427e7
++azamat_normatov.jpg,Азамат Норматов,Mustahkam Qurilish,man,28,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:38:14+00:00,"Photorealistic photo of a fictional 28-year-old Uzbek man with an oval face, a wide upturned nose, round cheeks, close-set eyes, a cleft chin, fair skin with freckles; short black hair, light stubble, grey hoodie. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",02795cf147fc340992b78fe7a38910fd203bca18d53095bac8b4c5a77ee6ac95
++bobur_karimov.jpg,Бобур Каримов,Mustahkam Qurilish,man,34,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:34:37+00:00,"Photorealistic photo of a fictional 34-year-old Uzbek man with a square jaw, a thick neck, a wide nose, small eyes under a heavy brow, medium-brown skin; close-cropped hair, round face, short black beard, checked flannel shirt. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",a0d155962ab47097b23c09fb2abc6df442a16c1fa51aaadc318746d26830806e
++ilhom_turaev.jpg,Илхом Тураев,Mustahkam Qurilish,man,52,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:34:37+00:00,"Photorealistic photo of a fictional 52-year-old Uzbek man with a gaunt thin face, hollow cheeks, a large hooked nose, deep wrinkles, very tanned skin; balding, grey at the temples, tanned weathered skin, olive work jacket. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",b4b14aafa5a804127946080ce070a8a2ae7c90c5b851e21a1092822f3150d270
++nodira_safarova.jpg,Нодира Сафарова,Mustahkam Qurilish,woman,38,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:32:30+00:00,"Photorealistic photo of a fictional 38-year-old Uzbek woman with a round soft face, a small upturned nose, narrow almond eyes with epicanthic folds, fair skin, rosy cheeks; hair under a simple patterned headscarf, warm brown eyes, plain dark blouse. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",8519b3156bbb71257462091a34ed074ef3aace28fd23cd11c9c62b7f6d23edf4
++sherzod_alimov.jpg,Шерзод Алимов,Mustahkam Qurilish,man,24,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:34:37+00:00,"Photorealistic photo of a fictional 24-year-old Uzbek man with an oval face, large round eyes, a thin straight nose, full lips, olive skin; wavy black hair, slim face, clean-shaven, navy windbreaker. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",2e574bdd6288b950821c3a2eeec1f5c33f5279ea604a10bf80d78fe210979c61
++timur_hasanov.jpg,Тимур Хасанов,Mustahkam Qurilish,man,31,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:38:14+00:00,"Photorealistic photo of a fictional 31-year-old Uzbek man with a triangular face with a wide forehead and a narrow pointed chin, a long thin nose, close-set light-brown eyes, pale skin, a small scar through the left eyebrow; buzz cut, angular jaw, black t-shirt. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",3b5a9d5d4b8a129444bc93d6cb20625920597804d6b37eb56ec8c4acf98aaa91
++gulchehra_ibragimova.jpg,Гулчехра Ибрагимова,Mustahkam Qurilish,woman,44,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:32:42+00:00,"Photorealistic photo of a fictional 44-year-old Uzbek woman with a wide face with full cheeks, a broad nose, thick eyebrows, a double chin, medium-brown skin; dark hair in a bun, round face, light knitted cardigan. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",de1d30086ff510d723d53dcffebbdcd6f16fd1b98bbbe679965d670294dd9a3b
++mohira_yunusova.jpg,Мохира Юнусова,Mustahkam Qurilish,woman,27,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:34:54+00:00,"Photorealistic photo of a fictional 27-year-old Uzbek woman with a heart-shaped face, large dark eyes, a thin arched nose, pale skin, a mole above the lip; long dark hair in a ponytail, thin eyebrows, beige sweater. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",a8e96e0b27233995270dd907a5518b2a741376964d13a6997fe971e0a36e5596
++feruza_karimova.jpg,Феруза Каримова,Mustahkam Qurilish,woman,35,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:32:27+00:00,"Photorealistic photo of a fictional 35-year-old Uzbek woman with a long face, a prominent aquiline nose, deep-set hazel eyes, thin lips, olive skin; headscarf tied at the back, oval face, dark green top. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",5c1b2f27f1aa0ec878503916aba77fdc595ff58625140231261bf50657ed4e64
++dilshod_mirzaev.jpg,Дилшод Мирзаев,Mustahkam Qurilish,man,49,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:32:29+00:00,"Photorealistic photo of a fictional 49-year-old Uzbek man with a long rectangular face, a large straight nose, bushy eyebrows, light olive skin; foreman, thick black mustache, short greying hair, brown jacket. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",65673ba82f2859d6f648b1025e5caae950bc89652637357663c56fb44ef9f7ce
++hurshid_rahmonov.jpg,Хуршид Рахмонов,Mustahkam Qurilish,man,57,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:39:35+00:00,"Photorealistic photo of a fictional 57-year-old Uzbek man with a broad square face, a heavy jaw, a wide flat nose, puffy eyelids, a full grey beard; grey hair, deep lines on the face, quilted work vest. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",9a5f2da6564598775ad91ac3b2668c788facf7a1cd9c0fed464cd50d37fa7c34
++anvar_bakirov.jpg,Анвар Бакиров,Mustahkam Qurilish,man,22,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:39:28+00:00,"Photorealistic photo of a fictional 22-year-old Uzbek man with a heart-shaped face, large protruding ears, big round dark eyes, thick black eyebrows, olive skin; youthful face, thin mustache, short hair, red and black flannel shirt. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",354c5afb0d11d8d04c12755d568b8f534dd3967d1caa61f79a2a48d22da65da8
++zuhra_nabieva.jpg,Зухра Набиева,Mustahkam Qurilish,woman,41,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:38:34+00:00,"Photorealistic photo of a fictional 41-year-old Uzbek woman with a square face, a strong jaw, a wide mouth, small eyes, light skin with freckles; short bob haircut, thin-rimmed glasses, grey work shirt. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",db97566f2ef36a4f334a220c4350387932e3468e71fdc06656211d542fbb2ef1
++kamola_tashpulatova.jpg,Камола Ташпулатова,Mustahkam Qurilish,woman,30,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:32:47+00:00,"Photorealistic photo of a fictional 30-year-old Uzbek woman with a narrow oval face, East Asian features, a flat nose bridge, high cheekbones, very fair skin; long straight black hair, wide cheekbones, white blouse. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",bf953e4dccd0322dbba5c7a9c05ed53c584751f78b002d36ef21e9d375109840
++dilfuza_ergasheva.jpg,Дилфуза Эргашева,Mustahkam Qurilish,woman,48,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:38:30+00:00,"Photorealistic photo of a fictional 48-year-old Uzbek woman with a long narrow face, a pointed chin, a small straight nose, deep-set eyes, fair skin; headscarf, smile lines, dark blue cardigan. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",b7754814fa48d2323b815ae2bbc5b6301b7b58d1d84e64ba8c44b0502934ae17
++aziz_karimov.jpg,Азиз Каримов,Bahor Market,man,33,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:35:09+00:00,"Photorealistic photo of a fictional 33-year-old Uzbek man with a wide square face, a short neck, a flat broad nose, narrow eyes, medium-brown skin; neat short haircut, clean-shaven, light blue shirt. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",414bc74d30d2ea43048959fb7a257321807aaaadb963225062336a0af326bc6a
++dilnoza_yusupova.jpg,Дильноза Юсупова,Bahor Market,woman,26,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:35:18+00:00,"Photorealistic photo of a fictional 26-year-old Uzbek woman with a long narrow face, large almond eyes, a long straight nose, very fair skin; long wavy dark hair, light makeup, pink blouse. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",b427227dd432fcf5bbae8c299e1ed5e9cba94d1713dc3d712157f2c4a97068c6
++jasur_toshmatov.jpg,Жасур Тошматов,Bahor Market,man,29,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:35:17+00:00,"Photorealistic photo of a fictional 29-year-old Uzbek man with a round face, East Asian features, a small nose, wide cheekbones; short neat beard, dark polo shirt. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",7b5de27e514d9ff488706f3ca615eb95cde77fb5744989cd70955f62e3430403
++nilufar_rahimova.jpg,Нилуфар Рахимова,Bahor Market,woman,37,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:35:30+00:00,"Photorealistic photo of a fictional 37-year-old Uzbek woman with an angular face, high cheekbones, a thin aquiline nose, deep-set eyes, olive skin; hair pulled back, small earrings, grey blazer. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",2e7a441ad4323c0d1771c9423b8398a2a6425abb09e03dad00e40bf9f15b8735
++sardor_abdullaev.jpg,Сардор Абдуллаев,Bahor Market,man,42,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:35:36+00:00,"Photorealistic photo of a fictional 42-year-old Uzbek man with a heavyset broad face, a double chin, thick lips, tanned skin; receding hairline, black mustache, white shirt. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",8dc4386d3d558fe530c8f60e851f206bf2e6328f67ea16bee740d1c42331073c
++madina_ismailova.jpg,Мадина Исмаилова,Bahor Market,woman,23,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:35:34+00:00,"Photorealistic photo of a fictional 23-year-old Uzbek woman with a round face, East Asian features, a flat nose bridge, a small mouth, fair skin; straight bangs, round face, mint green top. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",ca7d7169fd40dfa6d9dfa3820cb4ff5ae017de8f61839f5b2ce010292c9f31e2
++behzod_nazarov.jpg,Бехзод Назаров,Bahor Market,man,38,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:35:36+00:00,"Photorealistic photo of a fictional 38-year-old Uzbek man with a long thin face, a large hooked nose, thick eyebrows, olive skin; dark-rimmed glasses, short hair, navy sweater. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",ea52483fb83d2108a92e12027c180e5305b72ab69faca143eac669a7d9af016f
++gulnora_saidova.jpg,Гульнора Саидова,Bahor Market,woman,50,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:35:48+00:00,"Photorealistic photo of a fictional 50-year-old Uzbek woman with a round wide face, small eyes with epicanthic folds, deep smile lines, tanned skin; short greying hair, burgundy cardigan. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",f58d97908bf367941b61bb2356a8280085712affe2e9ead2585e466d775bd12b
++otabek_ergashev.jpg,Отабек Эргашев,Bahor Market,man,25,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:35:51+00:00,"Photorealistic photo of a fictional 25-year-old Uzbek man with a narrow face, large dark eyes, a long nose, olive skin; curly black hair, clean-shaven, black shirt. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",c4b631250f86c0f849f6249b722de2a742770219e1d914b4849f9f9d2df9389c
++zarina_hakimova.jpg,Зарина Хакимова,Bahor Market,woman,31,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:35:55+00:00,"Photorealistic photo of a fictional 31-year-old Uzbek woman with a square jaw, wide-set eyes, a broad nose, dark tanned skin; light beige headscarf, oval face, beige top. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",99eaae6ac1389f9644120b08a68ed0d6bd7c48191c17718daa4e060d82f85b5f
++shahzod_umarov.jpg,Шахзод Умаров,Bahor Market,man,27,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:35:48+00:00,"Photorealistic photo of a fictional 27-year-old Uzbek man with a round chubby face, small eyes, a button nose, fair skin; short undercut haircut, light stubble, green hoodie. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",15e11de229769d4623486d4df2a7d66896f28a1ec7579fbe755f39e1e07f8dcc
++sevara_mirzaeva.jpg,Севара Мирзаева,Bahor Market,woman,34,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:36:00+00:00,"Photorealistic photo of a fictional 34-year-old Uzbek woman with a heart-shaped face, freckles, thin lips, light brown eyes, light skin; shoulder-length dark hair, white shirt. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",43eea76e88a8627203ffdde2178a127d3ca41906a477be5de79aac8773de396e
++ulugbek_holmatov.jpg,Улугбек Холматов,Bahor Market,man,55,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:36:06+00:00,"Photorealistic photo of a fictional 55-year-old Uzbek man with a long face, East Asian features, a sparse grey goatee, deep wrinkles; grey hair, wrinkles, brown vest over a shirt. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",6cb323fad32d20483f91b1e76ab02db93b2927bbe0b42f2ea0e74b2e40aab1d5
++lola_ahmedova.jpg,Лола Ахмедова,Bahor Market,woman,45,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:36:15+00:00,"Photorealistic photo of a fictional 45-year-old Uzbek woman with a wide face with prominent cheekbones, thick eyebrows, full lips, olive skin; hair in a low bun, glasses, dark dress. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",b1a0574985df1a1f5f2369affef2026a835374d78faa04aa84d1394301b96b38
++farrukh_sultanov.jpg,Фаррух Султанов,Bahor Market,man,36,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:36:19+00:00,"Photorealistic photo of a fictional 36-year-old Uzbek man with a square heavy face, a large nose, dark skin; thick eyebrows, full short beard, grey t-shirt. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",dae58eab598b3c7920d7a62c6dfff78db82fe7de55d1ea0e59c86807e946db3b
++javohir_raupov.jpg,Джавохир Раупов,Bahor Market,man,21,"Meta Model API, image and web search off",muse-image-1.0,2026-10-27T22:38:10+00:00,"Photorealistic photo of a fictional 21-year-old Uzbek man with a square face, a strong chin, a wide nose, dark tanned skin, a thin mustache; youthful, short side-parted hair, dark green apron over a white t-shirt. Taken with a smartphone for an employee profile: head and shoulders, facing the camera, eyes open, relaxed neutral expression, even indoor daylight, a plain light wall behind. An ordinary person, not a model and not a real or famous person. No text, no logos, no watermark.","downscaled from 1600x1600 to 720x720, JPEG quality 88",1f140ca44580cf8bcdeb37f0520318a99e64fb0d72e30fdcc9310335cb6833fd
+diff --git a/docs/strategy/meta-hackathon-plan.md b/docs/strategy/meta-hackathon-plan.md
+index d2358948..4f6d4f71 100644
+--- a/docs/strategy/meta-hackathon-plan.md
++++ b/docs/strategy/meta-hackathon-plan.md
+@@ -44,8 +44,9 @@
+ - данные сбрасываются каждую ночь (у скрипта уже есть `--reset`);
+ - лимит запросов к ИИ на сессию и дневной бюджет, чтобы чужие запросы не
+   съели кредиты;
+-- **проверить, откуда фото в demo-faces и есть ли права** — по правилам
+-  хакатона за данные без прав дисквалифицируют.
++- лица сотрудников — вымышленные люди, сгенерированные под свои имена через
++  Meta Muse Image (28.10), происхождение — в `demo-faces/faces.csv`. Старые
++  лица (thispersondoesnotexist, без подтверждённых прав) удалены.
+ 
+ ---
+ 
+@@ -216,7 +217,7 @@
+ | Засчитывается только работа с 26.10 | Публичный репо с первым коммитом 27.10. В README раздел «Built during the hackathon / Existed before» |
+ | Демо — только новое | Кабинет NAZAR в видео с подписью «existing product». Окно помощника и бот — новое |
+ | Правки в закрытом NAZAR | Флаг, пункт меню, вход по одноразовому пропуску, ключ устройства в отметках — всё под флагом ИИ. Diff — в `nazar-changes/` |
+-| Данные без прав | Проверить права на фото в demo-faces. Новые лица — только люди с письменным согласием |
++| Данные без прав | Лица — Meta Muse Image, поиск по вебу и картинкам выключен, журнал в `faces.csv`. Реальные лица — только с письменным согласием |
+ | Вопрос организаторам | Сегодня–завтра в #questions: можно ли так связывать закрытый продукт и публичный репо |
+ 
+ ---
+@@ -297,6 +298,6 @@
+ - [x] Первый живой вызов Muse Spark с ключом (27.10)
+ - [x] Вход агента в прод мимо Turnstile — по одноразовому пропуску из кабинета (27.10)
+ - [x] Muse Spark Open на Baseten: Chat Completions, structured output и картинки работают (27.10–28.10)
+-- [ ] Права на фото в demo-faces: каким сервисом сгенерированы и на каких условиях
++- [x] Права на фото в demo-faces: старые были с thispersondoesnotexist — заменены на 32 лица из Muse Image (28.10)
+ - [ ] Spend limit в Meta Billing
+ - [ ] Ответ организаторов про связку закрытого продукта и публичного репо

@@ -36,7 +36,7 @@ a cheater; the agents write "worth checking" and "not confirmed".
 | Existed before Oct 26 | Built during the hackathon (this repository) |
 |---|---|
 | NAZAR: check-in by face + geofence + anti-spoofing, schedules, timesheet calculation, admin API, demo company seeding — closed source | Everything in this repository: agent engine, roles, tools over the NAZAR API, recommendations, executor, audit, assistant UI, Telegram bot, list import, evals |
-| | Small changes in NAZAR, all behind a per-company AI switch: the switch itself, the menu entry, sign-in with a one-minute pass, the device key of a check-in; and the construction demo company — published as diffs in [`nazar-changes/`](nazar-changes/) |
+| | Small changes in NAZAR, all behind a per-company AI switch: the switch itself, the menu entry, sign-in with a one-minute pass, the device key of a check-in; the construction demo company and new faces for both demo companies — published as diffs in [`nazar-changes/`](nazar-changes/) |
 
 The git history of this repository starts on Oct 27, 2026.
 
@@ -170,11 +170,23 @@ created and added to the site, the site's other assignments unchanged.
 | Dispatcher, analysts, recommendation writer | Muse Spark 1.3 — tool calling, structured output, vision |
 | Skeptic, nightly scan, anything with photos or personal data | Muse Spark Open (open weights) — on Baseten here, self-hosted later |
 | Voice messages (Russian, Uzbek) | Muse Spark 1.2 audio input (Muse Voice Transcribe does not cover Russian or Uzbek) |
+| Faces of the demo companies' employees | Muse Image 1.0, web and image search off |
 
-Development and evals run on `muse-spark-1.3-contributor` against a synthetic
-demo company with AI-generated faces: the same model at a fraction of the
-price, in exchange for Meta training on that traffic. Real companies' data
-goes only to the standard model or to self-hosted open weights.
+Development and evals run on `muse-spark-1.3-contributor` against synthetic
+demo companies: the same model at a fraction of the price, in exchange for
+Meta training on that traffic. Real companies' data goes only to the
+standard model or to self-hosted open weights.
+
+Every demo employee is a fictional person whose portrait Muse Image drew for
+that name, age and look ([`scripts/generate_demo_faces.py`](scripts/generate_demo_faces.py));
+the prompt, model, date and hash of each photo are kept with it. A face
+service has a harder test than "looks real": NAZAR's own recognition must
+tell the people apart. The first set, described by hair and clothes only,
+failed it — the model drew one typical face per age and gender, and
+different people scored up to 0.71 against a match threshold of 0.45.
+Describing each face's structure (shape, nose, eyes, skin) and spreading it
+across a company brought every pair of different people in a company below
+the threshold. All four rounds together: 156 candidates, $1.56.
 
 ## Status
 
@@ -195,6 +207,7 @@ goes only to the standard model or to self-hosted open weights.
 | Voice: Telegram Ogg/Opus → WAV → Muse Spark 1.2 audio input (Russian verified; Uzbek still to verify) | done |
 | Morning brief at a set local time and on `/brief` | done |
 | Importing a list of employees: photo of a notebook / Excel / CSV / text → checked table → waiting for a photo → shooting queue → employee in NAZAR | done |
+| Demo employees' faces generated with Muse Image, checked against NAZAR's face recognition | done |
 | Evals, public demo account | planned |
 
 ## Run it
