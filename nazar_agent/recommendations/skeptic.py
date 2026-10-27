@@ -24,6 +24,10 @@ from nazar_agent.findings.models import Confidence
 from nazar_agent.llm import LLMClient
 
 Verdict = Literal["concern_supported", "inconclusive", "innocent_likely"]
+# Muse Spark Open always reasons, and reasoning shares the output budget
+# (live on Baseten: 681 of 781 tokens of a one-line answer). Room for that plus
+# the assessments of several cases, so the JSON is never cut off.
+SKEPTIC_MAX_OUTPUT_TOKENS = 12_000
 _RANK: dict[Confidence, int] = {"low": 0, "medium": 1, "high": 2}
 
 INSTRUCTIONS = """\
@@ -100,6 +104,7 @@ async def run_skeptic(llm: LLMClient, model: str, report: AnalystReport, evidenc
         input=cases_text(report, evidence),
         tools=[],
         text_format=SKEPTIC_FORMAT,
+        max_output_tokens=SKEPTIC_MAX_OUTPUT_TOKENS,
     )
     try:
         parsed = SkepticReport.model_validate_json(turn.text)

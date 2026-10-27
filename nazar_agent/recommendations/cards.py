@@ -79,6 +79,7 @@ async def recommend(analysis: Analysis, team: Team, nazar: NazarClient, today: d
     log.info("writer: recommendations on %s", team.writer_model)
     writer = await compose(team.writer_llm, team.writer_model, cases, today)
 
+    stock = _stock_alternatives(findings)
     cards = []
     for index, case in enumerate(cases):
         plan = writer.plans.get(index)
@@ -97,7 +98,7 @@ async def recommend(analysis: Analysis, team: Team, nazar: NazarClient, today: d
             confidence=case.confidence,
             analyst_confidence=case.finding.confidence,
             skeptic=case.skeptic,
-            alternatives=_merge_alternatives(case.skeptic, case.finding),
+            alternatives=_merge_alternatives(case.skeptic, case.finding, stock),
             check_steps=tuple(plan.check_steps) if plan else (),
             actions=tuple(action for action in validated if action.valid),
             rejected_actions=tuple(action for action in validated if not action.valid),
@@ -115,13 +116,36 @@ async def recommend(analysis: Analysis, team: Team, nazar: NazarClient, today: d
     return Recommendations(tuple(cards), notes, usage)
 
 
-def _merge_alternatives(skeptic: SkepticView | None, finding: Finding) -> tuple[str, ...]:
-    """The skeptic's explanations first: it looked for them on purpose."""
+def _key(text: str) -> str:
+    return text.strip().casefold()
+
+
+def _stock_alternatives(findings: list[Finding]) -> frozenset[str]:
+    """Explanations the analyst repeated word for word in several findings.
+
+    Said about every case, they say nothing about this one.
+    """
+    counts: dict[str, int] = {}
+    for finding in findings:
+        for key in {_key(text) for text in finding.alternatives}:
+            counts[key] = counts.get(key, 0) + 1
+    return frozenset(key for key, count in counts.items() if count > 1)
+
+
+def _merge_alternatives(
+    skeptic: SkepticView | None, finding: Finding, stock: frozenset[str] = frozenset()
+) -> tuple[str, ...]:
+    """The skeptic's explanations first: it looked for them on purpose.
+
+    A stock explanation stays only when the card would have none without it.
+    """
     merged: list[str] = []
     seen: set[str] = set()
     for text in [*(skeptic.innocent_explanations if skeptic else ()), *finding.alternatives]:
-        key = text.strip().casefold()
-        if key and key not in seen:
+        key = _key(text)
+        if key and key not in seen and key not in stock:
             seen.add(key)
             merged.append(text.strip())
+    if not merged:
+        return _merge_alternatives(skeptic, finding)
     return tuple(merged[:MAX_ALTERNATIVES])

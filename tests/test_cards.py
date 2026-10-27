@@ -69,6 +69,27 @@ async def test_cards_combine_both_opinions_and_keep_only_valid_actions():
     assert [usage.role for usage in result.usage] == ["skeptic", "writer"]
 
 
+async def test_a_stock_explanation_the_analyst_pasted_into_every_finding_is_left_out():
+    # Live: "Could have been an agreed absence…" opened the alternatives of all
+    # four findings — noise next to the skeptic's explanations for the case.
+    stock = "Могло быть согласованное отсутствие"
+    first = factories.finding(subject_name="Зарина", alternatives=[stock, "Слабый сигнал"])
+    second = factories.finding(subject_name="Жасур", alternatives=[stock])
+    team = Team(
+        skeptic_llm=skeptic_says(opinion(1, "inconclusive", ()), opinion(2, "innocent_likely", ())),
+        skeptic_model="open",
+        writer_llm=writer_says(),
+        writer_model="spark",
+    )
+    nazar, _ = factories.nazar()
+
+    result = await recommend(analysis(first, second), team, nazar, date(2026, 10, 27))
+
+    zarina, jasur = result.cards
+    assert zarina.alternatives == ("Слабый сигнал",)
+    assert jasur.alternatives == (stock,)  # nothing better: a card is never left without one
+
+
 async def test_without_a_skeptic_cards_still_come_but_capped_and_explained():
     team = Team(ScriptedLLM([turn(text="oops")]), "open", writer_says(), "spark")
     nazar, _ = factories.nazar()

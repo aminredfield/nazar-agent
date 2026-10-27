@@ -3,7 +3,7 @@ import json
 import pytest
 
 from nazar_agent.recommendations import SkepticView, merge_confidence
-from nazar_agent.recommendations.skeptic import SKEPTIC_FORMAT, cases_text, run_skeptic
+from nazar_agent.recommendations.skeptic import SKEPTIC_FORMAT, SKEPTIC_MAX_OUTPUT_TOKENS, cases_text, run_skeptic
 from tests import factories
 from tests.fakes import ScriptedLLM, turn
 
@@ -55,6 +55,7 @@ async def test_opinions_are_matched_to_findings_by_case_number():
     assert result.error == "no opinion on 1 case(s)"
     request = llm.requests[0]
     assert (request["model"], request["text_format"], request["tools"]) == ("open", SKEPTIC_FORMAT, [])
+    assert request["max_output_tokens"] == SKEPTIC_MAX_OUTPUT_TOKENS  # reasoning shares the budget
 
 
 async def test_unreadable_answer_means_no_opinion_with_a_reason():

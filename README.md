@@ -159,7 +159,7 @@ created and added to the site, the site's other assignments unchanged.
 | Role | Model |
 |---|---|
 | Dispatcher, analysts, recommendation writer | Muse Spark 1.3 — tool calling, structured output, vision |
-| Skeptic, nightly scan, anything with photos or personal data | Muse Spark Open — self-hosted or a hosted provider |
+| Skeptic, nightly scan, anything with photos or personal data | Muse Spark Open (open weights) — on Baseten here, self-hosted later |
 | Voice messages (Russian, Uzbek) | Muse Spark 1.2 audio input (Muse Voice Transcribe does not cover Russian or Uzbek) |
 
 Development and evals run on `muse-spark-1.3-contributor` against a synthetic
@@ -176,10 +176,10 @@ goes only to the standard model or to self-hosted open weights.
 | Attendance analyst with read tools | done |
 | Timesheet analyst: reads NAZAR's timesheet and setup check, never recalculates | done |
 | Structured findings (structured output) and the fact checker with correction rounds | done |
-| Skeptic on a separate model; confidence merged by fixed rules in code | done (Muse Spark 1.2 until Muse Spark Open on Baseten is available) |
+| Skeptic on a separate model; confidence merged by fixed rules in code | done (Muse Spark Open on Baseten; it always reasons, so it gets a large output budget) |
 | Recommendation writer, fixed action catalog, validation with policy in code and NAZAR's own before → after | done |
 | Executor after human confirmation: atomic claim, policy re-check, refuses if the day changed since it was shown; audit trail; undo | done |
-| Assistant window: ask, cards, apply / disagree / postpone / undo, audit trail | done (localhost; opening it from the NAZAR cabinet with a token is next) |
+| Assistant window: ask, cards, apply / disagree / postpone / undo, audit trail | done (opened from the NAZAR cabinet with a one-minute pass; acts with that person's rights) |
 | Dispatcher: picks the analyst for a question | done |
 | Telegram bot: text and voice questions, cards with buttons, a reason to disagree, undo; allowlisted chats | done |
 | Voice: Telegram Ogg/Opus → WAV → Muse Spark 1.2 audio input (Russian verified; Uzbek still to verify) | done |
