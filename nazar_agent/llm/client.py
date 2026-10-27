@@ -46,6 +46,7 @@ class LLMClient(Protocol):
         input: str | list[dict[str, Any]],
         tools: list[dict[str, Any]],
         text_format: dict[str, Any] | None = None,
+        max_output_tokens: int | None = None,
     ) -> ModelTurn: ...
 
 
@@ -74,6 +75,7 @@ class MetaResponsesClient:
         input: str | list[dict[str, Any]],
         tools: list[dict[str, Any]],
         text_format: dict[str, Any] | None = None,
+        max_output_tokens: int | None = None,
     ) -> ModelTurn:
         request: dict[str, Any] = {"model": model, "instructions": instructions, "input": input}
         if tools:
@@ -81,6 +83,8 @@ class MetaResponsesClient:
         if text_format:
             # Structured output: the answer is generated to this JSON schema.
             request["text"] = {"format": text_format}
+        if max_output_tokens:
+            request["max_output_tokens"] = max_output_tokens
         response = await self._client.responses.create(**request)
 
         calls = tuple(
@@ -132,6 +136,7 @@ class ChatCompletionsClient:
         input: str | list[dict[str, Any]],
         tools: list[dict[str, Any]],
         text_format: dict[str, Any] | None = None,
+        max_output_tokens: int | None = None,
     ) -> ModelTurn:
         if tools or not isinstance(input, str):
             raise NotImplementedError("ChatCompletionsClient serves single-shot roles without tools.")
@@ -152,6 +157,8 @@ class ChatCompletionsClient:
                     "strict": text_format.get("strict", False),
                 },
             }
+        if max_output_tokens:
+            request["max_tokens"] = max_output_tokens
         response = await self._client.chat.completions.create(**request)
 
         usage = response.usage

@@ -1,22 +1,23 @@
-"""The agent as an HTTP service with the assistant window.
+"""The agent as one process: the assistant window, the Telegram bot and the morning brief.
 
     python -m nazar_agent.service      # http://127.0.0.1:8100
 
 Ask a question → the team investigates, checks and recommends → each valid
-action is stored as a pending proposal → the human applies, disagrees or
-undoes, and every step lands in the audit trail.
+action is stored as a pending proposal → a person applies, disagrees or
+undoes — in the window or with Telegram buttons — and every step lands in the
+same audit trail.
 
-There is no sign-in yet: the service binds to localhost. Opening it from the
-NAZAR cabinet with a short-lived token is the next step.
+The window has no sign-in yet, so the service binds to localhost; opening it
+from the NAZAR cabinet with a short-lived token comes with the NAZAR changes.
+The bot answers only allowlisted chats.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -25,27 +26,22 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from nazar_agent.actions import ExecutionError, Executor, ProposalStore
+from nazar_agent.actions import ExecutionError, ProposalStore
+from nazar_agent.assistant import Assistant, AssistantBusy
 from nazar_agent.config import Settings, get_settings
-from nazar_agent.findings import analyze
 from nazar_agent.nazar import NazarClient
-from nazar_agent.recommendations import Team, recommend
-from nazar_agent.roles import attendance_analyst, timesheet_analyst
-from nazar_agent.service.views import answer_view, audit_view, proposal_view
-from nazar_agent.tools import attendance_tools, timesheet_tools
-from nazar_agent.tools.common import COMPANY_TZ
+from nazar_agent.telegram import Bot, TelegramApi
+from nazar_agent.telegram.schedule import parse_brief_time, run_daily
+from nazar_agent.views import audit_view, proposal_view
+from nazar_agent.voice import transcribe
 
 STATIC = Path(__file__).parent / "static"
-ANALYSTS = {
-    "attendance": (attendance_analyst, attendance_tools),
-    "timesheet": (timesheet_analyst, timesheet_tools),
-}
 _ERROR_STATUS = {"not_found": 404, "wrong_status": 409, "refused": 409, "stale": 409, "failed": 502}
 
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=500)
-    analyst: Literal["attendance", "timesheet"] = "attendance"
+    analyst: Literal["auto", "attendance", "timesheet"] = "auto"
 
 
 class DecisionRequest(BaseModel):
@@ -54,19 +50,6 @@ class DecisionRequest(BaseModel):
 
 class DeclineRequest(DecisionRequest):
     reason: str = Field(min_length=1, max_length=500)
-
-
-@dataclass
-class Runtime:
-    settings: Settings
-    nazar: NazarClient
-    executor: Executor
-    store: ProposalStore
-    # One question at a time: each costs model tokens, and a double click
-    # should not pay twice.
-    asking: asyncio.Lock
-    # The last answer, so reopening the window does not cost another question.
-    last_answer: dict[str, Any] | None = None
 
 
 def create_app(settings: Settings | None = None, *, nazar_transport: httpx.AsyncBaseTransport | None = None) -> FastAPI:
@@ -80,17 +63,25 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
             timeout_seconds=active.nazar_timeout_seconds,
             transport=nazar_transport,
         )
-        store = ProposalStore(active.agent_db_path)
-        app.state.runtime = Runtime(active, nazar, Executor(store, nazar), store, asyncio.Lock())
+        assistant = Assistant(active, nazar, ProposalStore(active.agent_db_path))
+        app.state.assistant = assistant
+        background, telegram = _start_telegram(active, assistant)
         try:
             yield
         finally:
+            for task in background:
+                task.cancel()
+            for task in background:
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+            if telegram is not None:
+                await telegram.aclose()
             await nazar.aclose()
 
     app = FastAPI(title="NAZAR Agent", lifespan=lifespan)
 
-    def runtime() -> Runtime:
-        return app.state.runtime
+    def assistant() -> Assistant:
+        return app.state.assistant
 
     @app.get("/", include_in_schema=False)
     async def window() -> FileResponse:
@@ -98,47 +89,47 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
 
     @app.post("/api/ask")
     async def ask(request: AskRequest) -> dict[str, Any]:
-        state = runtime()
-        if state.asking.locked():
-            raise HTTPException(429, "The agent is already working on a question. Wait for it to finish.")
-        async with state.asking:
-            state.last_answer = await _answer(state, request)
-            return state.last_answer
+        try:
+            answer = await assistant().ask(request.question, None if request.analyst == "auto" else request.analyst)
+        except AssistantBusy:
+            raise HTTPException(429, "The agent is already working on a question. Wait for it to finish.") from None
+        return answer.view
 
     @app.get("/api/last")
     async def last() -> dict[str, Any] | None:
         """The last answer, with each proposal's status as it is now."""
-        state = runtime()
-        if state.last_answer is None:
+        current = assistant()
+        if current.last is None:
             return None
+        view = current.last.view
         return {
-            **state.last_answer,
+            **view,
             "cards": [
-                {**card, "actions": [proposal_view(state.store.get(action["proposal_id"])) for action in card["actions"]]}
-                for card in state.last_answer["cards"]
+                {**card, "actions": [proposal_view(current.store.get(action["proposal_id"])) for action in card["actions"]]}
+                for card in view["cards"]
             ],
         }
 
     @app.post("/api/proposals/{proposal_id}/confirm")
     async def confirm(proposal_id: str, request: DecisionRequest) -> dict[str, Any]:
-        return await _decide(runtime().executor.confirm(proposal_id, request.actor))
+        return await _decide(assistant().executor.confirm(proposal_id, request.actor))
 
     @app.post("/api/proposals/{proposal_id}/decline")
     async def decline(proposal_id: str, request: DeclineRequest) -> dict[str, Any]:
         try:
-            return proposal_view(runtime().executor.decline(proposal_id, request.actor, request.reason))
+            return proposal_view(assistant().executor.decline(proposal_id, request.actor, request.reason))
         except ExecutionError as exc:
             raise HTTPException(_ERROR_STATUS[exc.code], exc.message) from exc
 
     @app.post("/api/proposals/{proposal_id}/undo")
     async def undo(proposal_id: str, request: DecisionRequest) -> dict[str, Any]:
-        return await _decide(runtime().executor.undo(proposal_id, request.actor))
+        return await _decide(assistant().executor.undo(proposal_id, request.actor))
 
     @app.get("/api/audit")
     async def audit(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
-        store = runtime().store
+        store = assistant().store
         entries = store.audit(limit=limit)
-        proposals = {}
+        proposals: dict[str, Any] = {}
         for entry in entries:
             if entry.proposal_id not in proposals:
                 try:
@@ -150,22 +141,25 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
     return app
 
 
-async def _answer(state: Runtime, request: AskRequest) -> dict[str, Any]:
-    settings = state.settings
-    analyst_llm = settings.analyst_llm()
-    skeptic_llm = settings.skeptic_llm()
-    make_role, make_tools = ANALYSTS[request.analyst]
-    today = datetime.now(COMPANY_TZ).date()
-    try:
-        role = make_role(model=settings.analyst_model, tools=make_tools(state.nazar), today=today)
-        analysis = await analyze(role, analyst_llm, request.question)
-        team = Team(skeptic_llm, settings.skeptic_model, analyst_llm, settings.analyst_model)
-        recommendations = await recommend(analysis, team, state.nazar, today)
-    finally:
-        await analyst_llm.aclose()
-        await skeptic_llm.aclose()
-    proposals = state.executor.propose(recommendations.cards, request.question)
-    return answer_view(analysis, recommendations, proposals, settings.analyst_model)
+def _start_telegram(settings: Settings, assistant: Assistant) -> tuple[list[asyncio.Task[None]], TelegramApi | None]:
+    """The bot and the morning brief, when a bot token is configured."""
+    if settings.telegram_bot_token is None or not settings.telegram_bot_token.get_secret_value():
+        return [], None
+    api = TelegramApi(settings.telegram_bot_token.get_secret_value())
+
+    async def voice_to_text(audio: bytes) -> str:
+        llm = settings.analyst_llm()
+        try:
+            return await transcribe(llm, settings.voice_model, audio)
+        finally:
+            await llm.aclose()
+
+    bot = Bot(api, assistant, settings.allowed_chat_ids, voice_to_text)
+    tasks = [asyncio.create_task(bot.run())]
+    brief_at = parse_brief_time(settings.brief_time)
+    if brief_at is not None:
+        tasks.append(asyncio.create_task(run_daily(brief_at, lambda: bot.brief(sorted(settings.allowed_chat_ids)))))
+    return tasks, api
 
 
 async def _decide(outcome: Any) -> dict[str, Any]:

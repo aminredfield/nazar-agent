@@ -159,7 +159,10 @@ goes only to the standard model or to self-hosted open weights.
 | Recommendation writer, fixed action catalog, validation with policy in code and NAZAR's own before → after | done |
 | Executor after human confirmation: atomic claim, policy re-check, refuses if the day changed since it was shown; audit trail; undo | done |
 | Assistant window: ask, cards, apply / disagree / postpone / undo, audit trail | done (localhost; opening it from the NAZAR cabinet with a token is next) |
-| Telegram bot, voice | planned |
+| Dispatcher: picks the analyst for a question | done |
+| Telegram bot: text and voice questions, cards with buttons, a reason to disagree, undo; allowlisted chats | done |
+| Voice: Telegram Ogg/Opus → WAV → Muse Spark 1.2 audio input (Russian verified; Uzbek still to verify) | done |
+| Morning brief at a set local time and on `/brief` | done |
 | List import, evals, public demo account | planned |
 
 ## Run it
@@ -176,6 +179,10 @@ cp .env.example .env          # fill in MODEL_API_KEY and the NAZAR account
 python -m nazar_agent --trace "Who did not show up yesterday?"
 python -m nazar_agent.service   # the assistant window at http://127.0.0.1:8100
 ```
+
+With `TELEGRAM_BOT_TOKEN` set, the same process runs the Telegram bot (long
+polling, no public URL needed) and, with `BRIEF_TIME`, the morning brief.
+The window and the bot share proposals and the audit trail.
 
 Tests do not need network access or keys:
 

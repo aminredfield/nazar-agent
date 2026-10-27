@@ -35,6 +35,20 @@ class Settings(BaseSettings):
     # Proposals and the audit trail (SQLite).
     agent_db_path: str = "nazar_agent.sqlite3"
 
+    # Voice messages: Muse Spark 1.2 takes audio (Muse Voice Transcribe has no
+    # Russian or Uzbek).
+    voice_model: str = "muse-spark-1.2"
+
+    # Telegram: the agent's own bot. Only these chat ids may use it.
+    telegram_bot_token: SecretStr | None = None
+    telegram_allowed_chats: str = ""  # comma-separated chat ids
+    # Morning brief to every allowed chat at this local time, e.g. "08:30"; empty = off.
+    brief_time: str = ""
+
+    @property
+    def allowed_chat_ids(self) -> frozenset[int]:
+        return frozenset(int(part) for part in self.telegram_allowed_chats.split(",") if part.strip())
+
     def analyst_llm(self) -> MetaResponsesClient:
         return MetaResponsesClient(
             api_key=self.model_api_key.get_secret_value(),

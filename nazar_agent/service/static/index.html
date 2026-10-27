@@ -66,7 +66,8 @@
   <form class="ask" id="ask">
     <textarea id="question" maxlength="500" required placeholder="Например: Что в табеле за прошлую неделю стоит проверить перед выплатой?"></textarea>
     <div class="row">
-      <select id="analyst">
+      <select id="analyst" title="Кто разбирает вопрос">
+        <option value="auto">Агент выберет сам</option>
         <option value="timesheet">Табель</option>
         <option value="attendance">Отметки</option>
       </select>
