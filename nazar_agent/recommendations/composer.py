@@ -45,8 +45,11 @@ For each case:
   later duplicate check-in was used, recording no_violation. Actions against
   the employee (recording confirmed, not paying a day) only when the case is
   strong and the skeptic agrees; never when the skeptic finds an innocent
-  explanation likely. Fill only the fields the action lists; set the others
-  to null.
+  explanation likely. Recording confirmed is a verdict: propose it only when
+  nothing is left to check. While your own check steps are still open —
+  someone to ask, presence to confirm — record insufficient_data with what
+  is to check, and let the owner decide after checking. Fill only the fields
+  the action lists; set the others to null.
 - When the facts show that a site's schedule does not match the real working
   day — people there start and end later or earlier every day — propose
   change_schedule with the hours from the facts. Never act on such lateness

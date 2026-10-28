@@ -17,7 +17,8 @@ class Settings(BaseSettings):
     model_api_key: SecretStr
     meta_base_url: str = "https://api.meta.ai/v1"
     analyst_model: str = "muse-spark-1.3"
-    llm_timeout_seconds: float = 90.0
+    # The skeptic on open weights reasons before it answers; 90 s timed out in evals.
+    llm_timeout_seconds: float = 150.0
 
     # The skeptic runs on a different model than the analysts. Target: Muse
     # Spark Open on Baseten (chat_completions API, its own key). Until that is
