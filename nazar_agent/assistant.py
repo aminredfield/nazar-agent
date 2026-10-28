@@ -31,7 +31,7 @@ from nazar_agent.roles import attendance_analyst, timesheet_analyst
 from nazar_agent.roles.dispatcher import Analyst, route
 from nazar_agent.tools import PhotoInspector, analyst_tools
 from nazar_agent.tools.common import COMPANY_TZ, call_nazar
-from nazar_agent.usage import Ledger, Meter, Source, metering
+from nazar_agent.usage import Ledger, Meter, NazarUsageReport, Source, metering
 from nazar_agent.views import answer_view
 
 ANALYSTS = {"attendance": attendance_analyst, "timesheet": timesheet_analyst}
@@ -68,6 +68,7 @@ class Assistant:
         service: NazarClient | None = None,
         company: str = "service",
         ledger: Ledger | None = None,
+        reporter: NazarUsageReport | None = None,
     ) -> None:
         self.settings = settings
         self.store = store
@@ -75,6 +76,7 @@ class Assistant:
         # Whose model calls these are, in the ledger of what the agents spend.
         self.company = company
         self.ledger = ledger
+        self.reporter = reporter
         self.drafts = DraftStore(store.path, store)
         self.last: Answer | None = None
         # The question being answered, or the last one: the window follows it live.
@@ -104,13 +106,18 @@ class Assistant:
                     raise
                 finally:
                     # Tokens spent on a failed question are spent all the same.
-                    self.spent(source, question, meter)
+                    await self.spent(source, question, meter)
             self.progress.finish()
             return self.last
 
-    def spent(self, source: Source, question: str, meter: Meter) -> None:
+    async def spent(self, source: Source, question: str, meter: Meter) -> None:
+        """What a run spent: into the local ledger and, for the superadmin, into NAZAR."""
         if self.ledger is not None:
             self.ledger.record(company=self.company, source=source, question=question, calls=meter.calls)
+        if self.reporter is not None:
+            # A window's company is known; the bot's service account learns it when it signs in.
+            company = self.company if self.company != "service" else (getattr(self.service, "company_id", None) or "")
+            await self.reporter.send(company_id=company, source=source, calls=meter.calls)
 
     async def read_list(
         self, *, text: str | None, file: bytes | None, content_type: str | None, nazar: NazarClient | None = None
@@ -122,11 +129,12 @@ class Assistant:
         try:
             with metering(meter):
                 people = await read_list(llm, self.settings.analyst_model, text=text, file=file, content_type=content_type)
+            sites = await self.sites(nazar=acting)
+            employees = await call_nazar(acting.get("/employees"))
         finally:
             await llm.aclose()
-            self.spent("import", text or "(file)", meter)
-        sites = await self.sites(nazar=acting)
-        employees = await call_nazar(acting.get("/employees"))
+            # After NAZAR was asked: by then the bot's service account knows its company.
+            await self.spent("import", text or "(file)", meter)
         return review(people, sites, employees), sites
 
     async def sites(self, *, nazar: NazarClient | None = None) -> list[Site]:
@@ -177,12 +185,20 @@ class Assistants:
     configured file.
     """
 
-    def __init__(self, settings: Settings, *, service: NazarClient | None = None, ledger: Ledger | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        service: NazarClient | None = None,
+        ledger: Ledger | None = None,
+        reporter: NazarUsageReport | None = None,
+    ) -> None:
         self._settings = settings
         self._ledger = ledger
+        self._reporter = reporter
         self._by_company: dict[str, Assistant] = {}
         self.service = (
-            Assistant(settings, ProposalStore(settings.agent_db_path), service=service, ledger=ledger)
+            Assistant(settings, ProposalStore(settings.agent_db_path), service=service, ledger=ledger, reporter=reporter)
             if service is not None
             else None
         )
@@ -191,5 +207,7 @@ class Assistants:
         if company_id not in self._by_company:
             company = str(uuid.UUID(company_id))
             path = Path(self._settings.agent_db_path).with_name(f"agent-{company}.sqlite3")
-            self._by_company[company_id] = Assistant(self._settings, ProposalStore(path), company=company, ledger=self._ledger)
+            self._by_company[company_id] = Assistant(
+                self._settings, ProposalStore(path), company=company, ledger=self._ledger, reporter=self._reporter
+            )
         return self._by_company[company_id]

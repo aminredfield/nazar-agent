@@ -9,11 +9,17 @@ week and in all.
 The price comes from ``llm.pricing`` as of its date. A model without a known
 price (open weights on a provider) is priced high and marked as an estimate,
 never counted as free.
+
+The same calls go to NAZAR (``POST /ai-agent/usage``, with the assistant key),
+where the platform's superadmin sees what the assistant spends per company
+(NAZAR change 0007). A report that fails is logged, never fails the answer.
 """
 
 from __future__ import annotations
 
+import logging
 import sqlite3
+import uuid
 from collections.abc import Iterator
 from contextlib import closing, contextmanager
 from contextvars import ContextVar
@@ -21,6 +27,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
+
+import httpx
 
 from nazar_agent.llm.pricing import budget_usd, cost_usd
 
@@ -44,6 +52,8 @@ CREATE INDEX IF NOT EXISTS model_calls_at ON model_calls (company, at);
 """
 
 _current: ContextVar[Meter | None] = ContextVar("nazar_agent_meter", default=None)
+log = logging.getLogger(__name__)
+REPORT_TIMEOUT_SECONDS = 10.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,3 +184,52 @@ class Ledger:
     def _connect(self) -> Iterator[sqlite3.Connection]:
         with closing(sqlite3.connect(self._path)) as connection, connection:
             yield connection
+
+
+class NazarUsageReport:
+    """Sends a run's calls to NAZAR, for the superadmin."""
+
+    def __init__(self, *, base_url: str, agent_key: str, transport: httpx.AsyncBaseTransport | None = None) -> None:
+        self._url = base_url.rstrip("/") + "/ai-agent/usage"
+        self._key = agent_key
+        self._transport = transport
+
+    @property
+    def active(self) -> bool:
+        return bool(self._key)
+
+    async def send(self, *, company_id: str, source: Source, calls: list[Call]) -> bool:
+        if not self.active or not calls or not _is_uuid(company_id):
+            return False
+        payload = {
+            "company_id": company_id,
+            "run_id": uuid.uuid4().hex,
+            "source": source,
+            "calls": [
+                {
+                    "role": call.role[:40], "model": call.model[:120], "input_tokens": call.input_tokens,
+                    "output_tokens": call.output_tokens, "cost_usd": round(call.cost, 6), "estimated": call.estimated,
+                }
+                for call in calls[:60]
+            ],
+        }
+        try:
+            async with httpx.AsyncClient(timeout=REPORT_TIMEOUT_SECONDS, transport=self._transport) as client:
+                response = await client.post(self._url, json=payload, headers={"X-Agent-Key": self._key})
+        except httpx.HTTPError as exc:
+            log.warning("usage report to NAZAR failed: %s", exc)
+            return False
+        if response.is_error:
+            # An older NAZAR without the endpoint, or the assistant switched off: the local ledger still has it.
+            log.warning("usage report to NAZAR refused: %s", response.status_code)
+            return False
+        return True
+
+
+def _is_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+    except (ValueError, TypeError):
+        return False
+    return True
+

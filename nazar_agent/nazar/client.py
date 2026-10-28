@@ -56,6 +56,8 @@ class NazarClient:
         self._email = email
         self._password = password
         self._agent_key = agent_key
+        # The company the service account works in, once NAZAR said so (key sign-in).
+        self.company_id: str | None = None
         self._person = access_token is not None
         headers = {
             # NAZAR rejects unsafe requests that carry a session cookie but no
@@ -109,7 +111,9 @@ class NazarClient:
                 headers={"X-Agent-Key": self._agent_key},
             )
         if response is not None and response.status_code != httpx.codes.NOT_FOUND:
-            self._http.headers["Authorization"] = f"Bearer {_unwrap(response)['access_token']}"
+            session = _unwrap(response)
+            self._http.headers["Authorization"] = f"Bearer {session['access_token']}"
+            self.company_id = str(session.get("company_id") or "") or None
         else:  # no key, or a NAZAR without that sign-in yet
             response = await self._http.post(
                 "/auth/login",

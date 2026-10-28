@@ -169,3 +169,15 @@ async def test_an_older_nazar_without_the_key_sign_in_gets_the_usual_login():
 
     assert await _keyed(nazar).get("/objects") == []
     assert nazar.calls == ["POST /api/ai-agent/service-session", "POST /api/auth/login", "GET /api/objects"]
+
+
+async def test_the_key_sign_in_tells_the_client_its_company():
+    nazar = FakeNazar({
+        "POST /api/ai-agent/service-session": lambda r: ok({"access_token": "t", "company_id": "c-1"}),
+        "GET /api/objects": lambda r: ok([]),
+    })
+    client = _keyed(nazar)
+
+    await client.get("/objects")
+
+    assert client.company_id == "c-1"

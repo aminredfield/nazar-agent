@@ -61,3 +61,36 @@ def test_usage_reads_well_in_telegram(tmp_path):
     assert text.startswith("💰 <b>Расходы на модели</b>")
     assert "запусков 1 · токенов 129 000 → 10 000" in text
     assert "(часть — оценка)" in text and "• скептик — meta-models/muse-spark-open-1026" in text
+
+
+async def test_a_run_is_reported_to_nazar_with_the_key_and_a_failure_does_not_raise():
+    import json
+
+    import httpx
+
+    from nazar_agent.usage import NazarUsageReport
+
+    seen = []
+
+    def nazar(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"success": True, "data": {"recorded": 1}})
+
+    def down(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("no route")
+
+    company = "6d1f6a0e-2b1c-4c8e-9d3e-1a2b3c4d5e6f"
+    calls = [Call("skeptic", "meta-models/muse-spark-open-1026", 3000, 2000)]
+    report = NazarUsageReport(base_url="http://nazar.test/api/", agent_key="k" * 40, transport=httpx.MockTransport(nazar))
+
+    assert await report.send(company_id=company, source="ask", calls=calls) is True
+    assert await report.send(company_id="service", source="ask", calls=calls) is False  # no company: nothing to send
+    assert await report.send(company_id=company, source="ask", calls=[]) is False
+    unreachable = NazarUsageReport(base_url="http://nazar.test/api", agent_key="k" * 40, transport=httpx.MockTransport(down))
+    assert await unreachable.send(company_id=company, source="ask", calls=calls) is False
+
+    [request] = seen
+    body = json.loads(request.content)
+    assert request.url.path == "/api/ai-agent/usage" and request.headers["x-agent-key"] == "k" * 40
+    assert body["company_id"] == company and body["source"] == "ask" and len(body["run_id"]) == 32
+    assert body["calls"][0]["estimated"] is True and body["calls"][0]["cost_usd"] > 0

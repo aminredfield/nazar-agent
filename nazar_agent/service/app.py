@@ -37,7 +37,7 @@ from nazar_agent.assistant import Assistant, Assistants, AssistantBusy
 from nazar_agent.config import Settings, get_settings
 from nazar_agent.feedback import agreement
 from nazar_agent.limits import LimitReached, Limits
-from nazar_agent.usage import Ledger, Meter, metering
+from nazar_agent.usage import Ledger, Meter, NazarUsageReport, metering
 from nazar_agent.nazar import NazarClient
 from nazar_agent.telegram import Bot, TelegramApi
 from nazar_agent.telegram.schedule import parse_brief_time, run_daily
@@ -97,7 +97,10 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
                 transport=nazar_transport,
             )
         ledger = Ledger(Path(active.agent_db_path).with_name("usage.sqlite3"))
-        assistants = Assistants(active, service=service, ledger=ledger)
+        reporter = NazarUsageReport(
+            base_url=active.nazar_base_url, agent_key=active.nazar_agent_key.get_secret_value(), transport=nazar_transport
+        )
+        assistants = Assistants(active, service=service, ledger=ledger, reporter=reporter)
         sessions = Sessions(
             nazar_base_url=active.nazar_base_url,
             agent_key=active.nazar_agent_key.get_secret_value(),
@@ -419,7 +422,7 @@ def _start_telegram(settings: Settings, assistant: Assistant) -> tuple[list[asyn
                 return await transcribe(llm, settings.voice_model, audio)
         finally:
             await llm.aclose()
-            assistant.spent("voice", "(voice message)", meter)
+            await assistant.spent("voice", "(voice message)", meter)
 
     bot = Bot(api, assistant, settings.allowed_chat_ids, voice_to_text)
     tasks = [asyncio.create_task(bot.run())]
