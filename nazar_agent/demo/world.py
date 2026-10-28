@@ -99,7 +99,7 @@ class Person:
     id: str
     name: str
     code: str  # NAZAR's employee number
-    site_id: str
+    site_id: str | None  # None: not assigned to any site
     kind: Kind
     face: str
     created_at: datetime
@@ -141,10 +141,19 @@ class World:
     sites: dict[str, Site]
     people: dict[str, Person]
     events: list[Event]
+    _by_person: dict[str, list[Event]] | None = field(default=None, repr=False)
 
     @property
     def today(self) -> date:
         return self.now.astimezone(TZ).date()
+
+    def events_of(self, person_id: str) -> list[Event]:
+        """One person's events in time order; the history does not change once built."""
+        if self._by_person is None:
+            self._by_person = {}
+            for event in self.events:
+                self._by_person.setdefault(event.employee_id, []).append(event)
+        return self._by_person.get(person_id, [])
 
 
 SITES = (
