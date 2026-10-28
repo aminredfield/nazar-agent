@@ -690,16 +690,35 @@ async function signIn() {
   }
   try {
     const me = await api("/api/me");
-    if (me.mode === "person") {
+    if (me.mode === "person" || me.mode === "demo") {
       const initials = me.full_name.split(/\s+/).map((part) => part[0] || "").join("").slice(0, 2).toUpperCase();
       $("who").replaceChildren(el("span", { class: "avatar" }, initials), el("span", {}, me.full_name, el("small", {}, me.company_name)));
       $("actor-label").hidden = true;
     }
+    if (me.mode === "demo") showDemo();
     return true;
   } catch (error) {
     notice(error.message);
     return false;
   }
+}
+
+// The demo company lives in this process: a judge can undo everything they
+// applied and start again from this morning's data.
+function showDemo() {
+  const reset = el("button", { type: "button", class: "ghost small" }, "Сбросить демо");
+  reset.addEventListener("click", async () => {
+    if (!confirm("Вернуть демо-стройку к утреннему состоянию? Все применённые изменения пропадут.")) return;
+    reset.disabled = true;
+    try {
+      await api("/api/demo/reset", {});
+      location.reload();
+    } catch (error) {
+      reset.disabled = false;
+      alert(error.message);
+    }
+  });
+  $("who").prepend(el("span", { class: "demo-tag", title: "Демо-данные: вымышленная стройка, NAZAR не нужен" }, "Демо"), reset);
 }
 
 function notice(text) {

@@ -87,6 +87,11 @@ class Assistant:
     def busy(self) -> bool:
         return self._lock.locked()
 
+    def forget(self) -> None:
+        """Drop the last answer and its live feed, e.g. after the demo company was reset."""
+        self.last = None
+        self.progress = None
+
     def executor(self, nazar: NazarClient | None = None) -> Executor:
         return Executor(self.store, self._acting(nazar))
 

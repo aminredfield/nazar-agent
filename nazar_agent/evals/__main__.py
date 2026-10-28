@@ -31,7 +31,7 @@ from nazar_agent.evals.cases import (
 )
 from nazar_agent.evals.score import score_analysis, score_import
 from nazar_agent.evals.summary import summarize
-from nazar_agent.nazar import NazarClient
+from nazar_agent.nazar.connect import connect
 from nazar_agent.onboarding import Site, read_list, review
 from nazar_agent.tools.common import call_nazar
 
@@ -53,13 +53,7 @@ async def run_import(case: Case, out: Path) -> dict[str, Any]:
     settings = get_settings()
     started = time.monotonic()
     llm = settings.analyst_llm()
-    nazar = NazarClient(
-        base_url=settings.nazar_base_url,
-        email=settings.nazar_email,
-        password=settings.nazar_password.get_secret_value(),
-        agent_key=settings.nazar_agent_key.get_secret_value(),
-        timeout_seconds=settings.nazar_timeout_seconds,
-    )
+    nazar = connect(settings).client()
     try:
         people = await read_list(llm, settings.analyst_model, text=case.question)
         objects = await call_nazar(nazar.get("/objects", {"include_inactive": False}))

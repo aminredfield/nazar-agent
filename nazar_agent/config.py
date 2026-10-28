@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from nazar_agent.llm import ChatCompletionsClient, LLMClient, MetaResponsesClient
+
+log = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -27,8 +30,14 @@ class Settings(BaseSettings):
     skeptic_api: Literal["responses", "chat_completions"] = "responses"
     skeptic_base_url: str | None = None  # defaults to meta_base_url
     skeptic_api_key: SecretStr | None = None  # defaults to model_api_key
+    # Without a key of its own the skeptic (and the photo inspector) runs on
+    # this Meta model through the Meta key, whatever else SKEPTIC_* says.
+    skeptic_fallback_model: str = "muse-spark-1.2"
 
-    nazar_base_url: str
+    # The demo construction company, built in this process (nazar_agent.demo):
+    # no NAZAR, no account — only the model key is needed. Off: the real NAZAR.
+    demo_mode: bool = False
+    nazar_base_url: str = ""
     # The assistant key NAZAR shares with this service (AI_AGENT_KEY there):
     # only with it is the cabinet's pass exchanged for the person's session.
     nazar_agent_key: SecretStr = SecretStr("")
@@ -66,13 +75,30 @@ class Settings(BaseSettings):
     # Morning brief to every allowed chat at this local time, e.g. "08:30"; empty = off.
     brief_time: str = ""
 
+    @model_validator(mode="after")
+    def _check(self) -> Settings:
+        if not self.demo_mode and not self.nazar_base_url:
+            raise ValueError("NAZAR_BASE_URL is required; or set DEMO_MODE=true to run on the demo company")
+        own_key = self.skeptic_api_key is not None and bool(self.skeptic_api_key.get_secret_value())
+        elsewhere = self.skeptic_api != "responses" or self.skeptic_base_url not in (None, "", self.meta_base_url)
+        if elsewhere and not own_key:
+            # A Baseten model with the Meta key would only fail: use Meta's own model instead.
+            log.warning("SKEPTIC_API_KEY is empty: the skeptic runs on %s through the Meta API", self.skeptic_fallback_model)
+            self.skeptic_model, self.skeptic_api, self.skeptic_base_url = self.skeptic_fallback_model, "responses", None
+        return self
+
     @property
     def allowed_chat_ids(self) -> frozenset[int]:
         return frozenset(int(part) for part in self.telegram_allowed_chats.split(",") if part.strip())
 
     @property
     def has_service_account(self) -> bool:
-        return bool(self.nazar_email and self.nazar_password.get_secret_value())
+        return self.demo_mode or bool(self.nazar_email and self.nazar_password.get_secret_value())
+
+    @property
+    def window_needs_sign_in(self) -> bool:
+        """The demo window opens at once as the demo company's owner; a real one may need NAZAR."""
+        return self.require_sign_in and not self.demo_mode
 
     def analyst_llm(self) -> MetaResponsesClient:
         return MetaResponsesClient(

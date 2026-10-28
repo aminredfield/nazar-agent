@@ -7,15 +7,18 @@ action is stored as a pending proposal → a person applies, disagrees or
 undoes — in the window or with Telegram buttons — and every step lands in the
 same audit trail.
 
-The window has no sign-in yet, so the service binds to localhost; opening it
-from the NAZAR cabinet with a short-lived token comes with the NAZAR changes.
-The bot answers only allowlisted chats.
+In production a person opens the window from the NAZAR cabinet with a
+one-minute pass; locally the window acts as the service account. With
+``DEMO_MODE`` it runs on the demo company in this process and opens at once
+as its owner; every browser gets its own demo session for the limits. The bot
+answers only allowlisted chats.
 """
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
+import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -39,6 +42,7 @@ from nazar_agent.feedback import agreement
 from nazar_agent.limits import LimitReached, Limits
 from nazar_agent.usage import Ledger, Meter, NazarUsageReport, metering
 from nazar_agent.nazar import NazarClient
+from nazar_agent.nazar.connect import NazarLink, connect
 from nazar_agent.telegram import Bot, TelegramApi
 from nazar_agent.telegram.schedule import parse_brief_time, run_daily
 from nazar_agent.views import audit_view, proposal_view
@@ -50,6 +54,8 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 IMPORT_COST_ESTIMATE_USD = 0.01
 # A question that failed midway spent tokens nobody counted; for the demo budget it costs this.
 FAILED_QUESTION_COST_USD = 0.10
+# A demo browser's own session: the demo limits count questions per browser.
+DEMO_COOKIE = "nazar_agent_demo"
 _ERROR_STATUS = {"not_found": 404, "wrong_status": 409, "refused": 409, "stale": 409, "failed": 502}
 
 
@@ -86,28 +92,19 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         active = settings or get_settings()
-        service = None
-        if active.has_service_account:
-            service = NazarClient(
-                base_url=active.nazar_base_url,
-                email=active.nazar_email,
-                password=active.nazar_password.get_secret_value(),
-                agent_key=active.nazar_agent_key.get_secret_value(),
-                timeout_seconds=active.nazar_timeout_seconds,
-                transport=nazar_transport,
-            )
+        link = connect(active, transport=nazar_transport)
+        service = link.client() if link.has_service_account else None
         ledger = Ledger(Path(active.agent_db_path).with_name("usage.sqlite3"))
-        reporter = NazarUsageReport(
-            base_url=active.nazar_base_url, agent_key=active.nazar_agent_key.get_secret_value(), transport=nazar_transport
-        )
+        reporter = NazarUsageReport(base_url=link.base_url, agent_key=link.agent_key, transport=link.transport)
         assistants = Assistants(active, service=service, ledger=ledger, reporter=reporter)
         sessions = Sessions(
-            nazar_base_url=active.nazar_base_url,
-            agent_key=active.nazar_agent_key.get_secret_value(),
-            timeout_seconds=active.nazar_timeout_seconds,
-            transport=nazar_transport,
+            nazar_base_url=link.base_url,
+            agent_key=link.agent_key,
+            timeout_seconds=link.timeout_seconds,
+            transport=link.transport,
         )
         app.state.settings, app.state.assistants, app.state.sessions = active, assistants, sessions
+        app.state.link = link
         app.state.limits = Limits(
             Path(active.agent_db_path).with_name("usage.sqlite3"),
             questions_per_session=active.demo_questions_per_session,
@@ -130,18 +127,13 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
 
     app = FastAPI(title="NAZAR Agent", lifespan=lifespan)
 
-    async def caller(request: Request) -> AsyncIterator[Caller]:
-        """Who acts: the person who opened the window from NAZAR, else (locally) the service account."""
+    async def caller(request: Request, response: Response) -> AsyncIterator[Caller]:
+        """Who acts: the person who opened the window from NAZAR, else the service account (locally, in the demo)."""
         state = request.app.state
         session_id = request.cookies.get(COOKIE) or ""
         person = state.sessions.get(session_id)
         if person is not None:
-            nazar = NazarClient(
-                base_url=state.settings.nazar_base_url,
-                access_token=person.access_token,
-                timeout_seconds=state.settings.nazar_timeout_seconds,
-                transport=nazar_transport,
-            )
+            nazar = state.link.client(access_token=person.access_token)
             try:
                 yield Caller(
                     state.assistants.for_company(person.company_id), nazar, f"{person.full_name} (NAZAR)", person, session_id
@@ -149,7 +141,16 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
             finally:
                 await nazar.aclose()
             return
-        if state.assistants.service is not None and not state.settings.require_sign_in:
+        if state.assistants.service is not None and state.settings.demo_mode:
+            demo_session = request.cookies.get(DEMO_COOKIE) or ""
+            if len(demo_session) < 20:
+                demo_session = secrets.token_urlsafe(24)
+                response.set_cookie(
+                    DEMO_COOKIE, demo_session, httponly=True, samesite="strict", secure=state.settings.cookie_secure
+                )
+            yield Caller(state.assistants.service, state.assistants.service.service, "", None, demo_session, demo=True)
+            return
+        if state.assistants.service is not None and not state.settings.window_needs_sign_in:
             yield Caller(state.assistants.service, state.assistants.service.service, "", None)
             return
         raise HTTPException(401, "Откройте помощника из кабинета NAZAR.")
@@ -180,7 +181,21 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
 
     @app.get("/api/me")
     async def me(current: Caller = Depends(caller)) -> dict[str, Any]:
+        if current.demo:
+            return {"mode": "demo", "full_name": "Демо Стройка", "company_name": "Mustahkam Qurilish", "role": "owner"}
         return _person_view(current.person) if current.person else {"mode": "service"}
+
+    @app.post("/api/demo/reset")
+    async def reset_demo(current: Caller = Depends(caller)) -> dict[str, Any]:
+        """The demo company as it was this morning: every review, adjustment and new person dropped."""
+        link: NazarLink = app.state.link
+        if not current.demo or link.demo is None:
+            raise HTTPException(404, "Not a demo.")
+        if current.assistant.busy:
+            raise HTTPException(429, "The agent is working on a question. Wait for it to finish.")
+        link.demo.reset()
+        current.assistant.forget()
+        return {"reset": True, "now": link.demo.world.now.isoformat()}
 
     @app.post("/api/ask")
     async def ask(http: Request, request: AskRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
@@ -348,6 +363,7 @@ class Caller:
     name: str
     person: Person | None
     session_id: str = ""  # the window session, for the demo limits
+    demo: bool = False  # the demo company in this process
 
     def actor_for(self, typed: str) -> str:
         """Who decided: from the NAZAR session, never from the window — a typed name is used only locally."""
@@ -355,8 +371,8 @@ class Caller:
 
 
 def _reserve(request: Request, current: Caller) -> str:
-    """Count the question before any model runs. Only a window opened from NAZAR is limited."""
-    if current.person is None:
+    """Count the question before any model runs. A window opened from NAZAR and a demo browser are limited."""
+    if current.person is None and not current.demo:
         return ""
     try:
         return request.app.state.limits.reserve(current.session_id)
@@ -365,7 +381,7 @@ def _reserve(request: Request, current: Caller) -> str:
 
 
 def _add_cost(request: Request, current: Caller, day: str, cost_usd: float) -> None:
-    if current.person is not None:
+    if current.person is not None or current.demo:
         request.app.state.limits.add_cost(current.session_id, day, cost_usd)
 
 

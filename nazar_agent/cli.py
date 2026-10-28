@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from nazar_agent.config import get_settings
 from nazar_agent.findings import Analysis, analyze
 from nazar_agent.llm.pricing import cost_usd
-from nazar_agent.nazar import NazarClient
+from nazar_agent.nazar.connect import connect
 from nazar_agent.recommendations import Card, Recommendations, Team, Usage, ValidatedAction, recommend
 from nazar_agent.roles import attendance_analyst, timesheet_analyst
 from nazar_agent.tools import PhotoInspector, analyst_tools
@@ -39,13 +39,7 @@ class Outcome:
 
 async def ask(question: str, analyst: str, *, review: bool) -> Outcome:
     settings = get_settings()
-    nazar = NazarClient(
-        base_url=settings.nazar_base_url,
-        email=settings.nazar_email,
-        password=settings.nazar_password.get_secret_value(),
-        agent_key=settings.nazar_agent_key.get_secret_value(),
-        timeout_seconds=settings.nazar_timeout_seconds,
-    )
+    nazar = connect(settings).client()
     analyst_llm = settings.analyst_llm()
     skeptic_llm = settings.skeptic_llm()
     # The photo inspector runs on the open-weights model, like the skeptic.

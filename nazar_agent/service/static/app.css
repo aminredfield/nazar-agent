@@ -74,6 +74,11 @@ body {
   background: linear-gradient(135deg, var(--violet-deep), var(--violet)); font-size: 12px; font-weight: 700;
 }
 .who small { display: block; color: var(--muted); font-weight: 500; font-size: 12px; }
+.who .demo-tag {
+  padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: #fff; background: linear-gradient(135deg, var(--violet, #7c3aed), #22d3ee);
+}
+.who button.small { padding: 6px 12px; font-size: 13px; }
 
 .notice {
   max-width: 1040px; margin: 16px auto 0; padding: 12px 16px; border-radius: 12px;

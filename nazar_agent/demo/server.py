@@ -5,6 +5,10 @@ envelope ``{success, data, error}``, same errors — through an
 ``httpx.ASGITransport`` or over HTTP. Nothing leaves the process; a restart
 or ``DemoNazar.reset()`` brings the company back as it was.
 
+The demo moves with the clock: today's check-ins appear as their time comes,
+and a new day starts the company over, with every change of the day before
+dropped — the history always ends today.
+
 Sign-in is real enough to exercise the agent's client: the demo owner's
 e-mail and password set cookies or give a token, the assistant key opens the
 service session and the one-minute pass from the "cabinet". The values are
@@ -32,7 +36,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from nazar_agent.demo import views
 from nazar_agent.demo.photos import FACES, photo
 from nazar_agent.demo.timesheet import Adjustment, Book, assignment_id, day_row, period_rows, setup_check
-from nazar_agent.demo.world import TZ, Person, Schedule, World, build_world, stable_id
+from nazar_agent.demo.world import TZ, Person, Schedule, World, day_world, stable_id
 
 DEMO_EMAIL = "owner@demo.nazar"
 DEMO_PASSWORD = "demo"
@@ -75,9 +79,22 @@ class DemoNazar:
     usage: list[dict[str, Any]] = field(default_factory=list)
     updated: dict[str, datetime] = field(default_factory=dict)
 
+    @classmethod
+    def today(cls, clock: Callable[[], datetime] | None = None, **options: Any) -> DemoNazar:
+        clock = clock or (lambda: datetime.now(UTC))
+        return cls(day_world(clock()), clock=clock, **options)
+
+    def tick(self) -> None:
+        """Bring the demo to the clock's moment; a new local day starts it over."""
+        now = self.clock()
+        if now.astimezone(TZ).date() != self.world.today:
+            self.reset()
+        elif now > self.world.now:
+            self.world.now = now
+
     def reset(self, world: World | None = None) -> None:
         """The company as it was: the same world built again, every change dropped."""
-        self.world = world or build_world()
+        self.world = world or day_world(self.clock())
         self.book = Book()
         self.uploads.clear()
         self.usage.clear()
@@ -179,10 +196,15 @@ class AssignmentsBody(BaseModel):
 
 
 def create_app(state: DemoNazar | None = None) -> FastAPI:
-    nazar = state or DemoNazar(build_world())
+    nazar = state or DemoNazar.today()
     app = FastAPI(title="Demo NAZAR", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.nazar = nazar
     _errors(app)
+
+    @app.middleware("http")
+    async def follow_the_clock(request: Request, call_next: Callable[[Request], Any]) -> Response:
+        nazar.tick()
+        return await call_next(request)
 
     def signed_in(request: Request, authorization: str | None = Header(default=None)) -> None:
         token = authorization.removeprefix("Bearer ").strip() if authorization else request.cookies.get("access_token")

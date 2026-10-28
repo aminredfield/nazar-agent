@@ -19,6 +19,10 @@ evaluated on:
 
 Everyone's assignment starts on the first generated day: no day before the
 history counts as missed (NAZAR's seed had that off by one).
+
+A world can be built up to the end of today (``until``) and then move with
+the clock: ``now`` only decides which of its check-ins have happened yet, so
+the day fills in as it goes — arrivals in the morning, check-outs at six.
 """
 
 from __future__ import annotations
@@ -27,6 +31,7 @@ import hashlib
 import math
 import random
 import uuid
+from bisect import bisect_right
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Literal
@@ -140,20 +145,28 @@ class World:
     first_day: date
     sites: dict[str, Site]
     people: dict[str, Person]
-    events: list[Event]
+    timeline: list[Event]  # every generated event in time order, some maybe still ahead of now
     _by_person: dict[str, list[Event]] | None = field(default=None, repr=False)
+    _moments: list[datetime] | None = field(default=None, repr=False)
 
     @property
     def today(self) -> date:
         return self.now.astimezone(TZ).date()
 
+    @property
+    def events(self) -> list[Event]:
+        """What has happened by now, in time order."""
+        if self._moments is None:
+            self._moments = [event.at for event in self.timeline]
+        return self.timeline[: bisect_right(self._moments, self.now)]
+
     def events_of(self, person_id: str) -> list[Event]:
-        """One person's events in time order; the history does not change once built."""
+        """One person's events by now, in time order."""
         if self._by_person is None:
             self._by_person = {}
-            for event in self.events:
+            for event in self.timeline:
                 self._by_person.setdefault(event.employee_id, []).append(event)
-        return self._by_person.get(person_id, [])
+        return [event for event in self._by_person.get(person_id, []) if event.at <= self.now]
 
 
 SITES = (
@@ -188,9 +201,18 @@ def phone_key(owner: str) -> str:
     return hashlib.sha256(f"mustahkam-phone|{owner}".encode()).hexdigest()[:16]
 
 
-def build_world(now: datetime | None = None, *, seed: int = 20261028, days: int = 21, left_days_ago: int = 10) -> World:
+def build_world(
+    now: datetime | None = None,
+    *,
+    until: datetime | None = None,
+    seed: int = 20261028,
+    days: int = 21,
+    left_days_ago: int = 10,
+) -> World:
+    """The company as of ``now``; with ``until``, today's later check-ins are made too, to come with the clock."""
     now = now or datetime.now(TZ)
     now_utc = now.astimezone(ZoneInfo("UTC"))
+    cutoff = max(until, now).astimezone(ZoneInfo("UTC")) if until else now_utc
     today = now.astimezone(TZ).date()
     first_day = today - timedelta(days=days)
     origin = datetime.combine(first_day - timedelta(days=1), time(8, 0), tzinfo=TZ)
@@ -206,7 +228,7 @@ def build_world(now: datetime | None = None, *, seed: int = 20261028, days: int 
         for index, (name, face, site_key, kind) in enumerate(ROSTER)
         for person in [Person(stable_id("person", name), name, f"MQ-{index + 1:03d}", sites[site_key].id, kind, face, origin, first_day)]
     }
-    builder = _Builder(random.Random(seed), now_utc, {site.id: site for site in sites.values()})
+    builder = _Builder(random.Random(seed), cutoff, {site.id: site for site in sites.values()})
     workdays_back = [
         day for day in (today - timedelta(days=n) for n in range(1, days + 1)) if sites["chilonzor"].shift_on(day)
     ]
@@ -353,3 +375,10 @@ def distance_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float
     d_phi, d_lambda = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
     a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
     return 2 * radius * math.asin(math.sqrt(a))
+
+
+def day_world(now: datetime | None = None) -> World:
+    """The world of today, all of it made, shown as of ``now``: for a demo that runs all day."""
+    now = now or datetime.now(TZ)
+    end = datetime.combine(now.astimezone(TZ).date(), time.max, tzinfo=TZ)
+    return build_world(now, until=end)
