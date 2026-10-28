@@ -20,6 +20,7 @@ from nazar_agent.findings import Analysis, Evidence, Finding
 from nazar_agent.findings.models import Confidence
 from nazar_agent.llm import LLMClient
 from nazar_agent.nazar import NazarClient
+from nazar_agent.progress import emit
 from nazar_agent.recommendations.catalog import Context, ValidatedAction, validate_action
 from nazar_agent.recommendations.composer import CaseInput, compose
 from nazar_agent.recommendations.skeptic import SkepticView, merge_confidence, run_skeptic
@@ -81,13 +82,30 @@ async def recommend(
     owner_said = owner_said or {}
 
     log.info("skeptic: %d finding(s) on %s", len(findings), team.skeptic_model)
+    emit("skeptic", status="start", model=team.skeptic_model, cases=len(findings))
     skeptic = await run_skeptic(team.skeptic_llm, team.skeptic_model, analysis.report, evidence, owner_said)
+    emit(
+        "skeptic",
+        status="done",
+        model=team.skeptic_model,
+        verdicts=[
+            {
+                "title": finding.title,
+                "subject": finding.subject_name,
+                "verdict": view.verdict if (view := skeptic.views.get(index)) else None,
+            }
+            for index, finding in enumerate(findings)
+        ],
+        text=skeptic.error or "",
+    )
     cases = [
         CaseInput(finding, merge_confidence(finding.confidence, skeptic.views.get(index)), skeptic.views.get(index))
         for index, finding in enumerate(findings)
     ]
     log.info("writer: recommendations on %s", team.writer_model)
+    emit("writer", status="start", model=team.writer_model, cases=len(cases))
     writer = await compose(team.writer_llm, team.writer_model, cases, today)
+    emit("writer", status="done", model=team.writer_model, actions=sum(len(plan.actions) for plan in writer.plans.values()))
 
     stock = _stock_alternatives(findings)
     cards = []
@@ -103,6 +121,8 @@ async def recommend(
             )
             for proposal in (plan.actions if plan else [])
         ]
+        for action in validated:
+            emit("validator", action=action.name, ok=action.valid, text="; ".join(action.problems))
         cards.append(Card(
             finding=case.finding,
             confidence=case.confidence,

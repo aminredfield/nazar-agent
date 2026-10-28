@@ -27,6 +27,7 @@ from typing import Any, Literal
 from pydantic import ValidationError
 
 from nazar_agent.engine.tools import Tool
+from nazar_agent.progress import emit
 from nazar_agent.llm.client import LLMClient, ToolCall
 
 DEFAULT_MAX_STEPS = 8
@@ -79,6 +80,7 @@ async def run_role(role: Role, llm: LLMClient, user_input: str) -> RoleRun:
 
     for turn_number in range(1, role.max_steps + 1):
         log.info("%s: turn %d", role.name, turn_number)
+        emit("thinking", agent=role.name, turn=turn_number)
         turn = await llm.respond(
             model=role.model,
             instructions=role.instructions,
@@ -89,6 +91,7 @@ async def run_role(role: Role, llm: LLMClient, user_input: str) -> RoleRun:
         output_tokens += turn.output_tokens
         if turn.text:
             conversation.append({"role": "assistant", "content": turn.text})
+            emit("note", agent=role.name, text=turn.text)
 
         if not turn.tool_calls:
             return RoleRun(
@@ -137,6 +140,7 @@ async def _execute(call: ToolCall, tools_by_name: dict[str, Tool]) -> ToolStep:
     tool = tools_by_name.get(call.name)
     if tool is None:
         return step(call.arguments, error=f"Unknown tool {call.name!r}.")
+    emit("tool", name=call.name, status="start", args=_shown(call.arguments))
     try:
         arguments = json.loads(call.arguments or "{}")
     except json.JSONDecodeError as exc:
@@ -148,8 +152,40 @@ async def _execute(call: ToolCall, tools_by_name: dict[str, Tool]) -> ToolStep:
     try:
         output = await tool.handler(params)
     except ToolExecutionError as exc:
+        emit("tool", name=call.name, status="error", text=str(exc))
         return step(arguments, error=str(exc))
-    return step(arguments, output=output)
+    done = step(arguments, output=output)
+    emit("tool", name=call.name, status="done", ms=done.duration_ms, found=_count(output))
+    return done
+
+
+def _shown(raw: str | None) -> dict[str, Any]:
+    """A tool's arguments for the window: short values only."""
+    try:
+        arguments = json.loads(raw or "{}")
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(arguments, dict):
+        return {}
+    return {
+        key: (f"{len(value)} шт." if isinstance(value, list) else value)
+        for key, value in arguments.items()
+        if value is not None and not isinstance(value, dict)
+    }
+
+
+# The collection a tool returns, as opposed to lists inside one record (its flags).
+_COLLECTIONS = ("events", "phones", "sites", "findings", "employees", "photos", "unusual_days")
+
+
+def _count(output: Any) -> int | None:
+    """How many records came back, for "found 395 check-ins"; None for a single record."""
+    if isinstance(output, list):
+        return len(output)
+    if isinstance(output, dict):
+        sizes = [len(output[key]) for key in _COLLECTIONS if isinstance(output.get(key), list)]
+        return max(sizes) if sizes else None
+    return None
 
 
 def _call_item(call: ToolCall) -> dict[str, Any]:

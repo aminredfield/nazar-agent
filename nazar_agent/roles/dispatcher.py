@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from nazar_agent.engine import tool_schema
 from nazar_agent.llm import LLMClient
+from nazar_agent.progress import emit
 
 Analyst = Literal["attendance", "timesheet"]
 DEFAULT_ANALYST: Analyst = "timesheet"
@@ -50,6 +51,9 @@ async def route(llm: LLMClient, model: str, question: str) -> Analyst:
         model=model, instructions=INSTRUCTIONS, input=question, tools=[], text_format=ROUTE_FORMAT
     )
     try:
-        return Route.model_validate_json(turn.text).analyst
+        chosen = Route.model_validate_json(turn.text)
     except ValidationError:
+        emit("route", analyst=DEFAULT_ANALYST, text="")
         return DEFAULT_ANALYST
+    emit("route", analyst=chosen.analyst, text=chosen.reason)
+    return chosen.analyst

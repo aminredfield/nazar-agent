@@ -26,6 +26,7 @@ from typing import Any, Literal
 import httpx
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from nazar_agent.actions import ExecutionError
@@ -148,6 +149,9 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
             return
         raise HTTPException(401, "Откройте помощника из кабинета NAZAR.")
 
+    # The window's stylesheet, script and logo; the page itself is "/".
+    app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
     @app.get("/", include_in_schema=False)
     async def window() -> FileResponse:
         return FileResponse(STATIC / "index.html")
@@ -191,6 +195,14 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         finally:
             _add_cost(http, current, day, cost)
         return answer.view
+
+    @app.get("/api/progress")
+    async def progress(after: int = Query(0, ge=0), current: Caller = Depends(caller)) -> dict[str, Any]:
+        """What the team is doing on the current question, from event ``after`` on."""
+        run = current.assistant.progress
+        if run is None:
+            return {"question": None, "running": False, "events": []}
+        return {"question": run.question, "running": not run.finished, "events": run.since(after)}
 
     @app.get("/api/last")
     async def last(current: Caller = Depends(caller)) -> dict[str, Any] | None:

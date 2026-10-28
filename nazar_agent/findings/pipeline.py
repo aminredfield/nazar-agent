@@ -28,6 +28,7 @@ from nazar_agent.engine import Role, RoleRun, run_role, tool_schema
 from nazar_agent.findings.checker import Evidence, Issue, check_report
 from nazar_agent.findings.models import AnalystReport, Finding
 from nazar_agent.llm import LLMClient
+from nazar_agent.progress import emit
 
 DEFAULT_MAX_CORRECTIONS = 2
 log = logging.getLogger(__name__)
@@ -115,6 +116,7 @@ async def analyze(
 
     for attempt in range(max_corrections + 1):
         log.info("%s: report, attempt %d", role.name, attempt + 1)
+        emit("report", agent=role.name, attempt=attempt + 1)
         turn = await llm.respond(
             model=role.model,
             instructions=role.instructions,
@@ -138,6 +140,13 @@ async def analyze(
             continue
 
         issues = check_report(report, evidence)
+        emit(
+            "checker",
+            round=attempt + 1,
+            findings=len(report.findings),
+            facts=sum(len(finding.facts) for finding in report.findings),
+            issues=[issue.describe() for issue in issues][:5],
+        )
         if attempt == 0:
             clean_first_time = not issues
         if not issues:
@@ -150,6 +159,7 @@ async def analyze(
         raise ReportError("No valid report after corrections.")
 
     if not report.findings and not issues and run.steps:
+        emit("checker", round=0, findings=0, facts=0, issues=["в отчёте нет находок после расследования — спрашиваю ещё раз"])
         conversation.append({"role": "user", "content": EMPTY_REPORT_CHECK})
         turn = await llm.respond(
             model=role.model,

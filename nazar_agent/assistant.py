@@ -25,6 +25,7 @@ from nazar_agent.feedback import about, instructions_text, owner_feedback
 from nazar_agent.findings import Analysis, analyze
 from nazar_agent.nazar import NazarClient
 from nazar_agent.onboarding import DraftStore, ImportRow, Site, read_list, review
+from nazar_agent.progress import Progress, emit, tracking
 from nazar_agent.recommendations import Recommendations, Team, Usage, recommend
 from nazar_agent.roles import attendance_analyst, timesheet_analyst
 from nazar_agent.roles.dispatcher import Analyst, route
@@ -64,6 +65,8 @@ class Assistant:
         self.service = service
         self.drafts = DraftStore(store.path, store)
         self.last: Answer | None = None
+        # The question being answered, or the last one: the window follows it live.
+        self.progress: Progress | None = None
         self._lock = asyncio.Lock()
 
     @property
@@ -77,7 +80,14 @@ class Assistant:
         if self._lock.locked():
             raise AssistantBusy
         async with self._lock:
-            self.last = await self._answer(question, analyst, self._acting(nazar))
+            self.progress = Progress(question)
+            with tracking(self.progress):
+                try:
+                    self.last = await self._answer(question, analyst, self._acting(nazar))
+                except Exception as exc:
+                    self.progress.finish(f"{type(exc).__name__}: {exc}")
+                    raise
+            self.progress.finish()
             return self.last
 
     async def read_list(
@@ -110,6 +120,8 @@ class Assistant:
         skeptic_llm = settings.skeptic_llm()
         today = datetime.now(COMPANY_TZ).date()
         try:
+            if analyst:
+                emit("route", analyst=analyst, text="выбран в окне")
             chosen = analyst or await route(analyst_llm, settings.analyst_model, question)
             log.info("question routed to the %s analyst", chosen)
             # The photo inspector runs on the open-weights model, like the skeptic.

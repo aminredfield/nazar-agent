@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from nazar_agent.engine import Tool, ToolExecutionError, ToolParams, tool_schema
 from nazar_agent.llm import LLMClient
 from nazar_agent.nazar import NazarApiError, NazarClient
+from nazar_agent.progress import emit
 from nazar_agent.tools.common import call_nazar, local_time
 
 MAX_PHOTOS = 8
@@ -140,8 +141,16 @@ def photo_tools(nazar: NazarClient, inspector: PhotoInspector) -> tuple[Tool, ..
         if not with_photo:
             return result
         photos = [await call_nazar(nazar.get_bytes(event["photo_url"])) for event in with_photo]
+        emit("photos", status="start", model=inspector.model, count=len(photos))
         report = await inspector.look(photos)
         by_number = {number: event for number, event in enumerate(with_photo, start=1)}
+        emit(
+            "photos",
+            status="done",
+            model=inspector.model,
+            looks=[{"name": by_number[look.photo].get("employee_name"), "kind": look.kind} for look in report.photos],
+            same_background=sum(1 for group in report.same_background if len(group) > 1),
+        )
         # "id" is the check-in's own id: the fact checker adds these fields to
         # that event's record, so a fact may cite what the inspector saw.
         result["photos"] = [
