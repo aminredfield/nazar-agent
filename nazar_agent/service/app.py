@@ -148,7 +148,8 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
                 response.set_cookie(
                     DEMO_COOKIE, demo_session, httponly=True, samesite="strict", secure=state.settings.cookie_secure
                 )
-            yield Caller(state.assistants.service, state.assistants.service.service, "", None, demo_session, demo=True)
+            visitor = state.assistants.for_visitor(demo_session)
+            yield Caller(visitor, visitor.service, "", None, demo_session, demo=True)
             return
         if state.assistants.service is not None and not state.settings.window_needs_sign_in:
             yield Caller(state.assistants.service, state.assistants.service.service, "", None)

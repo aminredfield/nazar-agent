@@ -7,6 +7,48 @@ with evidence**. Nothing changes without a human pressing the button.
 Built for the Meta AI Developer Hackathon (Oct 26 – Nov 4, 2026), Startup
 track, theme **Build for Your World**.
 
+## Try it in 5 minutes — no NAZAR needed
+
+The repository carries a demo NAZAR: a construction company with three sites,
+16 people and three weeks of check-ins, built in memory with the traps the
+agents are tested on. Only a [Meta Model API](https://dev.meta.ai) key is needed.
+
+```bash
+git clone https://github.com/aminredfield/nazar-agent.git && cd nazar-agent
+echo MODEL_API_KEY=your-key > .env
+docker compose up --build              # → http://localhost:8100
+```
+
+Or without Docker (Python 3.11+):
+
+```bash
+python -m venv .venv && . .venv/bin/activate     # Windows: .venv\Scripts\activate
+pip install .
+python -m nazar_agent.demo                       # → http://127.0.0.1:8100
+```
+
+The window opens as the owner of the demo company. Ask, for example:
+
+| Ask | What is planted | What a good answer does |
+|---|---|---|
+| «Кто на самом деле ходит на объект Чиланзар?» / "Who really comes to the Chilonzor site?" | four workers left ten days ago; the foreman checks them in from his phone with photos of their photo on a screen | names the four, cites the shared phone and the photos; proposes to mark the check-ins for review |
+| «Что стоит проверить в табеле перед оплатой?» | the finishing crew at Yashnobod is "late" every day: they work 09:00–19:00, the site says 08:00–18:00 | blames the schedule, not the people; proposes `change_schedule` with before → after |
+| the same two questions | a worker with weak GPS (flags, twice outside the fence, but live selfies and full days); an honest foreman checking in two workers without smartphones | accuses neither |
+| «Импорт сотрудников» tab, paste a list with a repeat and a surname only | — | flags the repeat, the surname-only line and the person who is already employed |
+
+Press **Apply** on a card: the demo NAZAR changes, and **Undo** puts it back.
+**Сбросить демо** (top right) returns the company to this morning. Today's
+check-ins appear as their time comes in Tashkent; the company starts over
+every day.
+
+The demo NAZAR answers with the same fields as the real one — every route the
+agent calls is checked against a recorded real answer
+([`tests/contracts/`](tests/contracts/)). Its timesheet and its setup check
+are our own simplified versions, not NAZAR's closed calculation: plan, check-in
+to check-out, lateness past a 10-minute grace, early leave, overtime, absences
+([`nazar_agent/demo/timesheet.py`](nazar_agent/demo/timesheet.py)). The
+evals below repeat on it with `python -m nazar_agent.evals`.
+
 ## The problem
 
 In Uzbekistan most companies whose people work on sites — construction
@@ -278,8 +320,12 @@ unexcused absence before paying is right.
 
 ## Public demo
 
-Everyone who tries the demo signs in to the same NAZAR demo company and
-opens the assistant from its cabinet. Each window session may ask a limited
+Two ways in. **Without NAZAR**: the demo above runs as a container next to
+NAZAR ([`deploy/docker-compose.demo.yml`](deploy/docker-compose.demo.yml)) at
+its own address; every browser asks on its own, visitors share the demo
+company, and it starts over every day. **Through NAZAR**: everyone who tries
+it signs in to the same NAZAR demo company and opens the assistant from its
+cabinet. Each window session may ask a limited
 number of questions, and all sessions together have a daily budget in
 dollars (`DEMO_QUESTIONS_PER_SESSION`, `DEMO_BUDGET_USD_PER_DAY`); the
 window says so when a limit is reached. A question is counted before any
@@ -316,11 +362,13 @@ visitor applied is gone by morning. Deployment next to NAZAR:
 | "Disagree" reasons fed to the next analysis, the skeptic and the card; share of applied proposals in the window | done |
 | Evals over the planted cases, scored by code | done |
 | Every model call recorded: role, model, tokens, price (an estimate where no price is published); spend today, this week and in all in the window and `/usage` in the bot | done |
-| Public demo: limits per session and per day, nightly reset, container next to NAZAR | done (deployment: in progress) |
+| Public demo: limits per session and per day, nightly reset, container next to NAZAR | done |
+| Demo NAZAR in the repository: the demo company in memory, every route checked against recorded real answers, `DEMO_MODE`, one-command start | done |
 
-## Run it
+## Run it against NAZAR
 
-Requires Python 3.11+ and access to a NAZAR instance with a demo company.
+The demo needs nothing but a model key (see the top). Against a real NAZAR it
+requires Python 3.11+ and access to a NAZAR instance with a demo company.
 Use a demo company and a dedicated admin user for the agent — never a real
 client's account.
 

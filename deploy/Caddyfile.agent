@@ -10,3 +10,16 @@ agent.nazarhr.uz {
 	}
 	reverse_proxy nazar-agent:8100
 }
+
+# The public demo on the demo company built in its container (docker-compose.demo.yml).
+demo-agent.nazarhr.uz {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+	reverse_proxy nazar-agent-demo:8100
+}

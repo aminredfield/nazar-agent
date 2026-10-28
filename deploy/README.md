@@ -52,7 +52,24 @@ the proxy. The DNS record `agent.nazarhr.uz` must point to the server first.
 Create `deploy/demo.env` with `DEMO_EMAIL` and `DEMO_PASSWORD` (mode 600) and
 add [`reset-demo.sh`](reset-demo.sh) to cron.
 
-## 4. Check
+## 4. The public demo (no NAZAR account behind it)
+
+The same agent on the demo company built in its own container, for judges
+and visitors who have no NAZAR account. It reads the model keys from the
+same `deploy/.env`; the Telegram bot is off in it.
+
+```sh
+cd /opt/nazar-agent/deploy
+docker compose -p nazar-agent-demo -f docker-compose.demo.yml up -d --build
+```
+
+The DNS record `demo-agent.nazarhr.uz` must point to the server; its block
+is in [`Caddyfile.agent`](Caddyfile.agent). Limits: `DEMO_QUESTIONS_PER_SESSION_PUBLIC`
+(default 8 per browser) and `DEMO_BUDGET_USD_PER_DAY_PUBLIC` (default $5 for
+all visitors together). No cron is needed: the demo company starts over every
+day by itself.
+
+## 5. Check
 
 - the cabinet of the demo company shows "Assistant"; it opens the window;
 - a question gets cards; "Apply" changes NAZAR and "Undo" puts it back;

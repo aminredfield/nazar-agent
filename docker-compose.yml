@@ -1,0 +1,35 @@
+# The assistant on the demo construction company, in one command:
+#
+#   echo MODEL_API_KEY=... > .env
+#   docker compose up --build        # then open http://localhost:8100
+#
+# No NAZAR is needed: the demo company is built inside the container. Only the
+# Meta Model API key is required; the skeptic's own model (Baseten) is optional.
+# For the agent next to a real NAZAR, see deploy/.
+
+services:
+  nazar-agent-demo:
+    build: .
+    command: ["python", "-m", "nazar_agent.service"]
+    ports:
+      - "127.0.0.1:8100:8100"
+    environment:
+      MODEL_API_KEY: ${MODEL_API_KEY:?Put MODEL_API_KEY=... (a Meta Model API key) in .env}
+      ANALYST_MODEL: ${ANALYST_MODEL:-muse-spark-1.3}
+      SKEPTIC_MODEL: ${SKEPTIC_MODEL:-muse-spark-1.2}
+      SKEPTIC_API: ${SKEPTIC_API:-responses}
+      SKEPTIC_BASE_URL: ${SKEPTIC_BASE_URL:-}
+      SKEPTIC_API_KEY: ${SKEPTIC_API_KEY:-}
+      DEMO_MODE: "true"
+      # Plain HTTP on this machine: the cookie must not ask for HTTPS.
+      COOKIE_SECURE: "false"
+    volumes:
+      - demo_data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  demo_data:

@@ -35,6 +35,7 @@ from nazar_agent.usage import Ledger, Meter, NazarUsageReport, Source, metering
 from nazar_agent.views import answer_view
 
 ANALYSTS = {"attendance": attendance_analyst, "timesheet": timesheet_analyst}
+MAX_VISITORS = 500  # demo browsers kept in memory; the oldest idle one goes first
 log = logging.getLogger(__name__)
 
 
@@ -202,11 +203,30 @@ class Assistants:
         self._ledger = ledger
         self._reporter = reporter
         self._by_company: dict[str, Assistant] = {}
+        self._visitors: dict[str, Assistant] = {}
         self.service = (
             Assistant(settings, ProposalStore(settings.agent_db_path), service=service, ledger=ledger, reporter=reporter)
             if service is not None
             else None
         )
+
+    def for_visitor(self, session_id: str) -> Assistant:
+        """A demo browser's own assistant: its own question at a time and last answer.
+
+        Visitors share the demo company, its proposals and audit trail, but one
+        visitor's question does not keep another waiting.
+        """
+        if self.service is None:
+            raise RuntimeError("a demo visitor needs the service account")
+        if session_id not in self._visitors:
+            if len(self._visitors) >= MAX_VISITORS:
+                idle = next((key for key, item in self._visitors.items() if not item.busy), None)
+                if idle is not None:
+                    del self._visitors[idle]  # the oldest idle one: dicts keep insertion order
+            self._visitors[session_id] = Assistant(
+                self._settings, self.service.store, service=self.service.service, ledger=self._ledger, reporter=self._reporter
+            )
+        return self._visitors[session_id]
 
     def for_company(self, company_id: str) -> Assistant:
         if company_id not in self._by_company:

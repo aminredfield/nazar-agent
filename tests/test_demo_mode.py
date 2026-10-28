@@ -1,6 +1,7 @@
 """DEMO_MODE: the agent on the demo company in this process, with only a model key."""
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import httpx
 import pytest
@@ -118,3 +119,28 @@ async def test_the_demo_day_fills_in_with_the_clock_and_a_new_day_starts_over():
     assert evening[0] == 0 and evening[1] >= 14  # everyone checked out
     assert demo.world.today == datetime(2026, 10, 29).date()
     assert all(event.review_status == "not_reviewed" for event in demo.world.events)
+
+
+def test_every_demo_browser_asks_on_its_own_over_one_company(demo_window):
+    client, _ = demo_window
+    other = TestClient(client.app)
+
+    client.get("/api/me")
+    other.get("/api/me")
+    assistants = client.app.state.assistants
+    first = assistants.for_visitor(client.cookies.get("nazar_agent_demo"))
+    second = assistants.for_visitor(other.cookies.get("nazar_agent_demo"))
+
+    assert first is not second
+    assert first.store is second.store  # one company, one audit trail
+
+
+def test_the_one_command_demo_says_what_is_missing(monkeypatch, capsys):
+    from nazar_agent.demo.__main__ import main
+
+    monkeypatch.delenv("MODEL_API_KEY", raising=False)
+    monkeypatch.chdir(Path(__file__).parent)  # no .env here
+    monkeypatch.setattr("sys.argv", ["nazar_agent.demo"])
+
+    assert main() == 2
+    assert "MODEL_API_KEY" in capsys.readouterr().err

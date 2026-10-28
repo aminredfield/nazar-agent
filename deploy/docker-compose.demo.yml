@@ -1,0 +1,45 @@
+# The public demo for judges: the agent on the demo company built in the
+# container, no NAZAR account behind it. Next to the agent of deploy/, with the
+# same deploy/.env for the model keys, on NAZAR's network so the same Caddy
+# proxies it (Caddyfile.agent, demo-agent.nazarhr.uz):
+#
+#   docker compose -p nazar-agent-demo -f docker-compose.demo.yml up -d --build
+#
+# The demo company starts over every day at midnight Tashkent time by itself;
+# "Reset demo" in the window brings this morning back at any time.
+
+services:
+  nazar-agent-demo:
+    build:
+      context: ..
+    env_file:
+      - .env
+    environment:
+      DEMO_MODE: "true"
+      # Never the production bot: one token answers in one place only.
+      TELEGRAM_BOT_TOKEN: ""
+      COOKIE_SECURE: "true"
+      # Every visitor may ask this many questions; all together spend at most this per day.
+      DEMO_QUESTIONS_PER_SESSION: ${DEMO_QUESTIONS_PER_SESSION_PUBLIC:-8}
+      DEMO_BUDGET_USD_PER_DAY: ${DEMO_BUDGET_USD_PER_DAY_PUBLIC:-5}
+      AGENT_DB_PATH: /data/nazar_agent.sqlite3
+      SERVICE_HOST: 0.0.0.0
+      SERVICE_PORT: "8100"
+    volumes:
+      - demo_data:/data
+    networks:
+      - nazar
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  demo_data:
+
+networks:
+  nazar:
+    name: ${NAZAR_NETWORK:-faceid-startup-mvp_default}
+    external: true
