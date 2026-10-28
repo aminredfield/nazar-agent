@@ -1,6 +1,6 @@
-# The agent next to a NAZAR production deployment, on NAZAR's own Docker network:
-# it reaches NAZAR's API inside the network and the existing Caddy proxies the
-# window. Usage (from this folder, with deploy/.env filled in):
+# The agent next to a NAZAR production deployment, on NAZAR's own Docker network,
+# so the existing Caddy proxies the window. Usage (from this folder, with
+# deploy/.env filled in):
 #
 #   docker compose -p nazar-agent up -d --build
 #
@@ -14,8 +14,10 @@ services:
     env_file:
       - .env
     environment:
-      # Inside the network; the cabinet itself is reached by people over HTTPS.
-      NAZAR_BASE_URL: ${NAZAR_INTERNAL_URL:-http://backend:8000/api}
+      # NAZAR's public address, not backend:8000 inside the network: production
+      # NAZAR accepts only its public host names, and its session cookies are
+      # Secure, so they travel over HTTPS only.
+      NAZAR_BASE_URL: ${NAZAR_PUBLIC_API:-https://nazarhr.uz/api}
       REQUIRE_SIGN_IN: "true"
       COOKIE_SECURE: "true"
     volumes:
