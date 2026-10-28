@@ -1,0 +1,11 @@
+{
+ "request": "DELETE /timesheet/adjustments/{id}",
+ "status": 200,
+ "body": {
+  "request_id": "req_1a537deb346f4130b97f67d2",
+  "success": true,
+  "data": null,
+  "error": null,
+  "message": "Adjustment cancelled."
+ }
+}

@@ -1,0 +1,28 @@
+{
+ "request": "GET /timesheet",
+ "status": 422,
+ "body": {
+  "request_id": "req_f76594c328e34748b48996a7",
+  "success": false,
+  "data": null,
+  "error": {
+   "code": "VALIDATION_ERROR",
+   "message": "Request validation failed.",
+   "details": [
+    {
+     "type": "date_from_datetime_parsing",
+     "loc": [
+      "query",
+      "date_from"
+     ],
+     "msg": "Input should be a valid date or datetime, invalid character in year",
+     "input": "not-a-date",
+     "ctx": {
+      "error": "invalid character in year"
+     }
+    }
+   ]
+  },
+  "message": null
+ }
+}

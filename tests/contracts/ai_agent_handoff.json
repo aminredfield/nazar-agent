@@ -1,0 +1,14 @@
+{
+ "request": "POST /ai-agent/handoff",
+ "status": 200,
+ "body": {
+  "request_id": "req_49843b21cc1546278ca4f343",
+  "success": true,
+  "data": {
+   "url": "http://127.0.0.1:8100/#handoff=<redacted>",
+   "expires_at": "2026-10-28T21:58:16.919176Z"
+  },
+  "error": null,
+  "message": null
+ }
+}

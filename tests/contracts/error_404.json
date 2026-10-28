@@ -1,0 +1,15 @@
+{
+ "request": "GET /attendance/events/{id}",
+ "status": 404,
+ "body": {
+  "request_id": "req_654f7f8e2408407f9f7c1521",
+  "success": false,
+  "data": null,
+  "error": {
+   "code": "NOT_FOUND",
+   "message": "Attendance event not found.",
+   "details": null
+  },
+  "message": null
+ }
+}

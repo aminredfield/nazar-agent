@@ -1,0 +1,13 @@
+{
+ "request": "POST /ai-agent/usage",
+ "status": 200,
+ "body": {
+  "request_id": "req_ad4a3114fa4847eb80729b85",
+  "success": true,
+  "data": {
+   "recorded": 1
+  },
+  "error": null,
+  "message": null
+ }
+}

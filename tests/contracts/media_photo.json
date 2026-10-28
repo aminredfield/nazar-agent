@@ -1,0 +1,6 @@
+{
+ "request": "GET /media/{path}",
+ "status": 200,
+ "content_type": "image/jpeg",
+ "bytes_over": 1000
+}

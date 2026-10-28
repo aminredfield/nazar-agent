@@ -1,0 +1,33 @@
+{
+ "request": "POST /face/quality-check",
+ "status": 200,
+ "body": {
+  "request_id": "req_dc414445ba9049b9af0b18a8",
+  "success": true,
+  "data": {
+   "face_detected": true,
+   "face_count": 1,
+   "detection_confidence": 0.9327,
+   "warnings": [],
+   "blocking_reasons": [],
+   "quality": {
+    "brightness": "ok",
+    "blur": "ok",
+    "face_size": "ok"
+   },
+   "metrics": {
+    "brightness_score": 132.85,
+    "blur_score": 408.09,
+    "face_area_ratio": 0.2207
+   },
+   "summary": {
+    "status": "ok",
+    "warnings": []
+   },
+   "original_width": 720,
+   "original_height": 720
+  },
+  "error": null,
+  "message": null
+ }
+}

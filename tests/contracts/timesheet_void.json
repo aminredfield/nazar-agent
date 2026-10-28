@@ -1,0 +1,24 @@
+{
+ "request": "POST /timesheet/adjustments/void",
+ "status": 200,
+ "body": {
+  "request_id": "req_ea5857990231474f8a7a8708",
+  "success": true,
+  "data": {
+   "id": "9bf90bcd-7212-4e45-8383-e8f71dcede32",
+   "employee_id": "a2fff62c-8a34-4c32-a77a-7b98473a3f5f",
+   "work_date": "2026-10-22",
+   "target_key": "<redacted>",
+   "assignment_id": "e7d04806-039a-49fc-84d1-a4c1a488b776",
+   "object_id": null,
+   "field": "work_intervals",
+   "new_value": [],
+   "reason": "contract recording",
+   "is_active": true,
+   "created_by_admin_id": "6b3a3457-0ae9-4ca0-8eb1-5b57ed62e429",
+   "created_at": "2026-10-28T21:57:17.858047Z"
+  },
+  "error": null,
+  "message": "Shift marked as not worked."
+ }
+}

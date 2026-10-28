@@ -1,0 +1,19 @@
+{
+ "request": "POST /ai-agent/session",
+ "status": 200,
+ "body": {
+  "request_id": "req_98046f7a900f4660b0cb4032",
+  "success": true,
+  "data": {
+   "access_token": "<redacted>",
+   "expires_at": "2026-10-28T22:27:16.937520Z",
+   "company_id": "6f6b6032-3813-4ce3-af70-31af2588e2b0",
+   "company_name": "Mustahkam Qurilish",
+   "full_name": "Демо Стройка",
+   "email": "<redacted>",
+   "role": "owner"
+  },
+  "error": null,
+  "message": null
+ }
+}

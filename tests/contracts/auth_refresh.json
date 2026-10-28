@@ -1,0 +1,88 @@
+{
+ "request": "POST /auth/refresh",
+ "status": 200,
+ "body": {
+  "request_id": "req_e1b5164d31934826b51c0153",
+  "success": true,
+  "data": {
+   "company": {
+    "id": "6f6b6032-3813-4ce3-af70-31af2588e2b0",
+    "name": "Mustahkam Qurilish",
+    "is_active": true,
+    "is_demo": false,
+    "demo_started_at": null,
+    "demo_expires_at": null,
+    "blocked_at": null,
+    "blocked_reason": null,
+    "subscription_plan": "business",
+    "subscription_status": "active",
+    "billing_period": "monthly",
+    "paid_until": "2027-01-15T00:00:00Z",
+    "contact_phone": "+998 90 765 43 21",
+    "created_at": "2026-10-06T03:00:00Z"
+   },
+   "user": {
+    "id": "6ee254bf-4313-4afc-80a1-93113e1a7a4a",
+    "account_id": "6b3a3457-0ae9-4ca0-8eb1-5b57ed62e429",
+    "company_id": "6f6b6032-3813-4ce3-af70-31af2588e2b0",
+    "full_name": "Демо Стройка",
+    "email": "<redacted>",
+    "is_active": true,
+    "suspended_reason": null,
+    "email_verified_at": "<redacted>",
+    "has_google_auth": false,
+    "is_primary": false,
+    "preferred_language": "ru",
+    "role": "owner",
+    "permissions": [
+     "absences.manage",
+     "admins.manage",
+     "attendance.review",
+     "attendance.view"
+    ],
+    "created_at": "2026-10-06T03:00:00Z"
+   },
+   "companies": [
+    {
+     "id": "6f6b6032-3813-4ce3-af70-31af2588e2b0",
+     "name": "Mustahkam Qurilish",
+     "is_active": true,
+     "is_demo": false,
+     "demo_started_at": null,
+     "demo_expires_at": null,
+     "blocked_at": null,
+     "blocked_reason": null,
+     "subscription_plan": "business",
+     "subscription_status": "active",
+     "billing_period": "monthly",
+     "paid_until": "2027-01-15T00:00:00Z",
+     "contact_phone": "+998 90 765 43 21",
+     "created_at": "2026-10-06T03:00:00Z"
+    }
+   ],
+   "features": {
+    "experimental_mobile": false,
+    "camera_integrations": false,
+    "payroll": true,
+    "night_rules": true,
+    "employee_portal": false,
+    "plan_fact": true,
+    "disputes": true,
+    "fraud_analytics": true,
+    "weekly_report": true,
+    "route_tracking": false,
+    "extra_roles": true,
+    "ai_agent": true,
+    "plan_code": "business",
+    "plan_tier": "business",
+    "is_legacy_plan": false,
+    "admin_limit": null,
+    "show_payment_page_during_demo": true,
+    "support_url": "",
+    "show_beta_badge": true
+   }
+  },
+  "error": null,
+  "message": "Session refreshed."
+ }
+}

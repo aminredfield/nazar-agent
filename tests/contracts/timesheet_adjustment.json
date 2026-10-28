@@ -1,0 +1,29 @@
+{
+ "request": "POST /timesheet/adjustments",
+ "status": 200,
+ "body": {
+  "request_id": "req_f73c9a3a26f24931970cfcb3",
+  "success": true,
+  "data": {
+   "id": "940dd151-6880-476f-9252-8bd4903a9e15",
+   "employee_id": "a2fff62c-8a34-4c32-a77a-7b98473a3f5f",
+   "work_date": "2026-10-22",
+   "target_key": "<redacted>",
+   "assignment_id": "e7d04806-039a-49fc-84d1-a4c1a488b776",
+   "object_id": null,
+   "field": "work_intervals",
+   "new_value": [
+    {
+     "end_at": "2026-10-22T17:00:00+05:00",
+     "start_at": "2026-10-22T09:00:00+05:00"
+    }
+   ],
+   "reason": "contract recording",
+   "is_active": true,
+   "created_by_admin_id": "6b3a3457-0ae9-4ca0-8eb1-5b57ed62e429",
+   "created_at": "2026-10-28T21:57:17.757425Z"
+  },
+  "error": null,
+  "message": "Adjustment saved."
+ }
+}

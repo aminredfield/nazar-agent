@@ -1,0 +1,146 @@
+{
+ "request": "GET /attendance/presence",
+ "status": 200,
+ "body": {
+  "request_id": "req_cc4f5d4bc77944ce8d2c1a5f",
+  "success": true,
+  "data": {
+   "items": [
+    {
+     "employee": {
+      "id": "a2fff62c-8a34-4c32-a77a-7b98473a3f5f",
+      "full_name": "Азамат Норматов",
+      "employee_id": "MQ-002",
+      "preview_image_url": "/media/persons/fd386128bee94de7982b718315fd9b66.jpg",
+      "is_active": true,
+      "departments": [],
+      "created_at": "2026-10-06T03:00:00Z",
+      "updated_at": "2026-10-27T22:41:47.351230Z",
+      "face_ready": false,
+      "has_pay_rate": false,
+      "primary_object_name": null,
+      "object_count": 0,
+      "schedule": null,
+      "last_event_type": null,
+      "last_event_at": null
+     },
+     "status": "absent",
+     "object_id": null,
+     "object_name": null,
+     "last_event_at": null,
+     "chart": [
+      false,
+      false,
+      false,
+      false
+     ]
+    },
+    {
+     "employee": {
+      "id": "38a39a6b-4e86-42f8-aeb7-a86f9eae3f95",
+      "full_name": "Анвар Бакиров",
+      "employee_id": "MQ-013",
+      "preview_image_url": "/media/persons/1a92711372b441c38caab3ff9fbd1a6a.jpg",
+      "is_active": true,
+      "departments": [],
+      "created_at": "2026-10-06T03:00:00Z",
+      "updated_at": "2026-10-27T22:41:47.351230Z",
+      "face_ready": false,
+      "has_pay_rate": false,
+      "primary_object_name": null,
+      "object_count": 0,
+      "schedule": null,
+      "last_event_type": null,
+      "last_event_at": null
+     },
+     "status": "out",
+     "object_id": "e2e52496-e358-4f14-b183-10afa0c622e9",
+     "object_name": "Склад-ангар, Сергели",
+     "last_event_at": "2026-10-27T12:48:31.137002Z",
+     "chart": [
+      false,
+      false,
+      false,
+      false
+     ]
+    },
+    {
+     "employee": {
+      "id": "346d69d7-1c24-4970-a59b-f2c953020886",
+      "full_name": "Бобур Каримов",
+      "employee_id": "MQ-003",
+      "preview_image_url": "/media/persons/7b6837182146432ca22575be726eacf7.jpg",
+      "is_active": true,
+      "departments": [],
+      "created_at": "2026-10-06T03:00:00Z",
+      "updated_at": "2026-10-27T22:41:47.351230Z",
+      "face_ready": false,
+      "has_pay_rate": false,
+      "primary_object_name": null,
+      "object_count": 0,
+      "schedule": null,
+      "last_event_type": null,
+      "last_event_at": null
+     },
+     "status": "out",
+     "object_id": "bca1d5e9-d13c-43d5-9ff6-46103b5c53cd",
+     "object_name": "ЖК «Чиланзар Сити», блок 3",
+     "last_event_at": "2026-10-27T12:53:55.199373Z",
+     "chart": [
+      false,
+      false,
+      false,
+      false
+     ]
+    },
+    {
+     "employee": {
+      "id": "e07ff8b7-4c7f-433a-ba23-f297843a4304",
+      "full_name": "Гулчехра Ибрагимова",
+      "employee_id": "MQ-008",
+      "preview_image_url": "/media/persons/0585eda1c54e4096b7317095d2791472.jpg",
+      "is_active": true,
+      "departments": [],
+      "created_at": "2026-10-06T03:00:00Z",
+      "updated_at": "2026-10-27T22:41:47.351230Z",
+      "face_ready": false,
+      "has_pay_rate": false,
+      "primary_object_name": null,
+      "object_count": 0,
+      "schedule": null,
+      "last_event_type": null,
+      "last_event_at": null
+     },
+     "status": "out",
+     "object_id": "bca1d5e9-d13c-43d5-9ff6-46103b5c53cd",
+     "object_name": "ЖК «Чиланзар Сити», блок 3",
+     "last_event_at": "2026-10-27T12:55:18.326281Z",
+     "chart": [
+      false,
+      false,
+      false,
+      false
+     ]
+    }
+   ],
+   "total": 17,
+   "limit": 100,
+   "offset": 0,
+   "summary": {
+    "total_employees": 17,
+    "on_site": 0,
+    "left_today": 0,
+    "absent": 17,
+    "attendance_rate": 0,
+    "scheduled_today": 16,
+    "expected_now": 0,
+    "not_arrived": 0,
+    "day_off": 0,
+    "shift_attendance_rate": null
+   },
+   "objects": []
+  },
+  "error": null,
+  "message": null
+ }
+}

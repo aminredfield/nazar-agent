@@ -1,0 +1,111 @@
+{
+ "request": "GET /timesheet/day/detail",
+ "status": 200,
+ "body": {
+  "request_id": "req_9e89d569a08a4c7198dc7aa0",
+  "success": true,
+  "data": {
+   "day": {
+    "employee_id": "a2fff62c-8a34-4c32-a77a-7b98473a3f5f",
+    "work_date": "2026-10-22",
+    "object_id": "bca1d5e9-d13c-43d5-9ff6-46103b5c53cd",
+    "day_code": "work",
+    "schedule_norm_minutes": 600,
+    "required_minutes": 600,
+    "worked_minutes": 583,
+    "regular_minutes": 583,
+    "credited_minutes": 0,
+    "credited_pay_minutes": 0,
+    "paid_minutes": 583,
+    "overtime_minutes": 0,
+    "holiday_minutes": 0,
+    "night_minutes": 0,
+    "shifts_planned": 1,
+    "shifts_counted": 1,
+    "shift_breakdown": [
+     {
+      "target_key": "<redacted>",
+      "object_id": "bca1d5e9-d13c-43d5-9ff6-46103b5c53cd",
+      "assignment_id": "e7d04806-039a-49fc-84d1-a4c1a488b776",
+      "is_planned": true,
+      "planned_start_at": "2026-10-22T03:00:00+00:00",
+      "planned_end_at": "2026-10-22T13:00:00+00:00",
+      "schedule_norm_minutes": 600,
+      "intervals": [
+       {
+        "start_at": "2026-10-22T03:02:23.491995+00:00",
+        "end_at": "2026-10-22T12:45:36.376379+00:00"
+       }
+      ],
+      "regular_minutes": 583,
+      "overtime_minutes": 0,
+      "holiday_minutes": 0,
+      "night_minutes": 0,
+      "credited_minutes": 0,
+      "credited_pay_minutes": 0,
+      "unpaid_minutes": 0,
+      "overtime_excess_minutes": 0,
+      "is_adjusted": false,
+      "is_counted_shift": true
+     }
+    ],
+    "late_minutes": 0,
+    "early_leave_minutes": 14,
+    "shortfall_minutes": 17,
+    "absence_id": null,
+    "absence_type": null,
+    "is_excused": false,
+    "is_adjusted": false,
+    "has_schedule_overlap": false,
+    "is_calendar_holiday": false,
+    "comment": null,
+    "has_open_session": false,
+    "unpaid_minutes": 0,
+    "needs_review": false
+   },
+   "is_closed": false,
+   "period_status": null,
+   "period_id": null,
+   "closed_at": null,
+   "closed_by_name": null,
+   "document_version": null,
+   "events": [
+    {
+     "id": "6d20510d-ca1d-488a-8e32-66f6cf9f61ac",
+     "event_type": "check_out",
+     "received_at_server": "2026-10-22T12:45:36.376379Z",
+     "object_id": "bca1d5e9-d13c-43d5-9ff6-46103b5c53cd",
+     "photo_url": "/media/attendance/f1de7731927f4381a04335c116a4bbe9.jpg",
+     "matched": true,
+     "risk_flags": [],
+     "review_status": "not_reviewed"
+    },
+    {
+     "id": "29e57737-ee11-4c9f-b8b0-478021f32fe4",
+     "event_type": "check_in",
+     "received_at_server": "2026-10-22T03:02:23.491995Z",
+     "object_id": "bca1d5e9-d13c-43d5-9ff6-46103b5c53cd",
+     "photo_url": "/media/attendance/f489c4d9594e4aba861c248cca491d69.jpg",
+     "matched": true,
+     "risk_flags": [],
+     "review_status": "not_reviewed"
+    }
+   ],
+   "adjustments": [],
+   "applied": {
+    "calendar_kind": null,
+    "calendar_title": null,
+    "calendar_is_company_override": false,
+    "absence_type": null,
+    "absence_counts_as_worked": null,
+    "absence_is_paid": null,
+    "is_excused": false,
+    "excuse_reason": null,
+    "adjustment_count": 0
+   },
+   "dispute": null
+  },
+  "error": null,
+  "message": null
+ }
+}

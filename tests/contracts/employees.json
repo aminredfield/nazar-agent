@@ -1,0 +1,122 @@
+{
+ "request": "GET /employees",
+ "status": 200,
+ "body": {
+  "request_id": "req_aac5b358e46540fdbc0faf57",
+  "success": true,
+  "data": [
+   {
+    "id": "cb781a02-9f4e-4503-b0f8-60ad4773845e",
+    "full_name": "Контракт Проверка",
+    "employee_id": "EMP-714511",
+    "preview_image_url": "/media/persons/6afb37d158874b55a590bd0f9a822fe5.jpg",
+    "is_active": true,
+    "departments": [],
+    "created_at": "2026-10-28T21:55:47.775109Z",
+    "updated_at": "2026-10-28T21:55:47.775109Z",
+    "face_ready": true,
+    "has_pay_rate": false,
+    "primary_object_name": null,
+    "object_count": 0,
+    "schedule": null,
+    "last_event_type": null,
+    "last_event_at": null
+   },
+   {
+    "id": "a2fff62c-8a34-4c32-a77a-7b98473a3f5f",
+    "full_name": "Азамат Норматов",
+    "employee_id": "MQ-002",
+    "preview_image_url": "/media/persons/fd386128bee94de7982b718315fd9b66.jpg",
+    "is_active": true,
+    "departments": [],
+    "created_at": "2026-10-06T03:00:00Z",
+    "updated_at": "2026-10-27T22:41:47.351230Z",
+    "face_ready": false,
+    "has_pay_rate": false,
+    "primary_object_name": "ЖК «Чиланзар Сити», блок 3",
+    "object_count": 1,
+    "schedule": {
+     "shift_start": "08:00",
+     "shift_end": "18:00",
+     "working_days": [
+      1,
+      2,
+      3,
+      4
+     ],
+     "schedule_type": "weekly",
+     "cycle_pattern": [],
+     "is_individual": false,
+     "origin": "object",
+     "group_name": null
+    },
+    "last_event_type": "check_out",
+    "last_event_at": "2026-10-26T12:55:31.867345Z"
+   },
+   {
+    "id": "346d69d7-1c24-4970-a59b-f2c953020886",
+    "full_name": "Бобур Каримов",
+    "employee_id": "MQ-003",
+    "preview_image_url": "/media/persons/7b6837182146432ca22575be726eacf7.jpg",
+    "is_active": true,
+    "departments": [],
+    "created_at": "2026-10-06T03:00:00Z",
+    "updated_at": "2026-10-27T22:41:47.351230Z",
+    "face_ready": false,
+    "has_pay_rate": false,
+    "primary_object_name": "ЖК «Чиланзар Сити», блок 3",
+    "object_count": 1,
+    "schedule": {
+     "shift_start": "08:00",
+     "shift_end": "18:00",
+     "working_days": [
+      1,
+      2,
+      3,
+      4
+     ],
+     "schedule_type": "weekly",
+     "cycle_pattern": [],
+     "is_individual": false,
+     "origin": "object",
+     "group_name": null
+    },
+    "last_event_type": "check_out",
+    "last_event_at": "2026-10-27T12:53:55.199373Z"
+   },
+   {
+    "id": "064c169e-1c50-4d2c-9d6d-63b4f99c1bd6",
+    "full_name": "Илхом Тураев",
+    "employee_id": "MQ-004",
+    "preview_image_url": "/media/persons/debd3cc4f7e746fc86cc866034d6a1b2.jpg",
+    "is_active": true,
+    "departments": [],
+    "created_at": "2026-10-06T03:00:00Z",
+    "updated_at": "2026-10-27T22:41:47.351230Z",
+    "face_ready": false,
+    "has_pay_rate": false,
+    "primary_object_name": "ЖК «Чиланзар Сити», блок 3",
+    "object_count": 1,
+    "schedule": {
+     "shift_start": "08:00",
+     "shift_end": "18:00",
+     "working_days": [
+      1,
+      2,
+      3,
+      4
+     ],
+     "schedule_type": "weekly",
+     "cycle_pattern": [],
+     "is_individual": false,
+     "origin": "object",
+     "group_name": null
+    },
+    "last_event_type": "check_out",
+    "last_event_at": "2026-10-26T12:49:56.272338Z"
+   }
+  ],
+  "error": null,
+  "message": null
+ }
+}

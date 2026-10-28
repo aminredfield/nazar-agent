@@ -1,0 +1,70 @@
+{
+ "request": "POST /timesheet/adjustments/preview",
+ "status": 200,
+ "body": {
+  "request_id": "req_26af67ef1db54b06a78a65a9",
+  "success": true,
+  "data": [
+   {
+    "employee_id": "a2fff62c-8a34-4c32-a77a-7b98473a3f5f",
+    "work_date": "2026-10-22",
+    "object_id": "bca1d5e9-d13c-43d5-9ff6-46103b5c53cd",
+    "day_code": "work",
+    "schedule_norm_minutes": 600,
+    "required_minutes": 600,
+    "worked_minutes": 480,
+    "regular_minutes": 480,
+    "credited_minutes": 0,
+    "credited_pay_minutes": 0,
+    "paid_minutes": 480,
+    "overtime_minutes": 0,
+    "holiday_minutes": 0,
+    "night_minutes": 0,
+    "shifts_planned": 1,
+    "shifts_counted": 1,
+    "shift_breakdown": [
+     {
+      "target_key": "<redacted>",
+      "object_id": "bca1d5e9-d13c-43d5-9ff6-46103b5c53cd",
+      "assignment_id": "e7d04806-039a-49fc-84d1-a4c1a488b776",
+      "is_planned": true,
+      "planned_start_at": "2026-10-22T03:00:00+00:00",
+      "planned_end_at": "2026-10-22T13:00:00+00:00",
+      "schedule_norm_minutes": 600,
+      "intervals": [
+       {
+        "start_at": "2026-10-22T09:00:00+05:00",
+        "end_at": "2026-10-22T17:00:00+05:00"
+       }
+      ],
+      "regular_minutes": 480,
+      "overtime_minutes": 0,
+      "holiday_minutes": 0,
+      "night_minutes": 0,
+      "credited_minutes": 0,
+      "credited_pay_minutes": 0,
+      "unpaid_minutes": 0,
+      "overtime_excess_minutes": 0,
+      "is_adjusted": true,
+      "is_counted_shift": true
+     }
+    ],
+    "late_minutes": 60,
+    "early_leave_minutes": 60,
+    "shortfall_minutes": 120,
+    "absence_id": null,
+    "absence_type": null,
+    "is_excused": false,
+    "is_adjusted": true,
+    "has_schedule_overlap": false,
+    "is_calendar_holiday": false,
+    "comment": null,
+    "has_open_session": false,
+    "unpaid_minutes": 0,
+    "needs_review": false
+   }
+  ],
+  "error": null,
+  "message": null
+ }
+}
