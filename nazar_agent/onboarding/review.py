@@ -24,6 +24,8 @@ from nazar_agent.onboarding.parse import ListedPerson
 
 SAME_PERSON = 0.88  # name similarity to call two names one person
 SAME_SITE = 0.6
+# Words a foreman writes before a site's name ("Объект Чиланзар"); they name no site.
+GENERIC_SITE_WORDS = frozenset({"объект", "обьект", "участок", "площадка", "obyekt", "obekt", "site"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,7 +84,7 @@ def same_person(first: str, second: str) -> bool:
 
 def match_site(hint: str, sites: list[Site]) -> Site | None:
     """The site a hint names, if exactly one fits well."""
-    wanted = _normal(hint)
+    wanted = " ".join(word for word in _normal(hint).split() if word not in GENERIC_SITE_WORDS) or _normal(hint)
     scored = []
     for site in sites:
         name, address = _normal(site.name), _normal(site.address)

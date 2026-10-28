@@ -12,6 +12,7 @@ own "before → after" when it changes pay.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 
@@ -39,6 +40,7 @@ class Card:
     actions: tuple[ValidatedAction, ...]
     rejected_actions: tuple[ValidatedAction, ...]
     actions_why: str  # the writer's reason for these actions, or for none
+    owner_said: tuple[str, ...] = ()  # the owner's earlier reasons to disagree about this subject
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,12 +68,20 @@ class Team:
     writer_model: str
 
 
-async def recommend(analysis: Analysis, team: Team, nazar: NazarClient, today: date) -> Recommendations:
+async def recommend(
+    analysis: Analysis,
+    team: Team,
+    nazar: NazarClient,
+    today: date,
+    owner_said: Mapping[str, tuple[str, ...]] | None = None,
+) -> Recommendations:
+    """``owner_said`` — the owner's earlier reasons to disagree, by person or site id."""
     findings = analysis.report.findings
     evidence = Evidence.from_steps(analysis.run.steps)
+    owner_said = owner_said or {}
 
     log.info("skeptic: %d finding(s) on %s", len(findings), team.skeptic_model)
-    skeptic = await run_skeptic(team.skeptic_llm, team.skeptic_model, analysis.report, evidence)
+    skeptic = await run_skeptic(team.skeptic_llm, team.skeptic_model, analysis.report, evidence, owner_said)
     cases = [
         CaseInput(finding, merge_confidence(finding.confidence, skeptic.views.get(index)), skeptic.views.get(index))
         for index, finding in enumerate(findings)
@@ -103,6 +113,7 @@ async def recommend(analysis: Analysis, team: Team, nazar: NazarClient, today: d
             actions=tuple(action for action in validated if action.valid),
             rejected_actions=tuple(action for action in validated if not action.valid),
             actions_why=plan.why if plan else "",
+            owner_said=owner_said.get(case.finding.subject_id, ()),
         ))
 
     cards.sort(key=lambda card: _ORDER[card.confidence])

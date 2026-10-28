@@ -17,6 +17,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 EvidenceKind = Literal["event", "employee", "object", "device", "timesheet_day", "setup_finding"]
 SubjectKind = Literal["employee", "object", "company"]
+# What is in question: how people worked, or how NAZAR is set up (a schedule,
+# a site). The skeptic weighs the two differently.
+Concern = Literal["people", "setup"]
 Confidence = Literal["low", "medium", "high"]
 
 
@@ -46,6 +49,10 @@ class Finding(_Strict):
     subject_kind: SubjectKind
     subject_id: str = Field(description="Id of the employee or object; empty for the whole company.")
     subject_name: str
+    concern: Concern = Field(
+        description="people — someone may not have worked as recorded; setup — a schedule or site setting "
+        "in NAZAR may not match how people really work."
+    )
     facts: list[Fact]
     hypothesis: str = Field(description="One possible explanation, stated as a hypothesis.")
     alternatives: list[str] = Field(description="Innocent explanations that fit the same facts; at least one.")

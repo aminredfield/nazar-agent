@@ -29,10 +29,11 @@ photos, not as proven facts.
 """
 
 
-def attendance_analyst(*, model: str, tools: tuple[Tool, ...], today: date) -> Role:
+def attendance_analyst(*, model: str, tools: tuple[Tool, ...], today: date, feedback: str = "") -> Role:
+    """``feedback`` — what the owner said when disagreeing earlier (nazar_agent.feedback)."""
     return Role(
         name="attendance_analyst",
-        instructions=INSTRUCTIONS + ANALYST_RULES.format(today=today.isoformat()),
+        instructions=INSTRUCTIONS + ANALYST_RULES.format(today=today.isoformat()) + feedback,
         tools=tools,
         model=model,
     )

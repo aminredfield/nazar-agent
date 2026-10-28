@@ -21,6 +21,7 @@ from nazar_agent.engine import Tool, ToolParams
 from nazar_agent.nazar import NazarClient
 from nazar_agent.tools.attendance import FLAG_MEANINGS
 from nazar_agent.tools.common import call_nazar, local_time
+from nazar_agent.tools.schedules import scan_events, site_schedules
 
 MAX_RANGE_DAYS = 31
 MAX_UNUSUAL_DAYS = 150
@@ -42,18 +43,21 @@ SETUP_FINDING_MEANINGS = {
 }
 
 
-class TimesheetSummaryParams(ToolParams):
+class PeriodParams(ToolParams):
     date_from: date = Field(description="First day, YYYY-MM-DD.")
     date_to: date = Field(description=f"Last day, YYYY-MM-DD. At most {MAX_RANGE_DAYS} days after date_from.")
-    employee_id: UUID | None = Field(default=None, description="Only this employee; leave out for everyone.")
 
     @model_validator(mode="after")
-    def _check_range(self) -> TimesheetSummaryParams:
+    def _check_range(self) -> PeriodParams:
         if self.date_to < self.date_from:
             raise ValueError("date_to is before date_from")
         if (self.date_to - self.date_from).days > MAX_RANGE_DAYS:
             raise ValueError(f"the range is longer than {MAX_RANGE_DAYS} days")
         return self
+
+
+class TimesheetSummaryParams(PeriodParams):
+    employee_id: UUID | None = Field(default=None, description="Only this employee; leave out for everyone.")
 
 
 class TimesheetDayParams(ToolParams):
@@ -62,6 +66,10 @@ class TimesheetDayParams(ToolParams):
 
 
 class SetupCheckParams(ToolParams):
+    pass
+
+
+class SiteSchedulesParams(PeriodParams):
     pass
 
 
@@ -94,6 +102,19 @@ def timesheet_tools(nazar: NazarClient) -> tuple[Tool, ...]:
         check = await call_nazar(nazar.get("/timesheet/setup-check"))
         return setup_check_view(check)
 
+    async def compare_site_schedules(params: SiteSchedulesParams) -> dict[str, Any]:
+        objects = await call_nazar(nazar.get("/objects", {"include_inactive": False}))
+        events, truncated = await scan_events(nazar, params.date_from, params.date_to)
+        matrix = await call_nazar(
+            nazar.get("/timesheet", {"date_from": params.date_from.isoformat(), "date_to": params.date_to.isoformat()})
+        )
+        return {
+            "period": [params.date_from.isoformat(), params.date_to.isoformat()],
+            "working_days_note": "1 = Monday … 7 = Sunday",
+            "sites": site_schedules(objects, events, matrix.get("days", [])),
+            "events_truncated": truncated,
+        }
+
     return (
         Tool(
             name="get_timesheet_summary",
@@ -122,6 +143,17 @@ def timesheet_tools(nazar: NazarClient) -> tuple[Tool, ...]:
             ),
             params=SetupCheckParams,
             handler=get_setup_check,
+        ),
+        Tool(
+            name="compare_site_schedules",
+            description=(
+                "Every site's schedule next to how people really come and go in a period, counted by "
+                "code over every check-in: the typical first check-in and last check-out, on how many "
+                "days people arrived after the shift start or left after its end, and NAZAR's late days "
+                "there. Use it to see where a schedule does not match the real working day."
+            ),
+            params=SiteSchedulesParams,
+            handler=compare_site_schedules,
         ),
     )
 

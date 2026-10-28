@@ -8,7 +8,7 @@ from typing import Any
 from nazar_agent.actions import AuditEntry, Proposal
 from nazar_agent.findings import Analysis
 from nazar_agent.llm.pricing import cost_usd
-from nazar_agent.recommendations import Card, Recommendations
+from nazar_agent.recommendations import Card, Recommendations, Usage
 
 
 def answer_view(
@@ -16,9 +16,11 @@ def answer_view(
     recommendations: Recommendations,
     proposals: list[list[Proposal]],
     analyst_model: str,
+    photos: Usage | None = None,
 ) -> dict[str, Any]:
     usage = [("analyst", analyst_model, analysis.input_tokens, analysis.output_tokens)] + [
-        (item.role, item.model, item.input_tokens, item.output_tokens) for item in recommendations.usage
+        (item.role, item.model, item.input_tokens, item.output_tokens)
+        for item in ((photos,) if photos else ()) + tuple(recommendations.usage)
     ]
     costs = [cost_usd(model, tokens_in, tokens_out) for _, model, tokens_in, tokens_out in usage]
     return {
@@ -56,6 +58,7 @@ def card_view(card: Card, proposals: list[Proposal]) -> dict[str, Any]:
         "alternatives": list(card.alternatives),
         "check_steps": list(card.check_steps),
         "actions_why": card.actions_why,
+        "owner_said": list(card.owner_said),
         "actions": [proposal_view(proposal) for proposal in proposals],
         "rejected_actions": [{"name": action.name, "problems": list(action.problems)} for action in card.rejected_actions],
     }

@@ -1,0 +1,38 @@
+# The agent next to a NAZAR production deployment, on NAZAR's own Docker network:
+# it reaches NAZAR's API inside the network and the existing Caddy proxies the
+# window. Usage (from this folder, with deploy/.env filled in):
+#
+#   docker compose -p nazar-agent up -d --build
+#
+# NAZAR_NETWORK is the network of NAZAR's compose project, e.g.
+# faceid-startup-mvp_default (docker network ls).
+
+services:
+  nazar-agent:
+    build:
+      context: ..
+    env_file:
+      - .env
+    environment:
+      # Inside the network; the cabinet itself is reached by people over HTTPS.
+      NAZAR_BASE_URL: ${NAZAR_INTERNAL_URL:-http://backend:8000/api}
+      REQUIRE_SIGN_IN: "true"
+      COOKIE_SECURE: "true"
+    volumes:
+      - agent_data:/data
+    networks:
+      - nazar
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  agent_data:
+
+networks:
+  nazar:
+    name: ${NAZAR_NETWORK:-faceid-startup-mvp_default}
+    external: true

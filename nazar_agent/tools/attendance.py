@@ -7,7 +7,7 @@ claim in the final answer can be traced back to it.
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
 
@@ -16,11 +16,10 @@ from pydantic import Field, model_validator
 from nazar_agent.engine import Tool, ToolParams
 from nazar_agent.nazar import NazarClient
 from nazar_agent.tools.common import COMPANY_TZ, call_nazar, local_time
+from nazar_agent.tools.schedules import PAGE_SIZE, local_day_start, scan_events
 
 MAX_RANGE_DAYS = 31
 MAX_EVENTS = 200
-PAGE_SIZE = 500  # NAZAR's own maximum for /attendance/logs
-MAX_SCANNED_EVENTS = 5_000
 MAX_SHARED_PHONES = 10
 # A check-in this soon after another person's on the same phone looks like
 # one person checking in others, honestly or not.
@@ -88,26 +87,11 @@ class PresenceTodayParams(ToolParams):
 
 def attendance_tools(nazar: NazarClient, *, page_size: int = PAGE_SIZE) -> tuple[Tool, ...]:
     async def get_shared_phones(params: SharedPhonesParams) -> dict[str, Any]:
-        events: list[dict[str, Any]] = []
-        while len(events) < MAX_SCANNED_EVENTS:
-            page = await call_nazar(
-                nazar.get(
-                    "/attendance/logs",
-                    {
-                        "date_from": _local_day_start(params.date_from).isoformat(),
-                        "date_to": _local_day_start(params.date_to + timedelta(days=1)).isoformat(),
-                        "limit": page_size,
-                        "offset": len(events),
-                    },
-                )
-            )
-            events.extend(page)
-            if len(page) < page_size:
-                break
+        events, truncated = await scan_events(nazar, params.date_from, params.date_to, page_size=page_size)
         return {
             "phones": shared_phones(events)[:MAX_SHARED_PHONES],
             "events_scanned": len(events),
-            "truncated": len(events) >= MAX_SCANNED_EVENTS,
+            "truncated": truncated,
         }
 
     async def list_objects(params: ListObjectsParams) -> list[dict[str, Any]]:
@@ -119,8 +103,8 @@ def attendance_tools(nazar: NazarClient, *, page_size: int = PAGE_SIZE) -> tuple
             nazar.get(
                 "/attendance/logs",
                 {
-                    "date_from": _local_day_start(params.date_from).isoformat(),
-                    "date_to": _local_day_start(params.date_to + timedelta(days=1)).isoformat(),
+                    "date_from": local_day_start(params.date_from).isoformat(),
+                    "date_to": local_day_start(params.date_to + timedelta(days=1)).isoformat(),
                     "object_id": _str_or_none(params.object_id),
                     "employee_id": _str_or_none(params.employee_id),
                     "suspicious_only": params.suspicious_only,
@@ -190,10 +174,6 @@ def attendance_tools(nazar: NazarClient, *, page_size: int = PAGE_SIZE) -> tuple
         ),
     )
 
-
-
-def _local_day_start(day: date) -> datetime:
-    return datetime.combine(day, time.min, tzinfo=COMPANY_TZ)
 
 
 def _str_or_none(value: UUID | None) -> str | None:

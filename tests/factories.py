@@ -35,6 +35,7 @@ def finding(**overrides) -> dict:
     return {
         "title": "Повторная отметка с подменой геопозиции",
         "subject_kind": "employee",
+        "concern": "people",
         "subject_id": EMPLOYEE,
         "subject_name": "Зарина Хакимова",
         "facts": [{

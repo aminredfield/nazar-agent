@@ -1,0 +1,12 @@
+# Add to the server's Caddyfile next to the existing site blocks.
+agent.nazarhr.uz {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+	reverse_proxy nazar-agent:8100
+}

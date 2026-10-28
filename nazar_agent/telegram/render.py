@@ -18,9 +18,11 @@ ACTIONS = {
     "review_event": "Записать итог разбора отметки",
     "adjust_shift": "Исправить засчитанное время смены",
     "void_shift": "Не засчитывать день",
+    "change_schedule": "Изменить график объекта",
 }
 REVIEW_STATUS = {"no_violation": "нарушения нет", "confirmed": "нарушение подтверждено", "insufficient_data": "недостаточно данных"}
 DAY_FIELDS = {"late_minutes": "Опоздание", "paid_minutes": "К оплате", "worked_minutes": "Отработано", "early_leave_minutes": "Ранний уход"}
+WEEKDAYS = ("", "пн", "вт", "ср", "чт", "пт", "сб", "вс")
 STATUS = {
     "executed": "выполнено в NAZAR",
     "declined": "отклонено",
@@ -42,6 +44,8 @@ def card_text(card: dict[str, Any], number: int) -> str:
     lines += ["", f"<i>Возможно:</i> {escape(card['hypothesis'])}"]
     if card["alternatives"]:
         lines += ["<i>Может быть и иначе:</i>"] + [f"↔ {escape(text)}" for text in card["alternatives"]]
+    if card.get("owner_said"):
+        lines += ["<i>Раньше вы не согласились:</i>"] + [f"«{escape(text)}»" for text in card["owner_said"]]
     if card["check_steps"]:
         lines += ["<i>Как проверить:</i>"] + [f"→ {escape(text)}" for text in card["check_steps"]]
     for index, action in enumerate(card["actions"], start=1):
@@ -56,11 +60,15 @@ def action_text(action: dict[str, Any], index: int) -> str:
     elif action["name"] == "adjust_shift":
         spans = ", ".join(f"{item['start_at'][11:16]}–{item['end_at'][11:16]}" for item in params["intervals"])
         what = f"{params['work_date']}: засчитать {spans}"
+    elif action["name"] == "change_schedule":
+        what = f"с сегодняшнего дня смена {params['shift_start']}–{params['shift_end']}, прошлые дни не пересчитываются"
     else:
         what = f"{params['work_date']}: не засчитывать"
     lines = [f"<b>Действие {index}.</b> {ACTIONS.get(action['name'], action['name'])} — {escape(what)}"]
     preview = action.get("preview")
-    if preview and preview.get("before") and preview.get("after"):
+    if action["name"] == "change_schedule" and preview and preview.get("before") and preview.get("after"):
+        lines.extend(_schedule_change(preview["before"], preview["after"]))
+    elif preview and preview.get("before") and preview.get("after"):
         for field, label in DAY_FIELDS.items():
             before, after = preview["before"].get(field), preview["after"].get(field)
             if before != after:
@@ -70,6 +78,16 @@ def action_text(action: dict[str, Any], index: int) -> str:
     if action["status"] in STATUS:
         lines.append(f"   Статус: {STATUS[action['status']]}")
     return "\n".join(lines)
+
+
+def _schedule_change(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
+    def days(value: list[int] | None) -> str:
+        return ", ".join(WEEKDAYS[day] for day in value or [])
+
+    lines = [f"   Смена: {before.get('shift_start')}–{before.get('shift_end')} → <b>{after.get('shift_start')}–{after.get('shift_end')}</b>"]
+    if before.get("working_days") != after.get("working_days"):
+        lines.append(f"   Рабочие дни: {days(before.get('working_days'))} → <b>{days(after.get('working_days'))}</b>")
+    return lines
 
 
 def card_keyboard(card: dict[str, Any]) -> list[list[dict[str, str]]]:

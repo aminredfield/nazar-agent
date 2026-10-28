@@ -47,6 +47,10 @@ For each case:
   strong and the skeptic agrees; never when the skeptic finds an innocent
   explanation likely. Fill only the fields the action lists; set the others
   to null.
+- When the facts show that a site's schedule does not match the real working
+  day — people there start and end later or earlier every day — propose
+  change_schedule with the hours from the facts. Never act on such lateness
+  against the people: the schedule is wrong, not them.
 - A comment records what was seen and what is still to check, in neutral
   words: never a verdict ("classic fraud", "clearly absent") — the owner
   decides, and the AI can be wrong.
@@ -78,6 +82,10 @@ class ProposedAction(_Strict):
     work_date: str | None
     status: str | None
     intervals: list[IntervalIn] | None
+    object_id: str | None
+    shift_start: str | None
+    shift_end: str | None
+    working_days: list[int] | None
     comment_or_reason: str | None
 
     def raw_params(self) -> dict[str, Any]:
@@ -88,6 +96,10 @@ class ProposedAction(_Strict):
             "work_date": self.work_date,
             "status": self.status,
             "intervals": [interval.model_dump() for interval in self.intervals] if self.intervals is not None else None,
+            "object_id": self.object_id,
+            "shift_start": self.shift_start,
+            "shift_end": self.shift_end,
+            "working_days": self.working_days,
             "comment": self.comment_or_reason,
             "reason": self.comment_or_reason,
         }

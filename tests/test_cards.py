@@ -26,7 +26,10 @@ def opinion(case, verdict, explanations=("Скачок GPS",)):
 
 
 def action(name, **fields):
-    blank = {"event_id": None, "employee_id": None, "work_date": None, "status": None, "intervals": None, "comment_or_reason": None}
+    blank = {
+        "event_id": None, "employee_id": None, "work_date": None, "status": None, "intervals": None,
+        "object_id": None, "shift_start": None, "shift_end": None, "working_days": None, "comment_or_reason": None,
+    }
     return {"action": name, **blank, **fields}
 
 

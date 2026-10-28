@@ -36,7 +36,7 @@ a cheater; the agents write "worth checking" and "not confirmed".
 | Existed before Oct 26 | Built during the hackathon (this repository) |
 |---|---|
 | NAZAR: check-in by face + geofence + anti-spoofing, schedules, timesheet calculation, admin API, demo company seeding — closed source | Everything in this repository: agent engine, roles, tools over the NAZAR API, recommendations, executor, audit, assistant UI, Telegram bot, list import, evals |
-| | Small changes in NAZAR, all behind a per-company AI switch: the switch itself, the menu entry, sign-in with a one-minute pass, the device key of a check-in; the construction demo company and new faces for both demo companies — published as diffs in [`nazar-changes/`](nazar-changes/) |
+| | Small changes in NAZAR, all behind a per-company AI switch: the switch itself, the menu entry, sign-in with a one-minute pass, the device key of a check-in; the construction demo company and new faces for both demo companies — published as diffs in [`nazar-changes/`](nazar-changes/). Everything else the agents do goes through NAZAR's existing API |
 
 The git history of this repository starts on Oct 27, 2026.
 
@@ -50,9 +50,9 @@ Dispatcher ─────────── understands the request, picks the 
    │
    ├─► Attendance analyst ─ check-ins, anti-fraud flags, shared phones (counted by code)
    │      └─► Photo inspector (Muse Spark Open) ─ live selfie or a photo of a screen, background
-   ├─► Timesheet analyst ── timesheet, schedules, absences, period readiness
-   └─► Setup analyst ────── sites, geofences, employees, importing lists
-   │       read-only, each with its own tools; output: findings = facts + hypothesis
+   └─► Timesheet analyst ── timesheet, absences, each site's schedule vs. the real day (counted by code)
+   │       read-only, each with its own tools; output: findings = facts + hypothesis,
+   │       about people or about NAZAR's setup; the owner's earlier "disagree" reasons are in view
    ▼
 Skeptic (a different model) ─ sees only the facts, looks for another explanation
    ▼
@@ -142,6 +142,35 @@ check-in (10:14); NAZAR previewed late 74 → 0 min, paid 455 → 522 min;
 applied — NAZAR showed the corrected day with the confirming person in the
 reason; undone — NAZAR showed the day as before.
 
+## A wrong schedule is not a people problem
+
+A crew that starts at 09:00 on a site set to 08:00 is "late" every day. The
+timesheet analyst reads NAZAR's own setup check, then compares each site's
+schedule with the real working day — the typical first check-in and last
+check-out, counted by code over every check-in of the period — and reports
+the site, not the people. The action it proposes is `change_schedule`: the
+site's own shift hours, with NAZAR's schedule before and after. NAZAR keeps
+schedule versions, so the change applies from today and past days stay as
+they were counted.
+
+A finding says what is in question: how *people* worked, or how NAZAR is
+*set up*. The skeptic judges the two differently. For people, it looks for
+the innocent explanation; for a setting, a wrong schedule *is* the innocent
+explanation, so it judges whether the pattern is steady enough to change the
+setting. The evals found this: before the split, the skeptic answered "the
+people are fine" — which agreed with the finding — and the rules in code
+turned that into low confidence and blocked the fix.
+
+## "Disagree" is data
+
+Declining a proposal needs a reason, and the reason is kept. The next
+analysis sees the owner's recent reasons, the skeptic sees the ones about the
+same person or site as the owner's word (a possible innocent explanation, not
+a fact), and the card shows "you disagreed before and explained: …" — so the
+team does not bring the same thing back as if it were new. The window shows
+how many proposals the owner applied out of those decided; that share is the
+quality measure for a real company.
+
 ## Importing a list of employees
 
 A new site starts with a list the foreman already has — often a photo of a
@@ -175,7 +204,9 @@ created and added to the site, the site's other assignments unchanged.
 Development and evals run on `muse-spark-1.3-contributor` against synthetic
 demo companies: the same model at a fraction of the price, in exchange for
 Meta training on that traffic. Real companies' data goes only to the
-standard model or to self-hosted open weights.
+standard model on a paid balance (while an account spends free credits, Meta
+may use the content for product improvement too) or to self-hosted open
+weights.
 
 Every demo employee is a fictional person whose portrait Muse Image drew for
 that name, age and look ([`scripts/generate_demo_faces.py`](scripts/generate_demo_faces.py));
@@ -187,6 +218,60 @@ different people scored up to 0.71 against a match threshold of 0.45.
 Describing each face's structure (shape, nose, eyes, skin) and spreading it
 across a company brought every pair of different people in a company below
 the threshold. All four rounds together: 156 candidates, $1.56.
+
+## Evals
+
+The construction demo company is seeded with known answers
+([`nazar_agent/evals/cases.py`](nazar_agent/evals/cases.py)), and plain code
+scores every run against them
+([`score.py`](nazar_agent/evals/score.py)) — no model grades another model.
+A dead soul is *found* when a card of medium or high confidence cites them;
+a person with an innocent explanation is *falsely accused* when such a card
+is about them, or an action would cut their pay.
+
+```bash
+python -m nazar_agent.evals --runs 5          # signed in as the demo company's owner
+```
+
+Oct 28, local NAZAR with the construction demo, final code:
+
+| Case | Runs | Passed | Found | Falsely accused | Fact checker clean first time | Actions valid | Avg cost |
+|---|---|---|---|---|---|---|---|
+| 4 «dead souls» checked in from the foreman's phone | 15 | 9/15 | 36/36 people | 0 in 9 runs | 4/9 | 19/19 | $0.032 |
+| Wrong site schedule (08:00 instead of 09:00) | 5 | 5/5 | schedule 5/5, fix proposed 5/5 | 0 in 5 runs | 1/5 | 5/5 | $0.024 |
+| New crew list with a duplicate, a repeat and a surname only | 5 | 5/5 | 15/15 flags, 0 false | — | — | — | — |
+
+Six of the fifteen dead-souls runs did not finish: the model API timed out
+or the connection dropped (a network outage on the development machine
+during the series). They count as failed; every run that finished found all
+four and accused no one. An earlier series on the previous code passed 9 of
+10: in the tenth the photo inspector had seen four photos of a screen, and
+the report came back as a summary "Placeholder" with no findings. A report
+with no findings after an investigation is now asked for once more.
+
+The wrong-schedule case first failed every run: the analyst found the site,
+but there was no action to fix a schedule. With `change_schedule` added it
+still failed, now because of the skeptic (see above). The list case failed
+4 of 5 runs until matching a site ignored the word a foreman writes before
+its name ("Объект Чиланзар"). Real, random absences
+in the demo data are not counted as false accusations: asking about an
+unexcused absence before paying is right.
+
+## Public demo
+
+Everyone who tries the demo signs in to the same NAZAR demo company and
+opens the assistant from its cabinet. Each window session may ask a limited
+number of questions, and all sessions together have a daily budget in
+dollars (`DEMO_QUESTIONS_PER_SESSION`, `DEMO_BUDGET_USD_PER_DAY`); the
+window says so when a limit is reached. A question is counted before any
+model runs and its cost is added even if it fails; a model without a known
+price is counted at a high one. Signing in again gives a new session, so the
+per-session limit only paces a visitor — the daily budget is what protects
+the credits. What a visitor types when disagreeing reaches the models only
+as a short quoted line, marked as data. Every night the demo company is
+seeded again ([`deploy/reset-demo.sh`](deploy/reset-demo.sh)), so what one
+visitor applied is gone by morning. Deployment next to NAZAR:
+[`deploy/`](deploy/README.md).
 
 ## Status
 
@@ -208,7 +293,10 @@ the threshold. All four rounds together: 156 candidates, $1.56.
 | Morning brief at a set local time and on `/brief` | done |
 | Importing a list of employees: photo of a notebook / Excel / CSV / text → checked table → waiting for a photo → shooting queue → employee in NAZAR | done |
 | Demo employees' faces generated with Muse Image, checked against NAZAR's face recognition | done |
-| Evals, public demo account | planned |
+| Wrong schedule: each site's schedule vs. the real day, counted by code; `change_schedule` with before → after; findings about people or setup | done |
+| "Disagree" reasons fed to the next analysis, the skeptic and the card; share of applied proposals in the window | done |
+| Evals over the planted cases, scored by code | done |
+| Public demo: limits per session and per day, nightly reset, container next to NAZAR | done (deployment: in progress) |
 
 ## Run it
 

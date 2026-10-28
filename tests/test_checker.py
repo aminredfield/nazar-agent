@@ -36,6 +36,7 @@ def report(facts, **finding):
         "findings": [{
             "title": "Worth checking",
             "subject_kind": "employee",
+            "concern": "people",
             "subject_id": "emp-1",
             "subject_name": "Жасур Тошматов",
             "facts": facts,

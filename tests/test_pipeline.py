@@ -32,6 +32,7 @@ def report_json(distance: str, *, alternatives=("weak GPS",)) -> str:
         "findings": [{
             "title": "Far from the site",
             "subject_kind": "employee",
+            "concern": "people",
             "subject_id": "emp-1",
             "subject_name": "Jasur",
             "facts": [
@@ -127,3 +128,35 @@ def test_report_schema_fits_strict_mode():
 
     assert "allOf" not in schema and "oneOf" not in schema
     assert '"additionalProperties": true' not in schema
+
+
+def empty_report(summary: str) -> str:
+    return json.dumps({"summary": summary, "data_gaps": [], "findings": []})
+
+
+async def test_an_empty_report_after_an_investigation_is_asked_for_once_more():
+    llm = ScriptedLLM([
+        *investigation(),
+        turn(text=empty_report("Placeholder"), response_id="r3"),
+        turn(text=report_json("6600"), response_id="r4"),
+    ])
+
+    analysis = await analyze(ROLE, llm, "Anything odd?")
+
+    assert llm.requests[3]["input"][-1]["content"].startswith("Your report has no findings")
+    assert len(analysis.report.findings) == 1
+    assert analysis.caught == (("the report had no findings after an investigation; asked once more",),)
+
+
+async def test_a_second_empty_report_stands():
+    llm = ScriptedLLM([
+        *investigation(),
+        turn(text=empty_report("x"), response_id="r3"),
+        turn(text=empty_report("Nothing is worth checking this week."), response_id="r4"),
+    ])
+
+    analysis = await analyze(ROLE, llm, "Anything odd?")
+
+    assert analysis.report.findings == []
+    assert analysis.report.summary == "Nothing is worth checking this week."
+    assert len(llm.requests) == 4

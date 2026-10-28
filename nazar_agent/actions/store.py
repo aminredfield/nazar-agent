@@ -159,6 +159,33 @@ class ProposalStore:
             for row in rows
         ]
 
+    def declined(self, *, limit: int) -> list[tuple[Proposal, AuditEntry]]:
+        """The owner's "disagree" decisions, newest first, each with the card it was about."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT audit.seq, audit.at, audit.event, audit.actor, audit.details, proposals.* "
+                "FROM audit JOIN proposals ON proposals.id = audit.proposal_id "
+                "WHERE audit.event = 'declined' ORDER BY audit.seq DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [
+            (_proposal(row), AuditEntry(row["seq"], row["at"], row["id"], row["event"], row["actor"], json.loads(row["details"])))
+            for row in rows
+        ]
+
+    def decisions(self) -> dict[str, int]:
+        """How the owner decided on the agents' proposals so far."""
+        with self._connect() as connection:
+            rows = connection.execute("SELECT status, COUNT(*) AS count FROM proposals GROUP BY status").fetchall()
+        counts = {row["status"]: row["count"] for row in rows}
+        return {
+            # Undone was applied first: the owner agreed, then changed their mind.
+            "applied": counts.get("executed", 0) + counts.get("undone", 0) + counts.get("undoing", 0),
+            "undone": counts.get("undone", 0),
+            "declined": counts.get("declined", 0),
+            "pending": counts.get("pending", 0),
+        }
+
     def _connect(self) -> Transaction:
         return Transaction.open(self._path)
 

@@ -41,9 +41,17 @@ class Settings(BaseSettings):
     require_sign_in: bool = False
     # The window's session cookie; must be true behind HTTPS.
     cookie_secure: bool = False
+    # Where the window listens. Locally only this machine; in a container 0.0.0.0
+    # behind the reverse proxy.
+    service_host: str = "127.0.0.1"
+    service_port: int = 8100
 
     # Proposals and the audit trail (SQLite).
     agent_db_path: str = "nazar_agent.sqlite3"
+    # A public demo: questions per window session and dollars per day for
+    # everyone together (nazar_agent.limits). 0 = no limit.
+    demo_questions_per_session: int = 0
+    demo_budget_usd_per_day: float = 0.0
 
     # Voice messages: Muse Spark 1.2 takes audio (Muse Voice Transcribe has no
     # Russian or Uzbek).

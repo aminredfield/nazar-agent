@@ -9,7 +9,9 @@ then decides whether the proposal stands:
 3. policy, in code: e.g. recording "confirmed" or not paying a day needs high
    confidence and a skeptic who agrees;
 4. for anything that changes pay, NAZAR itself computes "before → after"
-   (``/timesheet/adjustments/preview``, nothing is saved).
+   (``/timesheet/adjustments/preview``, nothing is saved); for a site's
+   schedule, "before" is read from NAZAR and "after" is the same object with
+   only the hours changed.
 
 Validation never writes to NAZAR. Each action also knows how to execute
 and how to undo itself, but only the executor calls that, and only after a
@@ -24,7 +26,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from nazar_agent.engine import ToolExecutionError
 from nazar_agent.findings import Evidence
@@ -37,6 +39,14 @@ ActionLevel = Literal["record_only", "changes_pay"]
 ReviewStatus = Literal["no_violation", "confirmed", "insufficient_data"]
 DAY_FIELDS = ("day_code", "worked_minutes", "paid_minutes", "late_minutes", "early_leave_minutes")
 MAX_INTERVALS = 4
+CLOCK = r"^([01]\d|2[0-3]):[0-5]\d$"
+# What NAZAR's object update takes besides the schedule; sent back unchanged.
+OBJECT_FIELDS = (
+    "name", "address", "latitude", "longitude", "radius_meters", "is_active", "max_shift_hours",
+    "late_grace_minutes", "early_leave_grace_minutes", "overtime_after_minutes", "max_overtime_minutes",
+    "auto_close_after_minutes", "trusted_networks",
+)
+SCHEDULE_FIELDS = ("shift_start", "shift_end", "working_days", "work_schedule_mode")
 
 
 class _Params(BaseModel):
@@ -82,6 +92,28 @@ class VoidShiftParams(_Params):
     employee_id: UUID
     work_date: date
     reason: str = Field(min_length=1, max_length=500)
+
+
+class ChangeScheduleParams(_Params):
+    object_id: UUID
+    shift_start: str = Field(pattern=CLOCK)
+    shift_end: str = Field(pattern=CLOCK)
+    working_days: list[int] | None = Field(default=None, min_length=1, max_length=7)
+    reason: str = Field(min_length=1, max_length=500)
+
+    @field_validator("working_days")
+    @classmethod
+    def _weekdays(cls, value: list[int] | None) -> list[int] | None:
+        if value is not None and any(day not in range(1, 8) for day in value):
+            raise ValueError("weekdays are 1 (Monday) … 7 (Sunday)")
+        return sorted(set(value)) if value is not None else None
+
+    @model_validator(mode="after")
+    def _not_empty(self) -> ChangeScheduleParams:
+        # An end before the start is a night shift; NAZAR handles it.
+        if self.shift_start == self.shift_end:
+            raise ValueError("the shift starts and ends at the same time")
+        return self
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,6 +171,14 @@ def _review_policy(params: ReviewEventParams, context: Context) -> str | None:
 def _void_policy(params: VoidShiftParams, context: Context) -> str | None:
     if not _strong_case(context):
         return "not paying a day needs high confidence and a skeptic who agrees"
+    return None
+
+
+def _schedule_policy(params: ChangeScheduleParams, context: Context) -> str | None:
+    if context.confidence == "low":
+        return "changing a site's schedule needs at least medium confidence"
+    if context.skeptic is not None and context.skeptic.verdict == "innocent_likely":
+        return "the skeptic finds another explanation likely"
     return None
 
 
@@ -267,6 +307,54 @@ async def _void_undo(nazar: NazarClient, params: VoidShiftParams, result: dict[s
     await call_nazar(nazar.delete(f"/timesheet/adjustments/void/{result['adjustment_id']}"))
 
 
+def _schedule_of(site: dict[str, Any]) -> dict[str, Any]:
+    return {field: site.get(field) for field in SCHEDULE_FIELDS}
+
+
+async def _site(nazar: NazarClient, object_id: UUID) -> dict[str, Any]:
+    # NAZAR has no single-object read; the list carries every field.
+    sites = await call_nazar(nazar.get("/objects", {"include_inactive": True}))
+    site = next((item for item in sites if item.get("id") == str(object_id)), None)
+    if site is None:
+        raise ToolExecutionError("NAZAR has no such site.")
+    return site
+
+
+async def _schedule_preview(nazar: NazarClient, params: ChangeScheduleParams) -> Preview:
+    site = await _site(nazar, params.object_id)
+    before = _schedule_of(site)
+    after = {
+        "shift_start": params.shift_start,
+        "shift_end": params.shift_end,
+        "working_days": params.working_days or site.get("working_days"),
+        # The site's own schedule from now on, whatever the company default says.
+        "work_schedule_mode": "custom",
+    }
+    return Preview(before=before, after=after)
+
+
+async def _write_schedule(nazar: NazarClient, object_id: UUID, schedule: dict[str, Any]) -> dict[str, Any]:
+    """NAZAR's object update replaces the whole object, so everything else is sent back as it is."""
+    site = await _site(nazar, object_id)
+    payload = {field: site.get(field) for field in OBJECT_FIELDS} | schedule
+    await call_nazar(nazar.patch(f"/objects/{object_id}", payload))
+    return _schedule_of(site)
+
+
+async def _schedule_execute(nazar: NazarClient, params: ChangeScheduleParams) -> dict[str, Any]:
+    after = (await _schedule_preview(nazar, params)).after or {}
+    # NAZAR keeps schedule versions: the change applies from today, past days stay as counted.
+    return {"previous": await _write_schedule(nazar, params.object_id, after), "written": after}
+
+
+async def _schedule_undo(nazar: NazarClient, params: ChangeScheduleParams, result: dict[str, Any]) -> None:
+    written = result.get("written")
+    if written is not None and _schedule_of(await _site(nazar, params.object_id)) != written:
+        # Someone changed the schedule after this action; putting ours back would erase their edit.
+        raise ToolExecutionError("the site's schedule was changed after this action; change it back by hand in NAZAR.")
+    await _write_schedule(nazar, params.object_id, result["previous"])
+
+
 CATALOG: dict[str, ActionSpec] = {
     spec.name: spec
     for spec in (
@@ -313,6 +401,23 @@ CATALOG: dict[str, ActionSpec] = {
             preview=_void_preview,
             execute=_void_execute,
             undo=_void_undo,
+        ),
+        ActionSpec(
+            name="change_schedule",
+            level="changes_pay",
+            description=(
+                "Set a site's own shift hours when people there regularly start and end at other times "
+                "than the schedule says, so NAZAR stops counting the difference as lateness. Applies from "
+                "today; past days stay as counted. Fields: object_id, shift_start and shift_end (HH:MM, "
+                "the real working day from the facts), working_days (1 = Monday … 7 = Sunday; null keeps "
+                "the current days), reason."
+            ),
+            params=ChangeScheduleParams,
+            targets=lambda params: [str(params.object_id)],
+            policy=_schedule_policy,
+            preview=_schedule_preview,
+            execute=_schedule_execute,
+            undo=_schedule_undo,
         ),
     )
 }

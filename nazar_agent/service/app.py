@@ -34,6 +34,9 @@ from nazar_agent.onboarding import Draft, ImportRow, ParseError, PhotoRejected
 from nazar_agent.sessions import COOKIE, Person, SessionError, Sessions
 from nazar_agent.assistant import Assistant, Assistants, AssistantBusy
 from nazar_agent.config import Settings, get_settings
+from nazar_agent.feedback import agreement
+from nazar_agent.limits import LimitReached, Limits
+from nazar_agent.llm.pricing import budget_usd
 from nazar_agent.nazar import NazarClient
 from nazar_agent.telegram import Bot, TelegramApi
 from nazar_agent.telegram.schedule import parse_brief_time, run_daily
@@ -42,6 +45,10 @@ from nazar_agent.voice import transcribe
 
 STATIC = Path(__file__).parent / "static"
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+# Reading a list is one short model call; its cost is not metered, so it counts as this.
+IMPORT_COST_ESTIMATE_USD = 0.01
+# A question that failed midway spent tokens nobody counted; for the demo budget it costs this.
+FAILED_QUESTION_COST_USD = 0.10
 _ERROR_STATUS = {"not_found": 404, "wrong_status": 409, "refused": 409, "stale": 409, "failed": 502}
 
 
@@ -95,6 +102,11 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
             transport=nazar_transport,
         )
         app.state.settings, app.state.assistants, app.state.sessions = active, assistants, sessions
+        app.state.limits = Limits(
+            Path(active.agent_db_path).with_name("usage.sqlite3"),
+            questions_per_session=active.demo_questions_per_session,
+            budget_usd_per_day=active.demo_budget_usd_per_day,
+        )
         background, telegram = _start_telegram(active, assistants.service) if assistants.service else ([], None)
         try:
             yield
@@ -115,7 +127,8 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
     async def caller(request: Request) -> AsyncIterator[Caller]:
         """Who acts: the person who opened the window from NAZAR, else (locally) the service account."""
         state = request.app.state
-        person = state.sessions.get(request.cookies.get(COOKIE))
+        session_id = request.cookies.get(COOKIE) or ""
+        person = state.sessions.get(session_id)
         if person is not None:
             nazar = NazarClient(
                 base_url=state.settings.nazar_base_url,
@@ -124,7 +137,9 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
                 transport=nazar_transport,
             )
             try:
-                yield Caller(state.assistants.for_company(person.company_id), nazar, f"{person.full_name} (NAZAR)", person)
+                yield Caller(
+                    state.assistants.for_company(person.company_id), nazar, f"{person.full_name} (NAZAR)", person, session_id
+                )
             finally:
                 await nazar.aclose()
             return
@@ -159,14 +174,22 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         return _person_view(current.person) if current.person else {"mode": "service"}
 
     @app.post("/api/ask")
-    async def ask(request: AskRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
+    async def ask(http: Request, request: AskRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
         analyst = None if request.analyst == "auto" else request.analyst
+        if current.assistant.busy:
+            raise HTTPException(429, "The agent is already working on a question. Wait for it to finish.")
+        day = _reserve(http, current)
+        cost = FAILED_QUESTION_COST_USD
         try:
             answer = await current.assistant.ask(request.question, analyst, nazar=current.nazar)
+            cost = sum(budget_usd(item["model"], item["input_tokens"], item["output_tokens"]) for item in answer.view["stats"]["models"])
         except AssistantBusy:
+            cost = 0.0
             raise HTTPException(429, "The agent is already working on a question. Wait for it to finish.") from None
         except ToolExecutionError as exc:
             raise HTTPException(502, str(exc)) from exc
+        finally:
+            _add_cost(http, current, day, cost)
         return answer.view
 
     @app.get("/api/last")
@@ -202,6 +225,12 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         executor = current.assistant.executor(current.nazar)
         return await _decide(executor.undo(proposal_id, current.actor_for(request.actor)))
 
+    @app.get("/api/stats")
+    async def stats(current: Caller = Depends(caller)) -> dict[str, Any]:
+        """How the owner decided on the proposals: the share applied is the quality measure."""
+        decisions = current.assistant.store.decisions()
+        return {**decisions, "agreement": agreement(decisions)}
+
     @app.get("/api/audit")
     async def audit(limit: int = Query(50, ge=1, le=500), current: Caller = Depends(caller)) -> list[dict[str, Any]]:
         store = current.assistant.store
@@ -217,9 +246,14 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
 
     @app.post("/api/import/read")
     async def read_import(
-        text: str | None = Form(None), file: UploadFile | None = File(None), current: Caller = Depends(caller)
+        http: Request,
+        text: str | None = Form(None),
+        file: UploadFile | None = File(None),
+        current: Caller = Depends(caller),
     ) -> dict[str, Any]:
         content = await _read_upload(file)
+        day = _reserve(http, current)
+        _add_cost(http, current, day, IMPORT_COST_ESTIMATE_USD)
         try:
             rows, sites = await current.assistant.read_list(
                 text=text, file=content, content_type=file.content_type if file else None, nazar=current.nazar
@@ -286,10 +320,26 @@ class Caller:
     # The name NAZAR knows the person by; empty for the local service account.
     name: str
     person: Person | None
+    session_id: str = ""  # the window session, for the demo limits
 
     def actor_for(self, typed: str) -> str:
         """Who decided: from the NAZAR session, never from the window — a typed name is used only locally."""
         return self.name or typed.strip() or "Владелец"
+
+
+def _reserve(request: Request, current: Caller) -> str:
+    """Count the question before any model runs. Only a window opened from NAZAR is limited."""
+    if current.person is None:
+        return ""
+    try:
+        return request.app.state.limits.reserve(current.session_id)
+    except LimitReached as exc:
+        raise HTTPException(429, str(exc)) from None
+
+
+def _add_cost(request: Request, current: Caller, day: str, cost_usd: float) -> None:
+    if current.person is not None:
+        request.app.state.limits.add_cost(current.session_id, day, cost_usd)
 
 
 def _person_view(person: Person) -> dict[str, Any]:

@@ -21,10 +21,11 @@ from typing import Any
 
 from nazar_agent.actions import Executor, Proposal, ProposalStore
 from nazar_agent.config import Settings
+from nazar_agent.feedback import about, instructions_text, owner_feedback
 from nazar_agent.findings import Analysis, analyze
 from nazar_agent.nazar import NazarClient
 from nazar_agent.onboarding import DraftStore, ImportRow, Site, read_list, review
-from nazar_agent.recommendations import Recommendations, Team, recommend
+from nazar_agent.recommendations import Recommendations, Team, Usage, recommend
 from nazar_agent.roles import attendance_analyst, timesheet_analyst
 from nazar_agent.roles.dispatcher import Analyst, route
 from nazar_agent.tools import PhotoInspector, analyst_tools
@@ -114,17 +115,21 @@ class Assistant:
             # The photo inspector runs on the open-weights model, like the skeptic.
             photos = PhotoInspector(skeptic_llm, settings.skeptic_model)
             tools = analyst_tools(chosen, nazar, photos)
-            role = ANALYSTS[chosen](model=settings.analyst_model, tools=tools, today=today)
+            # What the owner said when disagreeing before: the team does not bring it back as new.
+            feedback = owner_feedback(self.store)
+            role = ANALYSTS[chosen](model=settings.analyst_model, tools=tools, today=today, feedback=instructions_text(feedback))
             analysis = await analyze(role, analyst_llm, question)
-            if photos.input_tokens:
+            photo_usage = Usage("photos", photos.model, photos.input_tokens, photos.output_tokens) if photos.input_tokens else None
+            if photo_usage:
                 log.info("photo inspector: %d/%d tokens on %s", photos.input_tokens, photos.output_tokens, photos.model)
             team = Team(skeptic_llm, settings.skeptic_model, analyst_llm, settings.analyst_model)
-            recommendations = await recommend(analysis, team, nazar, today)
+            owner_said = {item.subject_id: about(feedback, item.subject_id) for item in feedback}
+            recommendations = await recommend(analysis, team, nazar, today, owner_said)
         finally:
             await analyst_llm.aclose()
             await skeptic_llm.aclose()
         proposals = Executor(self.store, nazar).propose(recommendations.cards, question)
-        view = answer_view(analysis, recommendations, proposals, settings.analyst_model)
+        view = answer_view(analysis, recommendations, proposals, settings.analyst_model, photo_usage)
         return Answer(question, chosen, analysis, recommendations, proposals, {**view, "analyst": chosen})
 
 

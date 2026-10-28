@@ -117,6 +117,7 @@
   </section>
   <section class="audit">
     <div class="row"><strong>Журнал действий</strong><button type="button" id="refresh-audit">Обновить</button></div>
+    <p class="muted" id="decisions"></p>
     <ul id="audit"></ul>
   </section>
 </main>
@@ -128,9 +129,12 @@ const ACTIONS = {
   review_event: "Записать итог разбора отметки",
   adjust_shift: "Исправить засчитанное время смены",
   void_shift: "Не засчитывать день",
+  change_schedule: "Изменить график объекта",
 };
 const REVIEW_STATUS = { no_violation: "нарушения нет", confirmed: "нарушение подтверждено", insufficient_data: "недостаточно данных", not_reviewed: "не разобрано" };
 const DAY_FIELDS = { worked_minutes: "Отработано, мин", paid_minutes: "К оплате, мин", late_minutes: "Опоздание, мин", early_leave_minutes: "Ранний уход, мин" };
+const SCHEDULE_FIELDS = { shift_start: "Начало смены", shift_end: "Конец смены", working_days: "Рабочие дни" };
+const WEEKDAYS = ["", "пн", "вт", "ср", "чт", "пт", "сб", "вс"];
 const EVENTS = {
   proposed: "предложено агентом", executed: "выполнено", declined: "отклонено", refused: "не выполнено", failed: "ошибка", undone: "отменено",
   draft_created: "добавлен, ждёт фото", employee_created: "создан в NAZAR", photo_rejected: "фото не подошло", draft_discarded: "убран из списка",
@@ -164,12 +168,17 @@ function section(title, items) {
   return el("div", { class: "section" }, el("h3", {}, title), el("ul", {}, items.map((item) => el("li", {}, item))));
 }
 
-function previewTable(preview) {
+function shown(value) {
+  if (Array.isArray(value)) return value.map((day) => WEEKDAYS[day] || day).join(", ");
+  return value ?? "—";
+}
+
+function previewTable(preview, fields) {
   if (!preview || !preview.before) return null;
-  const rows = Object.entries(DAY_FIELDS).map(([field, label]) => {
-    const before = preview.before[field], after = preview.after ? preview.after[field] : null;
-    return el("tr", {}, el("th", {}, label), el("td", {}, before ?? "—"),
-      el("td", { class: before !== after ? "changed" : "" }, after ?? "—"));
+  const rows = Object.entries(fields).map(([field, label]) => {
+    const before = shown(preview.before[field]), after = shown(preview.after ? preview.after[field] : null);
+    return el("tr", {}, el("th", {}, label), el("td", {}, before),
+      el("td", { class: before !== after ? "changed" : "" }, after));
   });
   return el("table", {}, el("tr", {}, el("th", {}, ""), el("th", {}, "Было"), el("th", {}, "Станет")), rows);
 }
@@ -181,6 +190,9 @@ function describeParams(action) {
     const spans = params.intervals.map((item) => `${item.start_at.slice(11, 16)}–${item.end_at.slice(11, 16)}`).join(", ");
     return `${params.work_date}: засчитать ${spans}. ${params.reason}`;
   }
+  if (action.name === "change_schedule") {
+    return `С сегодняшнего дня смена ${params.shift_start}–${params.shift_end}; прошлые дни NAZAR не пересчитывает. ${params.reason}`;
+  }
   return `${params.work_date}: ${params.reason}`;
 }
 
@@ -191,7 +203,7 @@ function actionBlock(action) {
     el("div", { class: "title" }, ACTIONS[action.name] || action.name),
     el("div", { class: "level" }, action.level === "changes_pay" ? "Меняет оплату — NAZAR показывает было и станет" : "Не меняет оплату"),
     el("div", {}, describeParams(action)),
-    previewTable(action.preview),
+    previewTable(action.preview, action.name === "change_schedule" ? SCHEDULE_FIELDS : DAY_FIELDS),
     buttons, result);
 
   const decide = async (kind, body) => {
@@ -263,6 +275,7 @@ function cardView(card) {
       fact.text, el("span", { class: "ref" }, fact.evidence.map((ref) => `${ref.kind}:${ref.id.slice(0, 8)}`).join(", "))])),
     section("Возможное объяснение — это предположение", [card.hypothesis]),
     section("Может быть и иначе", card.alternatives),
+    section("Раньше вы не согласились и объяснили", (card.owner_said || []).map((text) => `«${text}»`)),
     section("Как проверить", card.check_steps),
     card.actions.length || card.actions_why ? el("div", { class: "section" },
       el("h3", {}, "Что можно сделать"),
@@ -296,7 +309,9 @@ async function loadLast() {
 
 async function loadAudit() {
   try {
-    const entries = await api("/api/audit?limit=30");
+    const [entries, stats] = await Promise.all([api("/api/audit?limit=30"), api("/api/stats")]);
+    $("decisions").textContent = stats.agreement === null ? "Решений по предложениям пока нет."
+      : `Применено ${stats.applied} из ${stats.applied + stats.declined} решённых предложений (${Math.round(stats.agreement * 100)}%), отменено после применения: ${stats.undone}, ждут решения: ${stats.pending}.`;
     $("audit").replaceChildren(...entries.map((entry) => el("li", {},
       `${entry.at.replace("T", " ").slice(0, 16)} · ${EVENTS[entry.event] || entry.event} · ${ACTIONS[entry.action] || entry.action || ""} · ${entry.subject || entry.details.full_name || ""} · ${entry.actor}`,
       entry.details.reasons ? el("span", { class: "ref" }, entry.details.reasons.join("; ")) : null,

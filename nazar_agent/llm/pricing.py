@@ -15,6 +15,16 @@ PRICES = {
 }
 
 
+# For a spending limit a model without a known price (open weights on a
+# provider) must still count: priced high rather than as free.
+_UNKNOWN_FOR_BUDGET = (3.00, 15.00)
+
+
+def budget_usd(model: str, input_tokens: int, output_tokens: int) -> float:
+    price = PRICES.get(model, _UNKNOWN_FOR_BUDGET)
+    return (input_tokens * price[0] + output_tokens * price[1]) / 1_000_000
+
+
 def cost_usd(model: str, input_tokens: int, output_tokens: int) -> float | None:
     price = PRICES.get(model)
     if price is None:

@@ -94,6 +94,8 @@ def test_name_and_site_matching():
     assert match_site("юнусабад", SITES).name == "Магазин Юнусабад"
     assert match_site("9 квартал", SITES).name == "Магазин Чиланзар"  # by address
     assert match_site("Магазин", SITES) is None  # fits both: do not guess
+    assert match_site("Объект Юнусабад", SITES).name == "Магазин Юнусабад"  # "объект" names no site
+    assert match_site("Объект", SITES) is None
 
 
 # ---- drafts and creating employees ----------------------------------------------

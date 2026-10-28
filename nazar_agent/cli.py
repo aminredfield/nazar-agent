@@ -120,13 +120,24 @@ def _action_text(action: ValidatedAction) -> str:
     return text
 
 
-def render_stats(outcome: Outcome, analyst_model: str) -> str:
+def usage_of(outcome: Outcome, analyst_model: str) -> list[Usage]:
     analysis = outcome.analysis
     usage = [Usage("analyst", analyst_model, analysis.input_tokens, analysis.output_tokens)]
     if outcome.photos is not None:
         usage.append(outcome.photos)
     if outcome.recommendations is not None:
         usage.extend(outcome.recommendations.usage)
+    return usage
+
+
+def total_cost(outcome: Outcome, analyst_model: str) -> float:
+    costs = (cost_usd(item.model, item.input_tokens, item.output_tokens) for item in usage_of(outcome, analyst_model))
+    return sum(cost for cost in costs if cost is not None)
+
+
+def render_stats(outcome: Outcome, analyst_model: str) -> str:
+    analysis = outcome.analysis
+    usage = usage_of(outcome, analyst_model)
     costs = [cost_usd(item.model, item.input_tokens, item.output_tokens) for item in usage]
     parts = [
         f"{item.role} {item.model}: {item.input_tokens}/{item.output_tokens} tokens"
@@ -151,7 +162,7 @@ def _print_trace(analysis: Analysis) -> None:
             print(f"    ✗ {issue}")
 
 
-def _json_default(value: object) -> object:
+def json_default(value: object) -> object:
     if isinstance(value, BaseModel):
         return value.model_dump(mode="json")
     return str(value)
@@ -168,7 +179,7 @@ def main() -> int:
 
     outcome = asyncio.run(ask(args.question, args.analyst, review=not args.no_review))
     if args.dump:
-        args.dump.write_text(json.dumps(asdict(outcome), ensure_ascii=False, indent=1, default=_json_default), encoding="utf-8")
+        args.dump.write_text(json.dumps(asdict(outcome), ensure_ascii=False, indent=1, default=json_default), encoding="utf-8")
     if args.trace:
         _print_trace(outcome.analysis)
     print(render(outcome))

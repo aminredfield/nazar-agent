@@ -10,6 +10,9 @@
 4. Whatever still fails is removed from the report and kept, with the
    reasons, in ``rejected`` — nothing unverified reaches the owner, and the
    trace shows what was cut.
+5. A report with no findings after an investigation is asked for once more:
+   in evals one came back as a summary "Placeholder" right after the photo
+   inspector had described four photos of a screen.
 """
 
 from __future__ import annotations
@@ -58,6 +61,14 @@ Now write your report for the owner, as JSON matching the schema.
 - Write the summary, titles, facts, hypothesis, alternatives and data gaps
   in the language of the owner's question, with no internal codes or field
   names.
+"""
+
+
+EMPTY_REPORT_CHECK = """\
+Your report has no findings. Look again at what the tools returned in this
+conversation. If nothing there is worth checking, return the empty report
+again with a summary that says so in plain words for the owner; otherwise
+return the full report with the findings.
 """
 
 
@@ -137,6 +148,26 @@ async def analyze(
 
     if report is None:
         raise ReportError("No valid report after corrections.")
+
+    if not report.findings and not issues and run.steps:
+        conversation.append({"role": "user", "content": EMPTY_REPORT_CHECK})
+        turn = await llm.respond(
+            model=role.model,
+            instructions=role.instructions,
+            input=list(conversation),
+            tools=[],
+            text_format=REPORT_FORMAT,
+        )
+        input_tokens += turn.input_tokens
+        output_tokens += turn.output_tokens
+        caught.append(("the report had no findings after an investigation; asked once more",))
+        try:
+            again = AnalystReport.model_validate_json(turn.text)
+        except ValidationError:
+            again = None  # keep the empty report rather than nothing
+        if again is not None:
+            # No further correction rounds: whatever fails now is dropped below.
+            report, issues = again, check_report(again, evidence)
 
     verified, rejected = drop_failing(report, issues)
     return Analysis(

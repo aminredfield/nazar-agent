@@ -229,3 +229,24 @@ async def test_polling_survives_a_blocked_network(setup, monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         await bot.run()
     assert calls["n"] == 2
+
+
+def test_schedule_change_reads_as_hours_before_and_after():
+    from nazar_agent.telegram.render import action_text
+
+    action = {
+        "name": "change_schedule",
+        "level": "changes_pay",
+        "status": "pending",
+        "params": {"object_id": "x", "shift_start": "09:00", "shift_end": "19:00", "reason": "r"},
+        "preview": {
+            "before": {"shift_start": "08:00", "shift_end": "18:00", "working_days": [1, 2, 3, 4, 5, 6]},
+            "after": {"shift_start": "09:00", "shift_end": "19:00", "working_days": [1, 2, 3, 4, 5]},
+        },
+    }
+
+    text = action_text(action, 1)
+
+    assert "Изменить график объекта" in text and "прошлые дни не пересчитываются" in text
+    assert "Смена: 08:00–18:00 → <b>09:00–19:00</b>" in text
+    assert "Рабочие дни: пн, вт, ср, чт, пт, сб → <b>пн, вт, ср, чт, пт</b>" in text
