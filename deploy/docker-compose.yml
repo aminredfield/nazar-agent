@@ -20,6 +20,11 @@ services:
       NAZAR_BASE_URL: ${NAZAR_PUBLIC_API:-https://nazarhr.uz/api}
       REQUIRE_SIGN_IN: "true"
       COOKIE_SECURE: "true"
+      # Set here, so a .env copied from a local setup cannot point them elsewhere:
+      # the container's filesystem is read-only except the /data volume.
+      AGENT_DB_PATH: /data/nazar_agent.sqlite3
+      SERVICE_HOST: 0.0.0.0
+      SERVICE_PORT: "8100"
     volumes:
       - agent_data:/data
     networks:
