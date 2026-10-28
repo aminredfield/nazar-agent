@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from functools import lru_cache
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,6 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from nazar_agent.llm import ChatCompletionsClient, LLMClient, MetaResponsesClient
 
 log = logging.getLogger(__name__)
+COMPANY_TZ = ZoneInfo("Asia/Tashkent")
 
 
 class Settings(BaseSettings):
@@ -37,6 +40,9 @@ class Settings(BaseSettings):
     # The demo construction company, built in this process (nazar_agent.demo):
     # no NAZAR, no account — only the model key is needed. Off: the real NAZAR.
     demo_mode: bool = False
+    # The demo standing still at this moment, for the agent too: evals that
+    # give the same answers every run, a video recorded at 11:30 on a weekday.
+    demo_now: datetime | None = None
     nazar_base_url: str = ""
     # The assistant key NAZAR shares with this service (AI_AGENT_KEY there):
     # only with it is the cabinet's pass exchanged for the person's session.
@@ -77,6 +83,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _check(self) -> Settings:
+        if self.demo_now is not None and not self.demo_mode:
+            raise ValueError("DEMO_NOW only stops the demo's clock; set DEMO_MODE=true too")
+        if self.demo_now is not None and self.demo_now.tzinfo is None:
+            self.demo_now = self.demo_now.replace(tzinfo=COMPANY_TZ)
         if not self.demo_mode and not self.nazar_base_url:
             raise ValueError("NAZAR_BASE_URL is required; or set DEMO_MODE=true to run on the demo company")
         own_key = self.skeptic_api_key is not None and bool(self.skeptic_api_key.get_secret_value())
@@ -86,6 +96,10 @@ class Settings(BaseSettings):
             log.warning("SKEPTIC_API_KEY is empty: the skeptic runs on %s through the Meta API", self.skeptic_fallback_model)
             self.skeptic_model, self.skeptic_api, self.skeptic_base_url = self.skeptic_fallback_model, "responses", None
         return self
+
+    def now(self) -> datetime:
+        """The company's present moment: real time, or the demo's stopped clock."""
+        return (self.demo_now or datetime.now(COMPANY_TZ)).astimezone(COMPANY_TZ)
 
     @property
     def allowed_chat_ids(self) -> frozenset[int]:

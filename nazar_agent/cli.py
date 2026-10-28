@@ -13,7 +13,6 @@ import asyncio
 import json
 import sys
 from dataclasses import asdict, dataclass
-from datetime import datetime
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -25,7 +24,6 @@ from nazar_agent.nazar.connect import connect
 from nazar_agent.recommendations import Card, Recommendations, Team, Usage, ValidatedAction, recommend
 from nazar_agent.roles import attendance_analyst, timesheet_analyst
 from nazar_agent.tools import PhotoInspector, analyst_tools
-from nazar_agent.tools.common import COMPANY_TZ
 
 ANALYSTS = {"attendance": attendance_analyst, "timesheet": timesheet_analyst}
 
@@ -44,7 +42,7 @@ async def ask(question: str, analyst: str, *, review: bool, settings: Settings |
     skeptic_llm = settings.skeptic_llm()
     # The photo inspector runs on the open-weights model, like the skeptic.
     photos = PhotoInspector(skeptic_llm, settings.skeptic_model)
-    today = datetime.now(COMPANY_TZ).date()
+    today = settings.now().date()
     try:
         tools = analyst_tools(analyst, nazar, photos)
         role = ANALYSTS[analyst](model=settings.analyst_model, tools=tools, today=today)

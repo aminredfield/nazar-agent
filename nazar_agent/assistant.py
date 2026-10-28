@@ -15,7 +15,6 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +29,7 @@ from nazar_agent.recommendations import Recommendations, Team, recommend
 from nazar_agent.roles import attendance_analyst, timesheet_analyst
 from nazar_agent.roles.dispatcher import Analyst, route
 from nazar_agent.tools import PhotoInspector, analyst_tools
-from nazar_agent.tools.common import COMPANY_TZ, call_nazar
+from nazar_agent.tools.common import call_nazar
 from nazar_agent.usage import Ledger, Meter, NazarUsageReport, Source, metering
 from nazar_agent.views import answer_view
 
@@ -157,7 +156,7 @@ class Assistant:
         settings = self.settings
         analyst_llm = settings.analyst_llm()
         skeptic_llm = settings.skeptic_llm()
-        today = datetime.now(COMPANY_TZ).date()
+        today = settings.now().date()
         try:
             if analyst:
                 emit("route", analyst=analyst, text="выбран в окне")
