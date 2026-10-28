@@ -56,6 +56,19 @@ def test_only_unusual_days_are_listed_with_citable_ids():
     assert summary["unusual_days_truncated"] is False
 
 
+def test_a_cut_list_keeps_absences_before_minutes_of_early_leave():
+    """Live on the demo: 150 days left early by minutes pushed an absence out, and the analyst could not cite it."""
+    early = [row(f"e{n}", f"2026-10-{day:02d}", worked_minutes=530, early_leave_minutes=5) for n in range(20) for day in range(1, 11)]
+    absent = row("e7", "2026-10-30", "absent")
+
+    summary = summarize({**MATRIX, "days": [*early, absent]}, {}, {})
+
+    assert summary["unusual_days_truncated"] is True and len(summary["unusual_days"]) == 150
+    assert "e7:2026-10-30" in [day["id"] for day in summary["unusual_days"]]
+    dates = [day["date"] for day in summary["unusual_days"]]
+    assert dates == sorted(dates)  # still in date order
+
+
 def test_day_shows_what_nazar_counted_in_local_time():
     counted = row(
         "e1", "2026-10-22", worked_minutes=471, late_minutes=64,

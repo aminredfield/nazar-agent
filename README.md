@@ -230,10 +230,29 @@ a person with an innocent explanation is *falsely accused* when such a card
 is about them, or an action would cut their pay.
 
 ```bash
-python -m nazar_agent.evals --runs 5          # signed in as the demo company's owner
+python -m nazar_agent.evals --runs 5          # on the demo NAZAR in this process: only MODEL_API_KEY
+python -m nazar_agent.evals --nazar --runs 5  # against the NAZAR in .env, as the demo company's owner
 ```
 
-Oct 28, local NAZAR with the construction demo, final code:
+Oct 29, the demo NAZAR (`nazar_agent/demo`), final code:
+
+| Case | Runs | Passed | Found | Falsely accused | Fact checker clean first time | Actions valid | Avg cost |
+|---|---|---|---|---|---|---|---|
+| 4 «dead souls» checked in from the foreman's phone | 5 | 5/5 | 20/20 people | 0 in 5 runs | 0/5 | 16/16 | $0.032 |
+| Wrong site schedule (08:00 instead of 09:00) | 5 | 5/5 | schedule 5/5, fix proposed 5/5 | 0 in 5 runs | 0/5 | 5/5 | $0.023 |
+| New crew list with a duplicate, a repeat and a surname only | 5 | 5/5 | 15/15 flags, 0 false | — | — | — | — |
+
+The series before it, on the same demo, passed 13 of 15 and showed two
+weaknesses of the agent, not of the demo — the real NAZAR answers the same
+way. In one dead-souls run the analyst asked to check the weak-GPS worker's
+check-in outside the fence at medium confidence: the trap worked once. In
+one wrong-schedule run an ordinary worker's single absence was cited only as
+"1 absent day" in his totals: two weeks of the timesheet have more unusual
+days than the analyst is shown (150), mostly leaving a few minutes early, and
+the absence was cut off. The list is now cut by weight — absences first,
+minutes of early leave last — and that run's mistake did not come back.
+
+Oct 28, local NAZAR with the construction demo:
 
 | Case | Runs | Passed | Found | Falsely accused | Fact checker clean first time | Actions valid | Avg cost |
 |---|---|---|---|---|---|---|---|

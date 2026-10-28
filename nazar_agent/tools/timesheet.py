@@ -168,8 +168,11 @@ def summarize(
     for row in rows:
         by_employee.setdefault(row["employee_id"], []).append(row)
 
-    unusual = [_day_view(row, names, objects) for row in rows if _is_unusual(row)]
-    unusual.sort(key=lambda day: (day["date"], day["employee_name"] or ""))
+    unusual = sorted((row for row in rows if _is_unusual(row)), key=_weight)
+    # Cut by weight, then shown by date: an absence must not drop out behind
+    # a hundred days left early by a few minutes (seen on the demo company).
+    shown = [_day_view(row, names, objects) for row in unusual[:MAX_UNUSUAL_DAYS]]
+    shown.sort(key=lambda day: (day["date"], day["employee_name"] or ""))
     return {
         "period": [matrix.get("date_from"), matrix.get("date_to")],
         "period_closed": matrix.get("is_closed"),
@@ -178,7 +181,7 @@ def summarize(
             _employee_totals(employee_id, days, names)
             for employee_id, days in sorted(by_employee.items(), key=lambda item: names.get(item[0], ""))
         ],
-        "unusual_days": unusual[:MAX_UNUSUAL_DAYS],
+        "unusual_days": shown,
         "unusual_days_truncated": len(unusual) > MAX_UNUSUAL_DAYS,
     }
 
@@ -255,6 +258,21 @@ def _employee_totals(employee_id: str, days: list[dict[str, Any]], names: dict[s
         "adjusted_days": sum(1 for day in days if day.get("is_adjusted")),
         "needs_review_days": sum(1 for day in days if day.get("needs_review")),
     }
+
+
+def _weight(row: dict[str, Any]) -> tuple[int, int, str]:
+    """Which unusual days stay when the list is cut: absences first, minutes of early leave last."""
+    if row.get("day_code") == "absent":
+        rank = 0
+    elif row.get("day_code") == "pending" or row.get("has_open_session"):
+        rank = 1
+    elif row.get("is_adjusted") or row.get("needs_review") or row.get("has_schedule_overlap"):
+        rank = 2
+    elif (row.get("late_minutes") or 0) > 0:
+        rank = 3
+    else:
+        rank = 4
+    return rank, -((row.get("late_minutes") or 0) + (row.get("early_leave_minutes") or 0)), row.get("work_date") or ""
 
 
 def _is_unusual(row: dict[str, Any]) -> bool:

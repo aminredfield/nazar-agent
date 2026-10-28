@@ -18,7 +18,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from nazar_agent.config import get_settings
+from nazar_agent.config import Settings, get_settings
 from nazar_agent.findings import Analysis, analyze
 from nazar_agent.llm.pricing import cost_usd
 from nazar_agent.nazar.connect import connect
@@ -37,8 +37,8 @@ class Outcome:
     photos: Usage | None = None  # what the photo inspector spent, if it was asked
 
 
-async def ask(question: str, analyst: str, *, review: bool) -> Outcome:
-    settings = get_settings()
+async def ask(question: str, analyst: str, *, review: bool, settings: Settings | None = None) -> Outcome:
+    settings = settings or get_settings()
     nazar = connect(settings).client()
     analyst_llm = settings.analyst_llm()
     skeptic_llm = settings.skeptic_llm()

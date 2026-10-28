@@ -1,11 +1,15 @@
-"""Run the planted cases against a NAZAR with the construction demo company and score them.
+"""Run the planted cases on the construction demo company and score them.
 
-    python -m nazar_agent.evals --runs 5                 # every case five times
+    python -m nazar_agent.evals --runs 5                 # every case five times, on the demo
     python -m nazar_agent.evals --case dead_souls --runs 10
+    python -m nazar_agent.evals --nazar --runs 5         # against the NAZAR in .env instead
 
-The agent signs in with NAZAR_EMAIL / NAZAR_PASSWORD, which must be the
-construction demo's owner. Every run's whole outcome is saved next to the
-scores, so a surprising number can be checked against what the agents saw.
+By default the cases run on the demo NAZAR in this process (nazar_agent.demo):
+only MODEL_API_KEY is needed, and every run starts from the same company.
+With ``--nazar`` the agent signs in with NAZAR_EMAIL / NAZAR_PASSWORD, which
+must be the construction demo's owner there. Every run's whole outcome is
+saved next to the scores, so a surprising number can be checked against what
+the agents saw.
 """
 
 from __future__ import annotations
@@ -21,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from nazar_agent.cli import ask, json_default, total_cost
-from nazar_agent.config import get_settings
+from nazar_agent.config import Settings, get_settings
 from nazar_agent.evals.cases import (
     CASES,
     LIST_DUPLICATE_OF_EMPLOYEE,
@@ -38,19 +42,23 @@ from nazar_agent.tools.common import call_nazar
 DEFAULT_OUT = Path("evals-results")
 
 
-async def run_analysis(case: Case, out: Path) -> dict[str, Any]:
+def eval_settings(*, real_nazar: bool) -> Settings:
+    """The demo by default: the cases are planted in it, and nothing else is needed."""
+    return get_settings() if real_nazar else Settings(demo_mode=True)
+
+
+async def run_analysis(case: Case, out: Path, settings: Settings) -> dict[str, Any]:
     started = time.monotonic()
-    outcome = await ask(case.question, case.analyst, review=True)
+    outcome = await ask(case.question, case.analyst, review=True, settings=settings)
     data = json.loads(json.dumps(asdict(outcome), ensure_ascii=False, default=json_default))
     out.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
     result = score_analysis(data, case.name)
-    result["cost_usd"] = round(total_cost(outcome, get_settings().analyst_model), 4)
+    result["cost_usd"] = round(total_cost(outcome, settings.analyst_model), 4)
     result["seconds"] = round(time.monotonic() - started)
     return result
 
 
-async def run_import(case: Case, out: Path) -> dict[str, Any]:
-    settings = get_settings()
+async def run_import(case: Case, out: Path, settings: Settings) -> dict[str, Any]:
     started = time.monotonic()
     llm = settings.analyst_llm()
     nazar = connect(settings).client()
@@ -70,14 +78,14 @@ async def run_import(case: Case, out: Path) -> dict[str, Any]:
     return result
 
 
-async def run_one(case: Case, number: int, folder: Path, limit: asyncio.Semaphore) -> dict[str, Any]:
+async def run_one(case: Case, number: int, folder: Path, limit: asyncio.Semaphore, settings: Settings) -> dict[str, Any]:
     out = folder / f"{case.name}-{number:02d}.json"
     async with limit:
         try:
             if case.kind == "import":
-                result = await run_import(case, out)
+                result = await run_import(case, out, settings)
             else:
-                result = await run_analysis(case, out)
+                result = await run_analysis(case, out, settings)
         except Exception as exc:  # a failed run is a result too: it counts against the case
             result = {"case": case.name, "passed": False, "error": f"{type(exc).__name__}: {exc}"}
     result["run"] = number
@@ -93,9 +101,11 @@ def _line(result: dict[str, Any]) -> str:
     return f"{result['case']} #{result['run']}: {mark} {json.dumps(details, ensure_ascii=False)}"
 
 
-async def main_async(cases: list[Case], runs: int, parallel: int, folder: Path) -> list[dict[str, Any]]:
+async def main_async(
+    cases: list[Case], runs: int, parallel: int, folder: Path, settings: Settings
+) -> list[dict[str, Any]]:
     limit = asyncio.Semaphore(parallel)
-    jobs = [run_one(case, number, folder, limit) for case in cases for number in range(1, runs + 1)]
+    jobs = [run_one(case, number, folder, limit, settings) for case in cases for number in range(1, runs + 1)]
     return list(await asyncio.gather(*jobs))
 
 
@@ -105,12 +115,15 @@ def main() -> int:
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--parallel", type=int, default=3)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    parser.add_argument("--nazar", action="store_true", help="run against the NAZAR in .env, not the demo")
     args = parser.parse_args()
+    settings = eval_settings(real_nazar=args.nazar)
+    print(f"On: {'NAZAR at ' + settings.nazar_base_url if args.nazar else 'the demo company in this process'}", file=sys.stderr)
 
     cases = [CASES[name] for name in (args.case or CASES)]
     folder = args.out / datetime.now().strftime("%Y-%m-%d-%H%M%S")
     folder.mkdir(parents=True, exist_ok=True)
-    results = asyncio.run(main_async(cases, args.runs, args.parallel, folder))
+    results = asyncio.run(main_async(cases, args.runs, args.parallel, folder, settings))
     (folder / "results.json").write_text(json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8")
     table = summarize(results)
     (folder / "summary.md").write_text(table + "\n", encoding="utf-8")
