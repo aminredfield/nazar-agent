@@ -26,11 +26,12 @@ from nazar_agent.findings import Analysis, analyze
 from nazar_agent.nazar import NazarClient
 from nazar_agent.onboarding import DraftStore, ImportRow, Site, read_list, review
 from nazar_agent.progress import Progress, emit, tracking
-from nazar_agent.recommendations import Recommendations, Team, Usage, recommend
+from nazar_agent.recommendations import Recommendations, Team, recommend
 from nazar_agent.roles import attendance_analyst, timesheet_analyst
 from nazar_agent.roles.dispatcher import Analyst, route
 from nazar_agent.tools import PhotoInspector, analyst_tools
 from nazar_agent.tools.common import COMPANY_TZ, call_nazar
+from nazar_agent.usage import Ledger, Meter, Source, metering
 from nazar_agent.views import answer_view
 
 ANALYSTS = {"attendance": attendance_analyst, "timesheet": timesheet_analyst}
@@ -59,10 +60,21 @@ class Assistant:
     NAZAR checks that identity's rights and logs it.
     """
 
-    def __init__(self, settings: Settings, store: ProposalStore, *, service: NazarClient | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        store: ProposalStore,
+        *,
+        service: NazarClient | None = None,
+        company: str = "service",
+        ledger: Ledger | None = None,
+    ) -> None:
         self.settings = settings
         self.store = store
         self.service = service
+        # Whose model calls these are, in the ledger of what the agents spend.
+        self.company = company
+        self.ledger = ledger
         self.drafts = DraftStore(store.path, store)
         self.last: Answer | None = None
         # The question being answered, or the last one: the window follows it live.
@@ -76,19 +88,29 @@ class Assistant:
     def executor(self, nazar: NazarClient | None = None) -> Executor:
         return Executor(self.store, self._acting(nazar))
 
-    async def ask(self, question: str, analyst: Analyst | None = None, *, nazar: NazarClient | None = None) -> Answer:
+    async def ask(
+        self, question: str, analyst: Analyst | None = None, *, nazar: NazarClient | None = None, source: Source = "ask"
+    ) -> Answer:
         if self._lock.locked():
             raise AssistantBusy
         async with self._lock:
             self.progress = Progress(question)
-            with tracking(self.progress):
+            meter = Meter()
+            with tracking(self.progress), metering(meter):
                 try:
-                    self.last = await self._answer(question, analyst, self._acting(nazar))
+                    self.last = await self._answer(question, analyst, self._acting(nazar), meter)
                 except Exception as exc:
                     self.progress.finish(f"{type(exc).__name__}: {exc}")
                     raise
+                finally:
+                    # Tokens spent on a failed question are spent all the same.
+                    self.spent(source, question, meter)
             self.progress.finish()
             return self.last
+
+    def spent(self, source: Source, question: str, meter: Meter) -> None:
+        if self.ledger is not None:
+            self.ledger.record(company=self.company, source=source, question=question, calls=meter.calls)
 
     async def read_list(
         self, *, text: str | None, file: bytes | None, content_type: str | None, nazar: NazarClient | None = None
@@ -96,10 +118,13 @@ class Assistant:
         """A list of people → rows checked against the company's sites and employees."""
         acting = self._acting(nazar)
         llm = self.settings.analyst_llm()
+        meter = Meter()
         try:
-            people = await read_list(llm, self.settings.analyst_model, text=text, file=file, content_type=content_type)
+            with metering(meter):
+                people = await read_list(llm, self.settings.analyst_model, text=text, file=file, content_type=content_type)
         finally:
             await llm.aclose()
+            self.spent("import", text or "(file)", meter)
         sites = await self.sites(nazar=acting)
         employees = await call_nazar(acting.get("/employees"))
         return review(people, sites, employees), sites
@@ -114,7 +139,7 @@ class Assistant:
             raise RuntimeError("No NAZAR identity to act with.")
         return acting
 
-    async def _answer(self, question: str, analyst: Analyst | None, nazar: NazarClient) -> Answer:
+    async def _answer(self, question: str, analyst: Analyst | None, nazar: NazarClient, meter: Meter) -> Answer:
         settings = self.settings
         analyst_llm = settings.analyst_llm()
         skeptic_llm = settings.skeptic_llm()
@@ -131,8 +156,7 @@ class Assistant:
             feedback = owner_feedback(self.store)
             role = ANALYSTS[chosen](model=settings.analyst_model, tools=tools, today=today, feedback=instructions_text(feedback))
             analysis = await analyze(role, analyst_llm, question)
-            photo_usage = Usage("photos", photos.model, photos.input_tokens, photos.output_tokens) if photos.input_tokens else None
-            if photo_usage:
+            if photos.input_tokens:
                 log.info("photo inspector: %d/%d tokens on %s", photos.input_tokens, photos.output_tokens, photos.model)
             team = Team(skeptic_llm, settings.skeptic_model, analyst_llm, settings.analyst_model)
             owner_said = {item.subject_id: about(feedback, item.subject_id) for item in feedback}
@@ -141,7 +165,7 @@ class Assistant:
             await analyst_llm.aclose()
             await skeptic_llm.aclose()
         proposals = Executor(self.store, nazar).propose(recommendations.cards, question)
-        view = answer_view(analysis, recommendations, proposals, settings.analyst_model, photo_usage)
+        view = answer_view(analysis, recommendations, proposals, meter.by_role())
         return Answer(question, chosen, analysis, recommendations, proposals, {**view, "analyst": chosen})
 
 
@@ -153,15 +177,19 @@ class Assistants:
     configured file.
     """
 
-    def __init__(self, settings: Settings, *, service: NazarClient | None = None) -> None:
+    def __init__(self, settings: Settings, *, service: NazarClient | None = None, ledger: Ledger | None = None) -> None:
         self._settings = settings
+        self._ledger = ledger
         self._by_company: dict[str, Assistant] = {}
         self.service = (
-            Assistant(settings, ProposalStore(settings.agent_db_path), service=service) if service is not None else None
+            Assistant(settings, ProposalStore(settings.agent_db_path), service=service, ledger=ledger)
+            if service is not None
+            else None
         )
 
     def for_company(self, company_id: str) -> Assistant:
         if company_id not in self._by_company:
-            path = Path(self._settings.agent_db_path).with_name(f"agent-{uuid.UUID(company_id)}.sqlite3")
-            self._by_company[company_id] = Assistant(self._settings, ProposalStore(path))
+            company = str(uuid.UUID(company_id))
+            path = Path(self._settings.agent_db_path).with_name(f"agent-{company}.sqlite3")
+            self._by_company[company_id] = Assistant(self._settings, ProposalStore(path), company=company, ledger=self._ledger)
         return self._by_company[company_id]

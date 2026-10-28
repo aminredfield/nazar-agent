@@ -20,7 +20,14 @@ import httpx
 from nazar_agent.actions import ExecutionError
 from nazar_agent.assistant import Assistant, AssistantBusy
 from nazar_agent.telegram.api import TelegramApi, TelegramError
-from nazar_agent.telegram.render import answer_footer, answer_header, card_keyboard, card_text, confirm_keyboard
+from nazar_agent.telegram.render import (
+    answer_footer,
+    answer_header,
+    card_keyboard,
+    card_text,
+    confirm_keyboard,
+    usage_text,
+)
 from nazar_agent.views import proposal_view
 from nazar_agent.voice import VoiceError
 
@@ -35,7 +42,8 @@ HELLO = (
     "• «Что в табеле за прошлую неделю стоит проверить перед выплатой?»\n"
     "• «Были ли вчера подозрительные отметки?»\n\n"
     "Я покажу, что видно в данных, что может быть иначе и что можно сделать. "
-    "Ничего не меняю без вашей кнопки. /brief — сводка прямо сейчас."
+    "Ничего не меняю без вашей кнопки. /brief — сводка прямо сейчас, "
+    "/usage — сколько ушло на модели."
 )
 
 
@@ -106,6 +114,10 @@ class Bot:
         if text.startswith("/brief"):
             await self.brief([chat_id])
             return
+        if text.startswith("/usage"):
+            ledger = self.assistant.ledger
+            await self.api.send_message(chat_id, usage_text(ledger.summary(self.assistant.company)) if ledger else "Учёт расходов выключен.")
+            return
         if chat_id in self._awaiting_reason and text:
             await self._decline(chat_id, self._awaiting_reason.pop(chat_id), _actor(message), text)
             return
@@ -133,7 +145,7 @@ class Bot:
 
         typing = asyncio.create_task(self._keep_typing(chat_ids))
         try:
-            answer = await self.assistant.ask(question, analyst)
+            answer = await self.assistant.ask(question, analyst, source="telegram")
         except AssistantBusy:
             return
         except Exception:

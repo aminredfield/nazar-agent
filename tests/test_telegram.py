@@ -56,7 +56,7 @@ class FakeAssistant:
     def executor(self, nazar=None):
         return Executor(self.store, nazar or self._nazar)
 
-    async def ask(self, question, analyst=None, *, nazar=None):
+    async def ask(self, question, analyst=None, *, nazar=None, source="ask"):
         if self.busy:
             raise AssistantBusy
         self.questions.append(question)

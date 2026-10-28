@@ -15,6 +15,7 @@ import wave
 import av
 
 from nazar_agent.llm import LLMClient
+from nazar_agent.usage import count
 
 SAMPLE_RATE = 16_000
 BYTES_PER_SAMPLE = 2  # 16-bit
@@ -86,6 +87,7 @@ async def transcribe(llm: LLMClient, model: str, audio: bytes) -> str:
         tools=[],
         max_output_tokens=TRANSCRIBE_MAX_OUTPUT_TOKENS,
     )
+    count("voice", model, turn.input_tokens, turn.output_tokens)
     text = turn.text.strip()
     if not text:
         raise VoiceError("Не расслышал — повторите, пожалуйста, или напишите текстом.")

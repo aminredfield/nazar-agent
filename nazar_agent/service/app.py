@@ -37,7 +37,7 @@ from nazar_agent.assistant import Assistant, Assistants, AssistantBusy
 from nazar_agent.config import Settings, get_settings
 from nazar_agent.feedback import agreement
 from nazar_agent.limits import LimitReached, Limits
-from nazar_agent.llm.pricing import budget_usd
+from nazar_agent.usage import Ledger, Meter, metering
 from nazar_agent.nazar import NazarClient
 from nazar_agent.telegram import Bot, TelegramApi
 from nazar_agent.telegram.schedule import parse_brief_time, run_daily
@@ -96,7 +96,8 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
                 timeout_seconds=active.nazar_timeout_seconds,
                 transport=nazar_transport,
             )
-        assistants = Assistants(active, service=service)
+        ledger = Ledger(Path(active.agent_db_path).with_name("usage.sqlite3"))
+        assistants = Assistants(active, service=service, ledger=ledger)
         sessions = Sessions(
             nazar_base_url=active.nazar_base_url,
             agent_key=active.nazar_agent_key.get_secret_value(),
@@ -187,7 +188,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         cost = FAILED_QUESTION_COST_USD
         try:
             answer = await current.assistant.ask(request.question, analyst, nazar=current.nazar)
-            cost = sum(budget_usd(item["model"], item["input_tokens"], item["output_tokens"]) for item in answer.view["stats"]["models"])
+            cost = answer.view["stats"]["cost_usd"]
         except AssistantBusy:
             cost = 0.0
             raise HTTPException(429, "The agent is already working on a question. Wait for it to finish.") from None
@@ -244,6 +245,14 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         decisions = current.assistant.store.decisions()
         return {**decisions, "agreement": agreement(decisions)}
 
+    @app.get("/api/usage")
+    async def usage(current: Caller = Depends(caller)) -> dict[str, Any]:
+        """What this company's agents spent on models: today, this week, in all, by role and model."""
+        assistant = current.assistant
+        if assistant.ledger is None:
+            return {}
+        return assistant.ledger.summary(assistant.company)
+
     @app.get("/api/audit")
     async def audit(limit: int = Query(50, ge=1, le=500), current: Caller = Depends(caller)) -> list[dict[str, Any]]:
         store = current.assistant.store
@@ -273,6 +282,8 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
             )
         except ParseError as exc:
             raise HTTPException(422, str(exc)) from exc
+        except ToolExecutionError as exc:  # NAZAR refused: say so, not "Internal Server Error"
+            raise HTTPException(502, str(exc)) from exc
         return {"rows": [_row_view(row) for row in rows], "sites": [{"id": site.id, "name": site.name} for site in sites]}
 
     @app.post("/api/import/drafts")
@@ -402,10 +413,13 @@ def _start_telegram(settings: Settings, assistant: Assistant) -> tuple[list[asyn
 
     async def voice_to_text(audio: bytes) -> str:
         llm = settings.analyst_llm()
+        meter = Meter()
         try:
-            return await transcribe(llm, settings.voice_model, audio)
+            with metering(meter):
+                return await transcribe(llm, settings.voice_model, audio)
         finally:
             await llm.aclose()
+            assistant.spent("voice", "(voice message)", meter)
 
     bot = Bot(api, assistant, settings.allowed_chat_ids, voice_to_text)
     tasks = [asyncio.create_task(bot.run())]

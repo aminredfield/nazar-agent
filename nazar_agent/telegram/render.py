@@ -138,3 +138,39 @@ def _fit(text: str) -> str:
     if len(text) <= MAX_MESSAGE:
         return text
     return text[: text.rfind("\n", 0, MAX_MESSAGE - 2)] + "\n…"
+
+
+ROLES = {
+    "dispatcher": "диспетчер",
+    "attendance_analyst": "аналитик отметок",
+    "timesheet_analyst": "аналитик табеля",
+    "photos": "инспектор фото",
+    "skeptic": "скептик",
+    "writer": "составитель",
+    "voice": "голос",
+    "import": "разбор списков",
+}
+
+
+def usage_text(summary: dict[str, Any]) -> str:
+    """What the agents spent on models, for /usage."""
+    def period(name: str, label: str) -> str:
+        item = summary[name]
+        estimate = " (часть — оценка)" if item["estimated"] else ""
+        return (
+            f"<b>{label}:</b> ${item['cost_usd']:.4f}{estimate} · запусков {item['runs']} · "
+            f"токенов {item['input_tokens']:,} → {item['output_tokens']:,}".replace(",", " ")
+        )
+
+    lines = ["💰 <b>Расходы на модели</b>", period("today", "Сегодня"), period("week", "7 дней"), period("all", "Всего")]
+    if summary["all"]["per_run_usd"] is not None:
+        lines.append(f"В среднем за запуск: ${summary['all']['per_run_usd']:.4f}")
+    if summary["by_role"]:
+        lines.append("")
+        lines += [
+            f"• {ROLES.get(row['role'], escape(row['role']))} — {escape(row['model'])}: ${row['cost_usd']:.4f}"
+            + (" (оценка)" if row["estimated"] else "")
+            for row in summary["by_role"]
+        ]
+    return "\n".join(lines)
+

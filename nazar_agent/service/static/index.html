@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="/static/app.css?v=3">
+<link rel="stylesheet" href="/static/app.css?v=4">
 </head>
 <body>
 <div class="backdrop" aria-hidden="true"></div>
@@ -109,6 +109,12 @@
     </section>
   </section>
 
+  <section class="panel glass" id="usage-section">
+    <div class="row"><h2>Расходы на модели</h2><button type="button" id="refresh-usage">Обновить</button></div>
+    <p class="muted">Каждый вызов модели записан: какая роль, какая модель, сколько токенов и по какой цене. Модель без известной цены считается по высокой оценке.</p>
+    <div id="usage" class="usage"></div>
+  </section>
+
   <section class="panel glass" id="audit-section">
     <div class="row"><h2>Журнал действий</h2><button type="button" id="refresh-audit">Обновить</button></div>
     <p class="muted" id="decisions"></p>
@@ -117,6 +123,6 @@
 </main>
 
 <footer class="foot">NAZAR Agent · Meta AI Developer Hackathon 2026 · ИИ предлагает, человек решает</footer>
-<script src="/static/app.js?v=3"></script>
+<script src="/static/app.js?v=4"></script>
 </body>
 </html>

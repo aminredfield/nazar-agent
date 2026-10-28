@@ -19,6 +19,12 @@ const EVENTS = {
   draft_created: "добавлен, ждёт фото", employee_created: "создан в NAZAR", photo_rejected: "фото не подошло", draft_discarded: "убран из списка",
 };
 const ANALYSTS = { attendance: "Аналитик отметок", timesheet: "Аналитик табеля" };
+const ROLES = {
+  dispatcher: "Диспетчер", attendance_analyst: "Аналитик отметок", timesheet_analyst: "Аналитик табеля", photos: "Инспектор фото",
+  skeptic: "Скептик", writer: "Составитель", voice: "Голос", import: "Разбор списков",
+};
+const number = (value) => Number(value).toLocaleString("ru-RU");
+const dollars = (value, estimated) => `$${Number(value).toFixed(4)}${estimated ? "*" : ""}`;
 // What each tool does, in the owner's words.
 const TOOLS = {
   get_shared_phones: "Считаю телефоны, с которых отмечаются несколько человек",
@@ -391,8 +397,10 @@ function renderAnswer(data) {
       el("ul", {}, rounds.concat(removed).map((item) => el("li", {}, item)))) : null,
     el("div", { class: "stats" },
       el("span", { class: "chip" }, `${data.stats.tool_calls} запросов к NAZAR`),
-      data.stats.models.map((item) => el("span", { class: "chip" }, `${item.role}: ${item.model}`)),
-      el("span", { class: "chip" }, `≈ $${data.stats.cost_usd}`)),
+      data.stats.models.map((item) => el("span", { class: "chip", title: item.model },
+        `${ROLES[item.role] || item.role}: ${number(item.input_tokens)} → ${number(item.output_tokens)} ток. · ${dollars(item.cost_usd, item.estimated)}`)),
+      el("span", { class: "chip" }, `Итого ${dollars(data.stats.cost_usd, data.stats.cost_estimated)}`)),
+    data.stats.cost_estimated ? el("p", { class: "muted" }, "* цена модели без опубликованного прайса — оценка по высокой ставке") : null,
   ].flat().filter(Boolean));
 }
 
@@ -405,7 +413,28 @@ async function loadLast() {
   }
 }
 
+async function loadUsage() {
+  try {
+    const usage = await api("/api/usage");
+    if (!usage.all) { $("usage").replaceChildren(el("p", { class: "muted" }, "Учёт расходов выключен.")); return; }
+    const tile = (label, item) => el("div", { class: "tile" }, el("small", {}, label), el("b", {}, dollars(item.cost_usd, item.estimated)),
+      el("small", {}, `запусков: ${item.runs} · токенов ${number(item.input_tokens)} → ${number(item.output_tokens)}`));
+    $("usage").replaceChildren(
+      el("div", { class: "tiles" }, tile("Сегодня", usage.today), tile("7 дней", usage.week), tile("Всего", usage.all)),
+      usage.all.per_run_usd !== null ? el("p", { class: "muted" }, `В среднем за запуск: ${dollars(usage.all.per_run_usd, usage.all.estimated)}`) : null,
+      usage.by_role.length ? el("table", {},
+        el("tr", {}, el("th", {}, "Роль"), el("th", {}, "Модель"), el("th", { class: "num" }, "Вызовов"),
+          el("th", { class: "num" }, "Токенов вход → выход"), el("th", { class: "num" }, "Цена")),
+        usage.by_role.map((row) => el("tr", {}, el("td", {}, ROLES[row.role] || row.role), el("td", {}, row.model),
+          el("td", { class: "num" }, row.calls), el("td", { class: "num" }, `${number(row.input_tokens)} → ${number(row.output_tokens)}`),
+          el("td", { class: "num" }, dollars(row.cost_usd, row.estimated))))) : el("p", { class: "muted" }, "Вызовов моделей пока не было."));
+  } catch (error) {
+    $("usage").replaceChildren(el("p", { class: "error" }, error.message));
+  }
+}
+
 async function loadAudit() {
+  loadUsage();
   try {
     const [entries, stats] = await Promise.all([api("/api/audit?limit=30"), api("/api/stats")]);
     $("decisions").textContent = stats.agreement === null ? "Решений по предложениям пока нет."
@@ -641,6 +670,7 @@ function shootNext(skipped = new Set()) {
 $("start-shooting").addEventListener("click", async () => { await loadWaiting(); shootNext(); });
 $("refresh-waiting").addEventListener("click", loadWaiting);
 $("refresh-audit").addEventListener("click", loadAudit);
+$("refresh-usage").addEventListener("click", loadUsage);
 
 // ---- Who is here -------------------------------------------------------------
 // Opened from the NAZAR cabinet, the address carries a one-minute pass in the

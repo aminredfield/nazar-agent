@@ -29,6 +29,7 @@ from nazar_agent.findings.checker import Evidence, Issue, check_report
 from nazar_agent.findings.models import AnalystReport, Finding
 from nazar_agent.llm import LLMClient
 from nazar_agent.progress import emit
+from nazar_agent.usage import count
 
 DEFAULT_MAX_CORRECTIONS = 2
 log = logging.getLogger(__name__)
@@ -124,6 +125,7 @@ async def analyze(
             tools=[],
             text_format=REPORT_FORMAT,
         )
+        count(role.name, role.model, turn.input_tokens, turn.output_tokens)
         input_tokens += turn.input_tokens
         output_tokens += turn.output_tokens
         conversation.append({"role": "assistant", "content": turn.text})
@@ -168,6 +170,7 @@ async def analyze(
             tools=[],
             text_format=REPORT_FORMAT,
         )
+        count(role.name, role.model, turn.input_tokens, turn.output_tokens)
         input_tokens += turn.input_tokens
         output_tokens += turn.output_tokens
         caught.append(("the report had no findings after an investigation; asked once more",))

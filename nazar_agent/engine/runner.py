@@ -27,8 +27,9 @@ from typing import Any, Literal
 from pydantic import ValidationError
 
 from nazar_agent.engine.tools import Tool
-from nazar_agent.progress import emit
 from nazar_agent.llm.client import LLMClient, ToolCall
+from nazar_agent.progress import emit
+from nazar_agent.usage import count
 
 DEFAULT_MAX_STEPS = 8
 log = logging.getLogger(__name__)
@@ -87,6 +88,7 @@ async def run_role(role: Role, llm: LLMClient, user_input: str) -> RoleRun:
             input=list(conversation),
             tools=schemas,
         )
+        count(role.name, role.model, turn.input_tokens, turn.output_tokens)
         input_tokens += turn.input_tokens
         output_tokens += turn.output_tokens
         if turn.text:

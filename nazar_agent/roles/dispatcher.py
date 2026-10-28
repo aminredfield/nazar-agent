@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from nazar_agent.engine import tool_schema
 from nazar_agent.llm import LLMClient
 from nazar_agent.progress import emit
+from nazar_agent.usage import count
 
 Analyst = Literal["attendance", "timesheet"]
 DEFAULT_ANALYST: Analyst = "timesheet"
@@ -50,6 +51,7 @@ async def route(llm: LLMClient, model: str, question: str) -> Analyst:
     turn = await llm.respond(
         model=model, instructions=INSTRUCTIONS, input=question, tools=[], text_format=ROUTE_FORMAT
     )
+    count("dispatcher", model, turn.input_tokens, turn.output_tokens)
     try:
         chosen = Route.model_validate_json(turn.text)
     except ValidationError:

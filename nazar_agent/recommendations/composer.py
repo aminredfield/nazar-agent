@@ -21,6 +21,7 @@ from nazar_agent.findings.models import Confidence
 from nazar_agent.llm import LLMClient
 from nazar_agent.recommendations.catalog import CATALOG
 from nazar_agent.recommendations.skeptic import SkepticView
+from nazar_agent.usage import count
 
 MAX_ACTIONS_PER_CASE = 2
 
@@ -159,6 +160,7 @@ async def compose(llm: LLMClient, model: str, cases: list[CaseInput], today: dat
         tools=[],
         text_format=COMPOSER_FORMAT,
     )
+    count("writer", model, turn.input_tokens, turn.output_tokens)
     try:
         output = ComposerOutput.model_validate_json(turn.text)
     except ValidationError as exc:

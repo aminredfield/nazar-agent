@@ -7,22 +7,16 @@ from typing import Any
 
 from nazar_agent.actions import AuditEntry, Proposal
 from nazar_agent.findings import Analysis
-from nazar_agent.llm.pricing import cost_usd
-from nazar_agent.recommendations import Card, Recommendations, Usage
+from nazar_agent.recommendations import Card, Recommendations
 
 
 def answer_view(
     analysis: Analysis,
     recommendations: Recommendations,
     proposals: list[list[Proposal]],
-    analyst_model: str,
-    photos: Usage | None = None,
+    models: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    usage = [("analyst", analyst_model, analysis.input_tokens, analysis.output_tokens)] + [
-        (item.role, item.model, item.input_tokens, item.output_tokens)
-        for item in ((photos,) if photos else ()) + tuple(recommendations.usage)
-    ]
-    costs = [cost_usd(model, tokens_in, tokens_out) for _, model, tokens_in, tokens_out in usage]
+    """``models`` — every model call of this answer by role (``usage.Meter.by_role``)."""
     return {
         "summary": analysis.report.summary,
         "cards": [card_view(card, card_proposals) for card, card_proposals in zip(recommendations.cards, proposals, strict=True)],
@@ -33,11 +27,9 @@ def answer_view(
         "stats": {
             "tool_calls": len(analysis.run.steps),
             "investigation_turns": analysis.run.model_turns,
-            "models": [
-                {"role": role, "model": model, "input_tokens": tokens_in, "output_tokens": tokens_out, "cost_usd": cost}
-                for (role, model, tokens_in, tokens_out), cost in zip(usage, costs, strict=True)
-            ],
-            "cost_usd": round(sum(cost for cost in costs if cost is not None), 4),
+            "models": models,
+            "cost_usd": round(sum(item["cost_usd"] for item in models), 4),
+            "cost_estimated": any(item["estimated"] for item in models),
         },
     }
 

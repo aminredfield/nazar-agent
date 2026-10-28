@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from nazar_agent.engine import tool_schema
 from nazar_agent.llm import LLMClient
+from nazar_agent.usage import count
 
 MAX_SHEET_ROWS = 500
 MAX_TEXT = 20_000
@@ -97,6 +98,7 @@ async def read_list(
         tools=[],
         text_format=PEOPLE_FORMAT,
     )
+    count("import", model, turn.input_tokens, turn.output_tokens)
     try:
         return ListedPeople.model_validate_json(turn.text).people
     except ValidationError as exc:

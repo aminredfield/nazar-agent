@@ -23,6 +23,7 @@ from nazar_agent.engine import tool_schema
 from nazar_agent.findings import AnalystReport, Evidence
 from nazar_agent.findings.models import Confidence
 from nazar_agent.llm import LLMClient
+from nazar_agent.usage import count
 
 Verdict = Literal["concern_supported", "inconclusive", "innocent_likely"]
 # Muse Spark Open always reasons, and reasoning shares the output budget
@@ -129,6 +130,7 @@ async def run_skeptic(
         text_format=SKEPTIC_FORMAT,
         max_output_tokens=SKEPTIC_MAX_OUTPUT_TOKENS,
     )
+    count("skeptic", model, turn.input_tokens, turn.output_tokens)
     try:
         parsed = SkepticReport.model_validate_json(turn.text)
     except ValidationError as exc:

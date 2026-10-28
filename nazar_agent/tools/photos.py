@@ -26,6 +26,7 @@ from nazar_agent.llm import LLMClient
 from nazar_agent.nazar import NazarApiError, NazarClient
 from nazar_agent.progress import emit
 from nazar_agent.tools.common import call_nazar, local_time
+from nazar_agent.usage import count
 
 MAX_PHOTOS = 8
 # Muse Spark Open always reasons; the reasoning shares the output budget.
@@ -103,6 +104,7 @@ class PhotoInspector:
             text_format=PHOTO_FORMAT,
             max_output_tokens=INSPECTOR_MAX_OUTPUT_TOKENS,
         )
+        count("photos", self.model, turn.input_tokens, turn.output_tokens)
         self.input_tokens += turn.input_tokens
         self.output_tokens += turn.output_tokens
         try:

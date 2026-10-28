@@ -296,6 +296,7 @@ visitor applied is gone by morning. Deployment next to NAZAR:
 | Wrong schedule: each site's schedule vs. the real day, counted by code; `change_schedule` with before → after; findings about people or setup | done |
 | "Disagree" reasons fed to the next analysis, the skeptic and the card; share of applied proposals in the window | done |
 | Evals over the planted cases, scored by code | done |
+| Every model call recorded: role, model, tokens, price (an estimate where no price is published); spend today, this week and in all in the window and `/usage` in the bot | done |
 | Public demo: limits per session and per day, nightly reset, container next to NAZAR | done (deployment: in progress) |
 
 ## Run it
