@@ -36,7 +36,7 @@ a cheater; the agents write "worth checking" and "not confirmed".
 | Existed before Oct 26 | Built during the hackathon (this repository) |
 |---|---|
 | NAZAR: check-in by face + geofence + anti-spoofing, schedules, timesheet calculation, admin API, demo company seeding — closed source | Everything in this repository: agent engine, roles, tools over the NAZAR API, recommendations, executor, audit, assistant UI, Telegram bot, list import, evals |
-| | Small changes in NAZAR, all behind a per-company AI switch: the switch itself, the menu entry, sign-in with a one-minute pass, the device key of a check-in, the bot's sign-in with the assistant key; the construction demo company and new faces for both demo companies — published as diffs in [`nazar-changes/`](nazar-changes/). Everything else the agents do goes through NAZAR's existing API |
+| | Small changes in NAZAR, all behind a per-company AI switch: the switch itself, the menu entry, sign-in with a one-minute pass, the device key of a check-in, the bot's sign-in with the assistant key, the AI spend per company in the superadmin; the construction demo company and new faces for both demo companies — published as diffs in [`nazar-changes/`](nazar-changes/). Everything else the agents do goes through NAZAR's existing API |
 
 The git history of this repository starts on Oct 27, 2026.
 
