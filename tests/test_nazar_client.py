@@ -132,3 +132,40 @@ async def test_as_the_person_it_sends_their_token_and_never_logs_in():
 
     assert seen == [("/api/objects", "Bearer person-token"), ("/api/timesheet", "Bearer person-token")]
     assert expired.value.code == "SESSION_EXPIRED" and "откройте помощника" in expired.value.message
+
+
+def _keyed(nazar: FakeNazar) -> NazarClient:
+    return NazarClient(
+        base_url="http://nazar.test/api/", email="agent@demo.uz", password="secret", agent_key="k" * 40,
+        transport=httpx.MockTransport(nazar),
+    )
+
+
+async def test_with_the_assistant_key_it_signs_in_without_a_captcha_and_again_when_expired():
+    tokens = iter(["first", "second"])
+    seen = []
+
+    def objects(request):
+        seen.append(request.headers.get("authorization"))
+        return fail(401, "expired") if len(seen) == 1 else ok([])
+
+    nazar = FakeNazar({
+        "POST /api/ai-agent/service-session": lambda r: ok({"access_token": next(tokens)})
+        if r.headers.get("x-agent-key") == "k" * 40 else fail(401, "Assistant key is invalid."),
+        "GET /api/objects": objects,
+    })
+
+    assert await _keyed(nazar).get("/objects") == []
+    assert seen == ["Bearer first", "Bearer second"]
+    assert "POST /api/auth/login" not in nazar.calls and "POST /api/auth/refresh" not in nazar.calls
+
+
+async def test_an_older_nazar_without_the_key_sign_in_gets_the_usual_login():
+    nazar = FakeNazar({
+        "POST /api/ai-agent/service-session": lambda r: fail(404, "Not Found"),
+        "POST /api/auth/login": lambda r: ok({}),
+        "GET /api/objects": lambda r: ok([]),
+    })
+
+    assert await _keyed(nazar).get("/objects") == []
+    assert nazar.calls == ["POST /api/ai-agent/service-session", "POST /api/auth/login", "GET /api/objects"]

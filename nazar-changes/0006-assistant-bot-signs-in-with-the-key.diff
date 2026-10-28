@@ -1,0 +1,172 @@
+diff --git a/backend/app/api/routes/ai_agent.py b/backend/app/api/routes/ai_agent.py
+index 67c5c5d1..ee8347c2 100644
+--- a/backend/app/api/routes/ai_agent.py
++++ b/backend/app/api/routes/ai_agent.py
+@@ -37,6 +37,7 @@ from app.core.security import (
+     create_access_token,
+     create_agent_handoff_token,
+     decode_agent_handoff_token,
++    verify_password,
+ )
+ from app.repositories.audit_repository import AuditLogRepository
+ from app.repositories.company_repository import CompanyRepository
+@@ -58,6 +59,11 @@ class AgentSessionRequest(BaseModel):
+     handoff: str = Field(min_length=20, max_length=4096)
+ 
+ 
++class AgentServiceSessionRequest(BaseModel):
++    email: str = Field(min_length=3, max_length=320)
++    password: str = Field(min_length=1, max_length=200)
++
++
+ class AgentSessionResponse(BaseModel):
+     access_token: str
+     expires_at: datetime
+@@ -154,3 +160,70 @@ async def create_session(
+             role=str(getattr(membership, "role", "")),
+         )
+     )
++
++
++@router.post(
++    "/service-session",
++    response_model=ApiResponse[AgentSessionResponse],
++    summary="The assistant's own account (its Telegram bot) signs in with the assistant key",
++    include_in_schema=False,
++)
++async def create_service_session(
++    payload: AgentServiceSessionRequest,
++    request: Request,
++    agent_key: str = Header(default="", alias="X-Agent-Key"),
++    session: AsyncSession = Depends(get_db_session),
++):
++    """Вход учётной записи помощника — его Telegram-бота — без Turnstile.
++
++    Обычный вход защищён Turnstile, а бот — сервер, ему капчу не пройти.
++    Вместо неё — ключ помощника: без него этот вход не принимает ни одного
++    пароля, так что подбирать их здесь нельзя. Сессия выдаётся только в
++    компании, где помощник включён, и только с правами этой учётной записи.
++    """
++    if not settings.ai_agent_key or not hmac.compare_digest(agent_key.encode(), settings.ai_agent_key.encode()):
++        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Assistant key is invalid.")
++    users = CompanyUserRepository(session)
++    account = await users.get_account_by_email(payload.email.strip().lower())
++    if (
++        account is None
++        or not account.is_active
++        or not account.password_hash
++        or not verify_password(payload.password, account.password_hash)
++    ):
++        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid email or password.")
++    membership = None
++    for candidate in await users.list_active_memberships_for_account(account.id):
++        if await _enabled(session, candidate.company_id):
++            membership = candidate
++            break
++    if membership is None:
++        raise HTTPException(status.HTTP_403_FORBIDDEN, "AI_AGENT_DISABLED: Помощник не включён для компании.")
++    company = await CompanyRepository(session).get(membership.company_id)
++    if company is None:
++        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User is inactive.")
++
++    access_token, expires_at = create_access_token(user_id=account.id, settings=settings, company_id=company.id)
++    try:
++        await AuditLogRepository(session).create(
++            company_id=company.id,
++            actor_user_id=membership.id,
++            actor_type="company_user",
++            actor_email=membership.email,
++            action="ai_agent.service_session",
++            request_ip=request.client.host if request.client else None,
++        )
++        await session.commit()
++    except Exception:  # pragma: no cover - audit must never break the sign-in
++        await session.rollback()
++    return success_response(
++        data=AgentSessionResponse(
++            access_token=access_token,
++            expires_at=expires_at,
++            company_id=company.id,
++            company_name=company.name,
++            full_name=membership.full_name,
++            email=membership.email,
++            role=str(getattr(membership, "role", "")),
++        )
++    )
+diff --git a/backend/tests/test_ai_agent_http_postgres.py b/backend/tests/test_ai_agent_http_postgres.py
+index 01c276a9..7bd53b06 100644
+--- a/backend/tests/test_ai_agent_http_postgres.py
++++ b/backend/tests/test_ai_agent_http_postgres.py
+@@ -15,7 +15,7 @@ import pytest
+ from sqlalchemy import text
+ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+ 
+-from app.core.security import create_access_token
++from app.core.security import create_access_token, hash_password
+ from app.db.base import Base
+ from app.models import AdminAccount, Company, CompanyUser
+ from app.models.company_setting import CompanySetting
+@@ -52,6 +52,10 @@ def _client():
+     return TestClient(app, base_url=f"http://{app_settings.trusted_hosts[0]}")
+ 
+ 
++PASSWORD = "agent-bot-password-1"
++_EMAILS: dict[uuid.UUID, str] = {}
++
++
+ async def _seed(enabled: bool) -> tuple[uuid.UUID, uuid.UUID, str]:
+     engine = create_async_engine(TEST_DATABASE_URL, future=True)
+     async with engine.begin() as conn:
+@@ -62,14 +66,18 @@ async def _seed(enabled: bool) -> tuple[uuid.UUID, uuid.UUID, str]:
+         company = Company(name=f"Agent Co {uuid.uuid4().hex[:6]}", is_demo=True, subscription_plan="demo")
+         session.add(company)
+         await session.flush()
+-        account = AdminAccount(full_name="Owner", email=f"owner-{uuid.uuid4().hex[:8]}@example.com", password_hash="x", is_active=True)
++        account = AdminAccount(
++            full_name="Owner", email=f"owner-{uuid.uuid4().hex[:8]}@example.com", password_hash=hash_password(PASSWORD), is_active=True
++        )
+         session.add(account)
+         await session.flush()
+         session.add(CompanyUser(company_id=company.id, account_id=account.id, is_active=True, role=ROLE_OWNER))
+         session.add(CompanySetting(company_id=company.id, ai_agent_enabled=enabled))
+         await session.commit()
+         company_id, account_id = company.id, account.id
++        email = account.email
+     await engine.dispose()
++    _EMAILS[account_id] = email
+     from app.core.config import get_settings
+ 
+     session_token, _ = create_access_token(user_id=account_id, settings=get_settings(), company_id=company_id)
+@@ -109,3 +117,32 @@ def test_switched_off_assistant_gives_no_pass():
+     refused = client.post("/api/ai-agent/handoff", headers={"Authorization": f"Bearer {session_token}"})
+ 
+     assert refused.status_code == 403 and "AI_AGENT_DISABLED" in refused.text
++
++
++def test_the_assistants_bot_signs_in_with_the_key_not_a_captcha():
++    company_id, account_id, _ = asyncio.run(_seed(enabled=True))
++    client = _client()
++    login = {"email": _EMAILS[account_id], "password": PASSWORD}
++
++    without_key = client.post("/api/ai-agent/service-session", json=login)
++    wrong_password = client.post("/api/ai-agent/service-session", json={**login, "password": "nope"}, headers={"X-Agent-Key": AGENT_KEY})
++    signed_in = client.post("/api/ai-agent/service-session", json=login, headers={"X-Agent-Key": AGENT_KEY})
++
++    assert without_key.status_code == 401 and wrong_password.status_code == 401
++    assert signed_in.status_code == 200, signed_in.text
++    data = signed_in.json()["data"]
++    assert data["company_id"] == str(company_id) and data["role"] == ROLE_OWNER
++    assert client.get("/api/objects", headers={"Authorization": f"Bearer {data['access_token']}"}).status_code == 200
++
++
++def test_the_bot_gets_no_session_where_the_assistant_is_off():
++    _, account_id, _ = asyncio.run(_seed(enabled=False))
++    client = _client()
++
++    refused = client.post(
++        "/api/ai-agent/service-session",
++        json={"email": _EMAILS[account_id], "password": PASSWORD},
++        headers={"X-Agent-Key": AGENT_KEY},
++    )
++
++    assert refused.status_code == 403 and "AI_AGENT_DISABLED" in refused.text

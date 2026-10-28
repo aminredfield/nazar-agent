@@ -43,6 +43,7 @@ async def ask(question: str, analyst: str, *, review: bool) -> Outcome:
         base_url=settings.nazar_base_url,
         email=settings.nazar_email,
         password=settings.nazar_password.get_secret_value(),
+        agent_key=settings.nazar_agent_key.get_secret_value(),
         timeout_seconds=settings.nazar_timeout_seconds,
     )
     analyst_llm = settings.analyst_llm()

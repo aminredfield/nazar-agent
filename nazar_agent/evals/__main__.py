@@ -57,6 +57,7 @@ async def run_import(case: Case, out: Path) -> dict[str, Any]:
         base_url=settings.nazar_base_url,
         email=settings.nazar_email,
         password=settings.nazar_password.get_secret_value(),
+        agent_key=settings.nazar_agent_key.get_secret_value(),
         timeout_seconds=settings.nazar_timeout_seconds,
     )
     try:

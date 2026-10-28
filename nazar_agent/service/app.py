@@ -92,6 +92,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
                 base_url=active.nazar_base_url,
                 email=active.nazar_email,
                 password=active.nazar_password.get_secret_value(),
+                agent_key=active.nazar_agent_key.get_secret_value(),
                 timeout_seconds=active.nazar_timeout_seconds,
                 transport=nazar_transport,
             )

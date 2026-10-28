@@ -11,7 +11,10 @@ public admin API as any other client would, in one of two ways:
 - **as a service account** (``email`` and ``password``), for local
   development and the Telegram bot: ``POST /auth/login`` sets httpOnly
   cookies, an expired token is renewed with ``POST /auth/refresh``, and if
-  that fails the client logs in again.
+  that fails the client logs in again. In production NAZAR's login asks for
+  a captcha a server cannot pass; with the assistant key (``agent_key``) the
+  account signs in at ``POST /ai-agent/service-session`` instead and gets a
+  token, signed in again when it expires (nazar-changes/0006).
 
 Every NAZAR response is an envelope ``{success, data, error}``; this client
 returns ``data`` or raises ``NazarApiError`` with the API's own message.
@@ -46,11 +49,13 @@ class NazarClient:
         email: str = "",
         password: str = "",
         access_token: str | None = None,
+        agent_key: str = "",
         timeout_seconds: float = 20.0,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._email = email
         self._password = password
+        self._agent_key = agent_key
         self._person = access_token is not None
         headers = {
             # NAZAR rejects unsafe requests that carry a session cookie but no
@@ -96,11 +101,21 @@ class NazarClient:
         return response.content
 
     async def login(self) -> None:
-        response = await self._http.post(
-            "/auth/login",
-            json={"email": self._email, "password": self._password},
-        )
-        _unwrap(response)
+        response = None
+        if self._agent_key:
+            response = await self._http.post(
+                "/ai-agent/service-session",
+                json={"email": self._email, "password": self._password},
+                headers={"X-Agent-Key": self._agent_key},
+            )
+        if response is not None and response.status_code != httpx.codes.NOT_FOUND:
+            self._http.headers["Authorization"] = f"Bearer {_unwrap(response)['access_token']}"
+        else:  # no key, or a NAZAR without that sign-in yet
+            response = await self._http.post(
+                "/auth/login",
+                json={"email": self._email, "password": self._password},
+            )
+            _unwrap(response)
         self._authenticated = True
 
     async def aclose(self) -> None:
@@ -130,6 +145,10 @@ class NazarClient:
         return response
 
     async def _renew_session(self) -> None:
+        if self._agent_key:
+            # A key session has no refresh cookie: sign in again.
+            await self.login()
+            return
         refresh = await self._http.post("/auth/refresh")
         if refresh.is_success:
             return
