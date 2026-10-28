@@ -13,6 +13,9 @@ The repository carries a demo NAZAR: a construction company with three sites,
 16 people and three weeks of check-ins, built in memory with the traps the
 agents are tested on. Only a [Meta Model API](https://dev.meta.ai) key is needed.
 
+Online, nothing to install: **https://demo-agent.nazarhr.uz** (a few questions
+per browser, a daily budget for everyone).
+
 ```bash
 git clone https://github.com/aminredfield/nazar-agent.git && cd nazar-agent
 echo MODEL_API_KEY=your-key > .env
