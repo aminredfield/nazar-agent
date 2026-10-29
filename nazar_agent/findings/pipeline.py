@@ -61,8 +61,7 @@ Now write your report for the owner, as JSON matching the schema.
 - The hypothesis is a hypothesis. Alternatives hold at least one innocent
   explanation. Confidence is low, medium or high.
 - Write the summary, titles, facts, hypothesis, alternatives and data gaps
-  in the language of the owner's question, with no internal codes or field
-  names.
+  in {language}, with no internal codes or field names.
 """
 
 
@@ -103,12 +102,14 @@ async def analyze(
     llm: LLMClient,
     question: str,
     *,
+    language: str = "the language of the owner's question",
     max_corrections: int = DEFAULT_MAX_CORRECTIONS,
 ) -> Analysis:
+    """``language`` — what the owner reads, e.g. "Uzbek in Cyrillic letters" from the dispatcher."""
     run = await run_role(role, llm, question)
     evidence = Evidence.from_steps(run.steps)
 
-    conversation = [*run.conversation, {"role": "user", "content": REPORT_REQUEST}]
+    conversation = [*run.conversation, {"role": "user", "content": REPORT_REQUEST.format(language=language)}]
     input_tokens, output_tokens = run.input_tokens, run.output_tokens
     report: AnalystReport | None = None
     issues: list[Issue] = []

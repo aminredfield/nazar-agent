@@ -1,6 +1,6 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
-from nazar_agent.roles.dispatcher import route
+from nazar_agent.roles.dispatcher import parse
 from nazar_agent.usage import Call, Ledger, Meter, count, metering
 from tests.fakes import ScriptedLLM, turn
 
@@ -21,11 +21,11 @@ def test_calls_outside_a_metered_run_are_not_kept_and_inside_are_summed_by_role(
 
 
 async def test_the_dispatcher_is_counted_too():
-    llm = ScriptedLLM([turn(text='{"analyst": "timesheet", "reason": "табель"}')])
+    llm = ScriptedLLM([turn(text="not a reading")])
     meter = Meter()
 
     with metering(meter):
-        await route(llm, "muse-spark-1.3", "Что в табеле?")
+        await parse(llm, "muse-spark-1.3", "Что в табеле?", date(2026, 10, 28))
 
     assert meter.calls == [Call("dispatcher", "muse-spark-1.3", 10, 5)]
 

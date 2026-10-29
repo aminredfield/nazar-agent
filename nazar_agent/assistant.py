@@ -4,9 +4,11 @@ Shared by every way to reach the agent — the window, Telegram, the morning
 brief — so they all run the same team, store proposals in the same place and
 write to the same audit trail.
 
-    question → dispatcher (unless the analyst is given) → analyst → fact
-    checker → skeptic → recommendation writer → validated actions stored as
-    pending proposals
+    question → dispatcher → analyst → fact checker → skeptic →
+    recommendation writer → validated actions stored as pending proposals
+
+The dispatcher answers a greeting, something off-topic or forbidden, or the
+future itself, with a fixed short text: no analyst, no NAZAR reads.
 """
 
 from __future__ import annotations
@@ -20,14 +22,16 @@ from typing import Any
 
 from nazar_agent.actions import Executor, Proposal, ProposalStore
 from nazar_agent.config import Settings
+from nazar_agent.engine import RoleRun
 from nazar_agent.feedback import about, instructions_text, owner_feedback
-from nazar_agent.findings import Analysis, analyze
+from nazar_agent.findings import Analysis, AnalystReport, analyze
 from nazar_agent.nazar import NazarClient
 from nazar_agent.onboarding import DraftStore, ImportRow, Site, read_list, review
 from nazar_agent.progress import Progress, emit, tracking
 from nazar_agent.recommendations import Recommendations, Team, recommend
+from nazar_agent.replies import reply
 from nazar_agent.roles import attendance_analyst, timesheet_analyst
-from nazar_agent.roles.dispatcher import Analyst, route
+from nazar_agent.roles.dispatcher import LANGUAGES, Analyst, Request, parse
 from nazar_agent.tools import PhotoInspector, analyst_tools
 from nazar_agent.tools.common import call_nazar
 from nazar_agent.usage import Ledger, Meter, NazarUsageReport, Source, metering
@@ -158,17 +162,23 @@ class Assistant:
         skeptic_llm = settings.skeptic_llm()
         today = settings.now().date()
         try:
+            request = await parse(analyst_llm, settings.analyst_model, question, today)
+            if request.short:
+                log.info("the dispatcher answered a %s request itself", request.intent)
+                return short_answer(question, request, meter)
             if analyst:
                 emit("route", analyst=analyst, text="выбран в окне")
-            chosen = analyst or await route(analyst_llm, settings.analyst_model, question)
+            chosen = analyst or request.analyst
             log.info("question routed to the %s analyst", chosen)
             # The photo inspector runs on the open-weights model, like the skeptic.
             photos = PhotoInspector(skeptic_llm, settings.skeptic_model)
             tools = analyst_tools(chosen, nazar, photos)
             # What the owner said when disagreeing before: the team does not bring it back as new.
             feedback = owner_feedback(self.store)
-            role = ANALYSTS[chosen](model=settings.analyst_model, tools=tools, today=today, feedback=instructions_text(feedback))
-            analysis = await analyze(role, analyst_llm, question)
+            role = ANALYSTS[chosen](
+                model=settings.analyst_model, tools=tools, today=today, feedback=instructions_text(feedback), request=request.hints()
+            )
+            analysis = await analyze(role, analyst_llm, question, language=LANGUAGES[request.lang])
             if photos.input_tokens:
                 log.info("photo inspector: %d/%d tokens on %s", photos.input_tokens, photos.output_tokens, photos.model)
             team = Team(skeptic_llm, settings.skeptic_model, analyst_llm, settings.analyst_model)
@@ -180,6 +190,19 @@ class Assistant:
         proposals = Executor(self.store, nazar).propose(recommendations.cards, question)
         view = answer_view(analysis, recommendations, proposals, meter.by_role())
         return Answer(question, chosen, analysis, recommendations, proposals, {**view, "analyst": chosen})
+
+
+def short_answer(question: str, request: Request, meter: Meter) -> Answer:
+    """The dispatcher's own answer, shaped like any other: a summary, no cards."""
+    text = reply(request)
+    run = RoleRun(role="dispatcher", answer=text, steps=(), model_turns=0, input_tokens=0, output_tokens=0, stopped="answered", conversation=())
+    analysis = Analysis(
+        run=run, report=AnalystReport(summary=text, findings=[], data_gaps=[]), rejected=(), corrections=0,
+        clean_first_time=True, caught=(), input_tokens=0, output_tokens=0,
+    )
+    recommendations = Recommendations(cards=(), notes=(), usage=())
+    view = answer_view(analysis, recommendations, [], meter.by_role())
+    return Answer(question, request.analyst, analysis, recommendations, [], {**view, "analyst": request.analyst, "reply": request.intent})
 
 
 class Assistants:

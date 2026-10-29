@@ -19,6 +19,10 @@ const EVENTS = {
   draft_created: "добавлен, ждёт фото", employee_created: "создан в NAZAR", photo_rejected: "фото не подошло", draft_discarded: "убран из списка",
 };
 const ANALYSTS = { attendance: "Аналитик отметок", timesheet: "Аналитик табеля" };
+const REPLIES = {
+  greeting: "приветствие", off_topic: "вопрос не по теме", unsupported: "этого агент не делает", secrets: "просят настройки или пароли",
+  other_company: "чужая компания", penalty: "наказание всем сразу", unclear: "вопрос непонятен", future: "это будущее",
+};
 const ROLES = {
   dispatcher: "Диспетчер", attendance_analyst: "Аналитик отметок", timesheet_analyst: "Аналитик табеля", photos: "Инспектор фото",
   skeptic: "Скептик", writer: "Составитель", voice: "Голос", import: "Разбор списков",
@@ -185,6 +189,10 @@ function handle(event) {
       feed("⇢", `Диспетчер передал вопрос: ${ANALYSTS[event.analyst] || event.analyst}`, "", event.text || null, at);
       break;
     }
+    case "reply":
+      setActive("dispatcher");
+      feed("⇢", `Диспетчер ответил сам: ${REPLIES[event.intent] || event.intent}`, "", event.text || null, at);
+      break;
     case "thinking":
       setActive("analyst");
       if (event.turn === 1) feed("◆", `${ANALYSTS[run.analyst] || "Аналитик"} начинает расследование`, "", null, at);

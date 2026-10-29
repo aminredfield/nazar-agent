@@ -29,11 +29,12 @@ photos, not as proven facts.
 """
 
 
-def attendance_analyst(*, model: str, tools: tuple[Tool, ...], today: date, feedback: str = "") -> Role:
-    """``feedback`` — what the owner said when disagreeing earlier (nazar_agent.feedback)."""
+def attendance_analyst(*, model: str, tools: tuple[Tool, ...], today: date, feedback: str = "", request: str = "") -> Role:
+    """``feedback`` — what the owner said when disagreeing earlier (nazar_agent.feedback);
+    ``request`` — what the dispatcher read in the question (``Request.hints``)."""
     return Role(
         name="attendance_analyst",
-        instructions=INSTRUCTIONS + ANALYST_RULES.format(today=today.isoformat()) + feedback,
+        instructions=INSTRUCTIONS + ANALYST_RULES.format(today=today.isoformat()) + request + feedback,
         tools=tools,
         model=model,
     )

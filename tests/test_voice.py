@@ -1,6 +1,5 @@
 import base64
 import io
-import json
 import math
 import struct
 import wave
@@ -9,7 +8,6 @@ from datetime import UTC, datetime, time
 import av
 import pytest
 
-from nazar_agent.roles.dispatcher import ROUTE_FORMAT, route
 from nazar_agent.telegram.schedule import parse_brief_time, seconds_until
 from nazar_agent.voice import SAMPLE_RATE, VoiceError, to_wav, transcribe
 from tests.fakes import ScriptedLLM, turn
@@ -73,15 +71,6 @@ async def test_transcript_request_sends_wav_with_room_to_answer():
 async def test_empty_transcript_asks_to_repeat():
     with pytest.raises(VoiceError, match="повторите"):
         await transcribe(ScriptedLLM([turn(text=" ")]), "m", ogg_opus(tone_wav(0.5)))
-
-
-async def test_dispatcher_routes_and_falls_back_to_timesheet():
-    routed = ScriptedLLM([turn(text=json.dumps({"analyst": "attendance", "reason": "check-ins"}))])
-    broken = ScriptedLLM([turn(text="oops")])
-
-    assert await route(routed, "m", "Кто вчера отметился с чужого телефона?") == "attendance"
-    assert await route(broken, "m", "?") == "timesheet"
-    assert routed.requests[0]["text_format"] == ROUTE_FORMAT
 
 
 @pytest.mark.parametrize(

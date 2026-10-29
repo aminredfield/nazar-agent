@@ -28,3 +28,6 @@ class ScriptedLLM:
         if not self.turns:
             raise AssertionError("The model was called more times than scripted.")
         return self.turns.pop(0)
+
+    async def aclose(self) -> None:
+        pass
