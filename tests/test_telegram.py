@@ -250,3 +250,38 @@ def test_schedule_change_reads_as_hours_before_and_after():
     assert "Изменить график объекта" in text and "прошлые дни не пересчитываются" in text
     assert "Смена: 08:00–18:00 → <b>09:00–19:00</b>" in text
     assert "Рабочие дни: пн, вт, ср, чт, пт, сб → <b>пн, вт, ср, чт, пт</b>" in text
+
+
+async def test_a_question_asked_back_comes_with_buttons_that_ask_again(setup):
+    bot, api, assistant, _, _ = setup
+    assistant.cards = []
+    choices = [{"label": "Бобур Каримов", "question": "Что с Каримовым? — Бобур Каримов"}]
+    plain = assistant.ask
+
+    async def asked_back(question, analyst=None, **kwargs):
+        answer = await plain(question, analyst, **kwargs)
+        return SimpleNamespace(view={**answer.view, "choices": choices if len(assistant.questions) == 1 else []})
+
+    assistant.ask = asked_back
+    await bot.handle(message("Что с Каримовым?"))
+    [button] = [row[0] for _, _, keyboard in api.sent if keyboard for row in keyboard]
+    assert button["text"] == "Бобур Каримов" and button["callback_data"].startswith("c:")
+
+    await bot.handle(press(button["callback_data"]))
+
+    assert assistant.questions == ["Что с Каримовым?", "Что с Каримовым? — Бобур Каримов"]
+    await bot.handle(press("c:gone"))
+    assert api.answers[-1].startswith("Эта кнопка устарела")
+
+
+async def test_a_failed_question_says_what_happened_in_words(setup):
+    bot, api, assistant, _, _ = setup
+
+    async def slow(question, analyst=None, **kwargs):
+        import openai
+        raise openai.APITimeoutError(request=None)
+
+    assistant.ask = slow
+    await bot.handle(message("Кто опоздал?"))
+
+    assert "Модель ИИ долго не отвечает" in api.sent[-1][1]

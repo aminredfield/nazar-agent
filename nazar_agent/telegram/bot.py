@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import secrets
 from dataclasses import dataclass, field
 from html import escape
 from typing import Any, Protocol
@@ -19,6 +20,7 @@ import httpx
 
 from nazar_agent.actions import ExecutionError
 from nazar_agent.assistant import Assistant, AssistantBusy
+from nazar_agent.errors import owner_message
 from nazar_agent.telegram.api import TelegramApi, TelegramError
 from nazar_agent.telegram.render import (
     answer_footer,
@@ -68,6 +70,8 @@ class Bot:
     _cards: dict[str, _CardMessage] = field(default_factory=dict)  # by proposal id
     _awaiting_reason: dict[int, str] = field(default_factory=dict)  # chat id → proposal id
     _postponed: set[str] = field(default_factory=set)
+    # A question to ask back, by its button: Telegram carries only 64 bytes of a button.
+    _choices: dict[str, str] = field(default_factory=dict)
     _tasks: set[asyncio.Task[None]] = field(default_factory=set)
 
     async def run(self) -> None:
@@ -136,7 +140,7 @@ class Bot:
     async def _answer(self, chat_ids: list[int], question: str, *, title: str | None = None, analyst: Any = None) -> None:
         if self.assistant.busy:
             for chat_id in chat_ids:
-                await self.api.send_message(chat_id, "Я ещё отвечаю на предыдущий вопрос — пришлю, как закончу, и потом спросите снова.")
+                await self.api.send_message(chat_id, escape(owner_message(AssistantBusy())))
             return
         for chat_id in chat_ids:
             await self.api.send_message(
@@ -148,17 +152,16 @@ class Bot:
             answer = await self.assistant.ask(question, analyst, source="telegram")
         except AssistantBusy:
             return
-        except Exception:
-            log.exception("answering %r failed", question)
+        except Exception as exc:  # logged by the assistant
             for chat_id in chat_ids:
-                await self.api.send_message(chat_id, "Не получилось ответить — попробуйте ещё раз чуть позже.")
+                await self.api.send_message(chat_id, escape(owner_message(exc)))
             return
         finally:
             typing.cancel()
 
         view = answer.view
         for chat_id in chat_ids:
-            await self.api.send_message(chat_id, answer_header(view))
+            await self.api.send_message(chat_id, answer_header(view), self._choice_keyboard(view))
             for number, card in enumerate(view["cards"], start=1):
                 sent = await self.api.send_message(chat_id, card_text(card, number), card_keyboard(card))
                 for action in card["actions"]:
@@ -178,6 +181,9 @@ class Bot:
             await self.api.answer_callback(callback["id"], "Нет доступа.")
             return
         verb, _, proposal_id = (callback.get("data") or "").partition(":")
+        if verb == "c":
+            await self._on_choice(callback, chat_id, proposal_id)
+            return
         entry = self._cards.get(proposal_id)
         if entry is None:
             await self.api.answer_callback(callback["id"], "Это предложение устарело — спросите заново.")
@@ -204,6 +210,23 @@ class Bot:
         else:  # "b": back from the pay confirmation
             await self._refresh(entry)
             await self.api.answer_callback(callback["id"])
+
+    def _choice_keyboard(self, view: dict[str, Any]) -> list[list[dict[str, str]]] | None:
+        rows = []
+        for choice in view.get("choices", []):
+            key = secrets.token_hex(4)
+            self._choices[key] = choice["question"]
+            rows.append([{"text": choice["label"], "callback_data": f"c:{key}"}])
+        return rows or None
+
+    async def _on_choice(self, callback: dict[str, Any], chat_id: int, key: str) -> None:
+        question = self._choices.get(key)
+        if question is None:
+            await self.api.answer_callback(callback["id"], "Эта кнопка устарела — спросите заново.")
+            return
+        await self.api.answer_callback(callback["id"])
+        await self.api.send_message(chat_id, f"<i>{escape(question)}</i>")
+        await self._answer([chat_id], question)
 
     async def _decide(self, callback: dict[str, Any], entry: _CardMessage, outcome: Any, done: str) -> None:
         try:

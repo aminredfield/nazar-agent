@@ -21,7 +21,7 @@ const EVENTS = {
 const ANALYSTS = { attendance: "Аналитик отметок", timesheet: "Аналитик табеля" };
 const REPLIES = {
   greeting: "приветствие", off_topic: "вопрос не по теме", unsupported: "этого агент не делает", secrets: "просят настройки или пароли",
-  other_company: "чужая компания", penalty: "наказание всем сразу", unclear: "вопрос непонятен", future: "это будущее",
+  other_company: "чужая компания", penalty: "наказание всем сразу", unclear: "вопрос непонятен", future: "это будущее", clarify: "нужно уточнить, о ком вопрос",
 };
 const ROLES = {
   dispatcher: "Диспетчер", attendance_analyst: "Аналитик отметок", timesheet_analyst: "Аналитик табеля", photos: "Инспектор фото",
@@ -395,12 +395,23 @@ function cardView(card, index) {
   return node;
 }
 
+// A question to ask back: pressing it asks the team again, with the name in full.
+function choiceButton(choice) {
+  const button = el("button", { type: "button" }, choice.label);
+  button.addEventListener("click", () => {
+    $("question").value = choice.question;
+    $("ask").requestSubmit();
+  });
+  return button;
+}
+
 function renderAnswer(data) {
   const removed = data.removed_by_fact_checker.map((item) => `${item.fact || item.finding}: ${item.reasons.join("; ")}`);
   const rounds = data.fact_checker_rounds.flat();
   $("answer").replaceChildren(...[
     el("p", { class: "summary" }, data.summary),
     (data.answer || []).length ? el("ul", { class: "answer-facts" }, data.answer.map((fact) => el("li", {}, fact.text))) : null,
+    (data.choices || []).length ? el("div", { class: "suggest choices" }, data.choices.map(choiceButton)) : null,
     data.cards.map(cardView),
     section("Чего не видно в данных", data.data_gaps.concat(data.notes)),
     rounds.length || removed.length ? el("details", { class: "trace" },
@@ -475,6 +486,14 @@ for (const button of $("suggest").children) {
     $("question").focus();
   });
 }
+
+// Enter asks, Shift+Enter starts a new line.
+$("question").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+    event.preventDefault();
+    if (!$("send").disabled) $("ask").requestSubmit();
+  }
+});
 
 $("ask").addEventListener("submit", async (event) => {
   event.preventDefault();

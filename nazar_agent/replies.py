@@ -7,6 +7,7 @@ and nothing in the question can talk it into more.
 
 from __future__ import annotations
 
+from nazar_agent.clarify import Choice, Clarification
 from nazar_agent.roles.dispatcher import Lang, Request
 
 CAN_DO: dict[Lang, str] = {
@@ -107,6 +108,57 @@ FUTURE: dict[Lang, str] = {
     "uz-cyrl": "{period} учун белгилар ҳали йўқ — бу ҳали олдинда.",
     "en": "There are no check-ins for {period} yet — that is still ahead.",
 }
+
+
+CHOOSE: dict[Lang, str] = {
+    "ru": "Подходят несколько сотрудников: {names}. О ком вопрос? Выберите кнопкой.",
+    "uz": "Bir nechta xodim mos keladi: {names}. Savol kim haqida? Tugma bilan tanlang.",
+    "uz-cyrl": "Бир нечта ходим мос келади: {names}. Савол ким ҳақида? Тугма билан танланг.",
+    "en": "Several employees fit: {names}. Who do you mean? Pick a button.",
+}
+NOT_FOUND: dict[Lang, str] = {
+    "ru": "Не нашёл сотрудника «{name}» в NAZAR.",
+    "uz": "NAZARda «{name}» xodimini topmadim.",
+    "uz-cyrl": "NAZARда «{name}» ходимини топмадим.",
+    "en": "I found no employee called “{name}” in NAZAR.",
+}
+MAYBE: dict[Lang, str] = {
+    "ru": " Возможно, вы имели в виду: {names}.",
+    "uz": " Balki siz {names} haqida so'ragandirsiz.",
+    "uz-cyrl": " Балки сиз {names} ҳақида сўрагандирсиз.",
+    "en": " Perhaps you meant {names}.",
+}
+CHECK_NAME: dict[Lang, str] = {
+    "ru": " Проверьте, как он записан в списке сотрудников.",
+    "uz": " Xodimlar ro'yxatida qanday yozilganini tekshiring.",
+    "uz-cyrl": " Ходимлар рўйхатида қандай ёзилганини текширинг.",
+    "en": " Check how the name is written in the employee list.",
+}
+# Questions offered as buttons after a short answer: what the assistant is good at.
+SUGGESTIONS: dict[Lang, tuple[tuple[str, str], ...]] = {
+    "ru": (("Кто сегодня опоздал", "Кто сегодня опоздал?"), ("Кто не пришёл", "Кто сегодня не пришёл на работу?"),
+           ("Табель перед оплатой", "Что проверить в табеле перед оплатой за прошлую неделю?")),
+    "uz": (("Bugun kim kechikdi", "Bugun kim kechikdi?"), ("Kim kelmadi", "Bugun kim ishga kelmadi?"),
+           ("To'lovdan oldin tabel", "O'tgan hafta uchun to'lovdan oldin tabelda nimani tekshirish kerak?")),
+    "uz-cyrl": (("Бугун ким кечикди", "Бугун ким кечикди?"), ("Ким келмади", "Бугун ким ишга келмади?"),
+                ("Тўловдан олдин табел", "Ўтган ҳафта учун тўловдан олдин табелда нимани текшириш керак?")),
+    "en": (("Who was late today", "Who was late today?"), ("Who is absent", "Who did not come to work today?"),
+           ("Before payday", "What should I check in last week's timesheet before paying?")),
+}
+SUGGESTED_AFTER = {"greeting", "off_topic", "unsupported", "unclear", "future"}
+
+
+def clarification(found: Clarification, lang: Lang) -> str:
+    names = ", ".join(choice.label for choice in found.choices)
+    if found.found:
+        return CHOOSE[lang].format(name=found.name, names=names)
+    return NOT_FOUND[lang].format(name=found.name) + (MAYBE[lang].format(names=names) if names else CHECK_NAME[lang])
+
+
+def suggestions(request: Request) -> tuple[Choice, ...]:
+    if request.intent not in SUGGESTED_AFTER:
+        return ()
+    return tuple(Choice(label, question) for label, question in SUGGESTIONS[request.lang])
 
 
 def reply(request: Request) -> str:

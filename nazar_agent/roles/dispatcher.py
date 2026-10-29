@@ -24,6 +24,8 @@ from nazar_agent.usage import count
 
 Analyst = Literal["attendance", "timesheet"]
 Intent = Literal["data", "greeting", "off_topic", "unsupported", "secrets", "other_company", "penalty", "unclear"]
+# What code decides after the model's reading: the future, and a name to ask about.
+Decided = Literal["future", "clarify"]
 Lang = Literal["ru", "uz", "uz-cyrl", "en"]
 DEFAULT_ANALYST: Analyst = "timesheet"
 MAX_PERIOD_DAYS = 31  # one read of NAZAR at most; a longer period is cut to its last days
@@ -108,13 +110,14 @@ READING_FORMAT: dict[str, Any] = {
 class Request:
     """A message as the team takes it: the model's reading, its period checked by code."""
 
-    intent: Intent | Literal["future"]
+    intent: Intent | Decided
     analyst: Analyst
     lang: Lang
     period: tuple[date, date] | None
     people: tuple[str, ...] = ()
     sites: tuple[str, ...] = ()
     clipped: bool = False  # the period asked for was longer than MAX_PERIOD_DAYS
+    resolved: tuple[str, ...] = ()  # "Rustam → Рустам Юлдашев (employee id …)", found by code
 
     @property
     def short(self) -> bool:
@@ -132,7 +135,9 @@ class Request:
                 f"- The owner asked for a longer period; NAZAR is read at most {MAX_PERIOD_DAYS} days at a time, "
                 "so this is its last part. Say so in data gaps."
             )
-        if self.people:
+        if self.resolved:
+            lines.append(f"- Employees named, found in NAZAR: {'; '.join(self.resolved)}.")
+        elif self.people:
             lines.append(f"- Employees named: {', '.join(self.people)}. Find them with find_people_and_sites.")
         if self.sites:
             lines.append(f"- Sites named: {', '.join(self.sites)}. Find them with find_people_and_sites.")

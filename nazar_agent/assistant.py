@@ -8,7 +8,9 @@ write to the same audit trail.
     recommendation writer → validated actions stored as pending proposals
 
 The dispatcher answers a greeting, something off-topic or forbidden, or the
-future itself, with a fixed short text: no analyst, no NAZAR reads.
+future itself, with a fixed short text: no analyst, no NAZAR reads. A name
+that fits several people, or no one, is asked back with buttons
+(``nazar_agent.clarify``).
 """
 
 from __future__ import annotations
@@ -16,20 +18,22 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
 from nazar_agent.actions import Executor, Proposal, ProposalStore
+from nazar_agent.clarify import Choice, Clarification, resolve
 from nazar_agent.config import Settings
 from nazar_agent.engine import RoleRun
+from nazar_agent.errors import owner_message
 from nazar_agent.feedback import about, instructions_text, owner_feedback
 from nazar_agent.findings import Analysis, AnalystReport, analyze
 from nazar_agent.nazar import NazarClient
 from nazar_agent.onboarding import DraftStore, ImportRow, Site, read_list, review
 from nazar_agent.progress import Progress, emit, tracking
 from nazar_agent.recommendations import Recommendations, Team, recommend
-from nazar_agent.replies import reply
+from nazar_agent.replies import clarification, reply, suggestions
 from nazar_agent.roles import attendance_analyst, timesheet_analyst
 from nazar_agent.roles.dispatcher import LANGUAGES, Analyst, Request, parse
 from nazar_agent.tools import PhotoInspector, analyst_tools
@@ -111,7 +115,8 @@ class Assistant:
                 try:
                     self.last = await self._answer(question, analyst, self._acting(nazar), meter)
                 except Exception as exc:
-                    self.progress.finish(f"{type(exc).__name__}: {exc}")
+                    log.exception("answering %r failed", question)
+                    self.progress.finish(owner_message(exc))
                     raise
                 finally:
                     # Tokens spent on a failed question are spent all the same.
@@ -167,6 +172,12 @@ class Assistant:
             if request.short:
                 log.info("the dispatcher answered a %s request itself", request.intent)
                 return short_answer(question, request, meter)
+            found = await resolve(request, question, nazar)
+            if isinstance(found, Clarification):
+                text = clarification(found, request.lang)
+                emit("reply", intent="clarify", text=text)
+                return short_answer(question, replace(request, intent="clarify"), meter, text=text, choices=found.choices)
+            request = found
             if analyst:
                 emit("route", analyst=analyst, text="выбран в окне")
             chosen = analyst or request.analyst
@@ -190,12 +201,15 @@ class Assistant:
             await skeptic_llm.aclose()
         proposals = Executor(self.store, nazar).propose(recommendations.cards, question)
         view = answer_view(analysis, recommendations, proposals, meter.by_role())
-        return Answer(question, chosen, analysis, recommendations, proposals, {**view, "analyst": chosen})
+        return Answer(question, chosen, analysis, recommendations, proposals, {**view, "analyst": chosen, "choices": []})
 
 
-def short_answer(question: str, request: Request, meter: Meter) -> Answer:
-    """The dispatcher's own answer, shaped like any other: a summary, no cards."""
-    text = reply(request)
+def short_answer(
+    question: str, request: Request, meter: Meter, *, text: str | None = None, choices: tuple[Choice, ...] | None = None
+) -> Answer:
+    """The dispatcher's own answer, shaped like any other: a summary, no cards, questions to press."""
+    text = text or reply(request)
+    choices = suggestions(request) if choices is None else choices
     run = RoleRun(role="dispatcher", answer=text, steps=(), model_turns=0, input_tokens=0, output_tokens=0, stopped="answered", conversation=())
     analysis = Analysis(
         run=run, report=AnalystReport(answer=[], findings=[], data_gaps=[], summary=text), rejected=(), corrections=0,
@@ -203,7 +217,8 @@ def short_answer(question: str, request: Request, meter: Meter) -> Answer:
     )
     recommendations = Recommendations(cards=(), notes=(), usage=())
     view = answer_view(analysis, recommendations, [], meter.by_role())
-    return Answer(question, request.analyst, analysis, recommendations, [], {**view, "analyst": request.analyst, "reply": request.intent})
+    shown = {**view, "analyst": request.analyst, "reply": request.intent, "choices": [asdict(choice) for choice in choices]}
+    return Answer(question, request.analyst, analysis, recommendations, [], shown)
 
 
 class Assistants:

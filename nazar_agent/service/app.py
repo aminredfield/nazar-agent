@@ -38,6 +38,7 @@ from nazar_agent.onboarding import Draft, ImportRow, ParseError, PhotoRejected
 from nazar_agent.sessions import COOKIE, Person, SessionError, Sessions
 from nazar_agent.assistant import Assistant, Assistants, AssistantBusy
 from nazar_agent.config import Settings, get_settings
+from nazar_agent.errors import owner_message
 from nazar_agent.feedback import agreement
 from nazar_agent.limits import LimitReached, Limits
 from nazar_agent.usage import Ledger, Meter, NazarUsageReport, metering
@@ -202,7 +203,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
     async def ask(http: Request, request: AskRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
         analyst = None if request.analyst == "auto" else request.analyst
         if current.assistant.busy:
-            raise HTTPException(429, "The agent is already working on a question. Wait for it to finish.")
+            raise HTTPException(429, owner_message(AssistantBusy()))
         day = _reserve(http, current)
         cost = FAILED_QUESTION_COST_USD
         try:
@@ -210,9 +211,9 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
             cost = answer.view["stats"]["cost_usd"]
         except AssistantBusy:
             cost = 0.0
-            raise HTTPException(429, "The agent is already working on a question. Wait for it to finish.") from None
-        except ToolExecutionError as exc:
-            raise HTTPException(502, str(exc)) from exc
+            raise HTTPException(429, owner_message(AssistantBusy())) from None
+        except Exception as exc:  # logged by the assistant; the owner reads what happened and what to do
+            raise HTTPException(503, owner_message(exc)) from exc
         finally:
             _add_cost(http, current, day, cost)
         return answer.view

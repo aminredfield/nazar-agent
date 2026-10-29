@@ -7,6 +7,8 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import httpx
+
 from nazar_agent.engine import ToolExecutionError
 from nazar_agent.nazar import NazarApiError
 
@@ -15,11 +17,13 @@ COMPANY_TZ = ZoneInfo("Asia/Tashkent")
 
 
 async def call_nazar(request: Awaitable[Any]) -> Any:
-    """Await a NAZAR request; an API error becomes a tool error the model can read."""
+    """Await a NAZAR request; an API error or no answer becomes a tool error the model can read."""
     try:
         return await request
     except NazarApiError as exc:
         raise ToolExecutionError(f"NAZAR API error {exc.status_code}: {exc.message}") from exc
+    except httpx.HTTPError as exc:  # NAZAR down or slow: a gap in the data, not a crashed answer
+        raise ToolExecutionError(f"NAZAR did not answer: {type(exc).__name__}") from exc
 
 
 def local_time(value: str | None) -> str | None:

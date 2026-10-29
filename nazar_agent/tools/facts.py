@@ -10,6 +10,7 @@ can cite: ``today:<employee_id>``, ``tally:…``, or a timesheet day
 
 from __future__ import annotations
 
+import os
 import re
 from collections import defaultdict
 from datetime import date, datetime, timedelta
@@ -29,6 +30,8 @@ MAX_PEOPLE = 300
 MAX_NAMED_DAYS = 400  # people named in a period's days, all days together
 MAX_MATCHES = 5
 MIN_MATCH = 0.75  # how close a name must be to count as the one asked about
+MIN_STEM = 4  # letters two forms of one word share at least
+MAX_ENDING = 3  # letters a case ending adds: -ым, -ga, -ning
 WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
 LATENESS_RULE = (
@@ -346,6 +349,9 @@ def similarity(query: str, name: str) -> float:
 def _word_match(asked: str, word: str) -> float:
     if word.startswith(asked) and len(asked) >= 3:
         return 1.0  # "Rustam" in "Rustam", "Karimov" for "Karimova"
+    common = len(os.path.commonprefix([asked, word]))
+    if common >= MIN_STEM and common >= min(len(asked), len(word)) - 1 and abs(len(asked) - len(word)) <= MAX_ENDING:
+        return 1.0  # the same word with a case ending: "Karimovim", "Rustamga" for "Karimova", "Rustam"
     shorter = word[: len(asked) + 1] if len(word) > len(asked) else word
     return max(SequenceMatcher(None, asked, word).ratio(), SequenceMatcher(None, asked, shorter).ratio())
 
