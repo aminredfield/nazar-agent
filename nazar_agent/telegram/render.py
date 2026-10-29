@@ -1,7 +1,9 @@
 """Cards as Telegram messages: HTML text plus inline buttons per action.
 
 Everything from the model or NAZAR is escaped — a name or a reason must not
-be able to inject markup. Button data is "<verb>:<proposal id>", within
+be able to inject markup. A card is short: what the team will do if the owner
+agrees, in a sentence written by code; the reasoning is folded in an
+expandable quote. Button data is "<verb>:<proposal id>", within
 Telegram's 64-byte limit.
 """
 
@@ -14,13 +16,6 @@ MAX_MESSAGE = 4000  # Telegram's limit is 4096
 
 CONFIDENCE = {"high": "высокая", "medium": "средняя", "low": "низкая"}
 VERDICT = {"concern_supported": "повод есть", "inconclusive": "не уверен", "innocent_likely": "скорее всё в порядке"}
-ACTIONS = {
-    "review_event": "Записать итог разбора отметки",
-    "adjust_shift": "Исправить засчитанное время смены",
-    "void_shift": "Не засчитывать день",
-    "change_schedule": "Изменить график объекта",
-}
-REVIEW_STATUS = {"no_violation": "нарушения нет", "confirmed": "нарушение подтверждено", "insufficient_data": "недостаточно данных"}
 DAY_FIELDS = {"late_minutes": "Опоздание", "paid_minutes": "К оплате", "worked_minutes": "Отработано", "early_leave_minutes": "Ранний уход"}
 WEEKDAYS = ("", "пн", "вт", "ср", "чт", "пт", "сб", "вс")
 STATUS = {
@@ -38,9 +33,18 @@ def card_text(card: dict[str, Any], number: int) -> str:
         f"<b>{number}. {escape(card['title'])}</b> — {escape(card['subject']['name'])}",
         f"Уверенность: {CONFIDENCE[card['confidence']]} "
         f"(аналитик: {CONFIDENCE[card['analyst_confidence']]}, скептик: {skeptic})",
-        "",
     ]
-    lines += [f"✓ {escape(fact['text'])}" for fact in card["facts"]]
+    if card["actions"]:
+        lines += ["", "<b>Сделаю, если согласитесь:</b>"]
+    for index, action in enumerate(card["actions"], start=1):
+        lines.append(action_text(action, index))
+    head = _fit("\n".join(lines))
+    return head + _folded(_reasoning(card), MAX_MESSAGE - len(head))
+
+
+def _reasoning(card: dict[str, Any]) -> list[str]:
+    """Why the team thinks so: shown folded, under the actions."""
+    lines = [f"✓ {escape(fact['text'])}" for fact in card["facts"]]
     lines += ["", f"<i>Возможно:</i> {escape(card['hypothesis'])}"]
     if card["alternatives"]:
         lines += ["<i>Может быть и иначе:</i>"] + [f"↔ {escape(text)}" for text in card["alternatives"]]
@@ -48,23 +52,25 @@ def card_text(card: dict[str, Any], number: int) -> str:
         lines += ["<i>Раньше вы не согласились:</i>"] + [f"«{escape(text)}»" for text in card["owner_said"]]
     if card["check_steps"]:
         lines += ["<i>Как проверить:</i>"] + [f"→ {escape(text)}" for text in card["check_steps"]]
-    for index, action in enumerate(card["actions"], start=1):
-        lines += ["", action_text(action, index)]
-    return _fit("\n".join(lines))
+    return lines
+
+
+def _folded(lines: list[str], room: int) -> str:
+    """An expandable quote cut at a line to fit: Telegram shows its first lines and "more"."""
+    opening, closing = "\n\n<blockquote expandable>", "</blockquote>"
+    kept: list[str] = []
+    size = len(opening) + len(closing)
+    for line in lines:
+        if size + len(line) + 2 > room:
+            kept.append("…")
+            break
+        kept.append(line)
+        size += len(line) + 1
+    return opening + "\n".join(kept) + closing if kept and kept != ["…"] else ""
 
 
 def action_text(action: dict[str, Any], index: int) -> str:
-    params = action["params"]
-    if action["name"] == "review_event":
-        what = f"итог: {REVIEW_STATUS.get(params['status'], params['status'])}"
-    elif action["name"] == "adjust_shift":
-        spans = ", ".join(f"{item['start_at'][11:16]}–{item['end_at'][11:16]}" for item in params["intervals"])
-        what = f"{params['work_date']}: засчитать {spans}"
-    elif action["name"] == "change_schedule":
-        what = f"с сегодняшнего дня смена {params['shift_start']}–{params['shift_end']}, прошлые дни не пересчитываются"
-    else:
-        what = f"{params['work_date']}: не засчитывать"
-    lines = [f"<b>Действие {index}.</b> {ACTIONS.get(action['name'], action['name'])} — {escape(what)}"]
+    lines = [f"<b>{index}.</b> {escape(action['text'])}"]
     preview = action.get("preview")
     if action["name"] == "change_schedule" and preview and preview.get("before") and preview.get("after"):
         lines.extend(_schedule_change(preview["before"], preview["after"]))
@@ -73,6 +79,8 @@ def action_text(action: dict[str, Any], index: int) -> str:
             before, after = preview["before"].get(field), preview["after"].get(field)
             if before != after:
                 lines.append(f"   {label}: {before} → <b>{after}</b> мин")
+    if action.get("reason"):
+        lines.append(f"   <i>В NAZAR будет записано:</i> «{escape(action['reason'])}»")
     if action["level"] == "changes_pay":
         lines.append("   <i>Меняет оплату — посчитал сам NAZAR</i>")
     if action["status"] in STATUS:

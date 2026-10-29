@@ -237,8 +237,17 @@ button.primary:hover:not(:disabled) { box-shadow: 0 10px 30px rgba(124, 58, 237,
 .alts li::marker { content: "↔  "; color: var(--gold); }
 .owner li::marker { content: "“ "; }
 .action { margin-top: 10px; padding: 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(12, 1, 24, 0.55); }
-.action .title { font-weight: 600; }
-.action .level { display: inline-block; margin: 4px 0 6px; padding: 1px 8px; border-radius: 999px; font-size: 12px; background: var(--good-soft); color: var(--good); }
+.action .title { font-weight: 600; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.action .what { margin: 6px 0; font-size: 16px; line-height: 1.5; }
+.action .from { margin-top: 6px; font-size: 13px; }
+h3.lead { margin: 22px 0 0; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+details.card > summary { list-style: none; cursor: pointer; color: inherit; font-size: inherit; }
+details.card > summary::-webkit-details-marker { display: none; }
+details.card .more { display: inline-block; margin-top: 6px; font-size: 13px; color: var(--violet); }
+details.card .more::after { content: " ▾"; }
+details.card[open] .more::after { content: " ▴"; }
+details.card[open] > summary { margin-bottom: 8px; }
+.action .level { display: inline-block; margin: 0; padding: 1px 8px; border-radius: 999px; font-size: 12px; background: var(--good-soft); color: var(--good); }
 .action .level.pay { background: var(--gold-soft); color: var(--gold); }
 .action .row { margin-top: 10px; }
 .action input[type=text] { min-width: 260px; flex: 1; }

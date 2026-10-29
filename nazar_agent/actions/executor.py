@@ -42,8 +42,11 @@ class Executor:
     store: ProposalStore
     nazar: NazarClient
 
-    def propose(self, cards: tuple[Card, ...], question: str) -> list[list[Proposal]]:
-        """Store every valid action as pending; one list of proposals per card, in card order."""
+    def propose(self, cards: tuple[Card, ...], question: str, lang: str = "ru") -> list[list[Proposal]]:
+        """Store every valid action as pending; one list of proposals per card, in card order.
+
+        ``lang`` — the question's language, in which the owner is told what each action will do.
+        """
         return [
             [
                 self.store.add(
@@ -55,7 +58,7 @@ class Executor:
                         "confidence": card.confidence,
                         "skeptic_verdict": card.skeptic.verdict if card.skeptic else None,
                     },
-                    card=card_snapshot(card),
+                    card={**card_snapshot(card), "about": action.about, "lang": lang},
                     question=question,
                     actor=AGENT_ACTOR,
                 )

@@ -21,18 +21,26 @@ human confirmed (``nazar_agent.actions``).
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from nazar_agent.engine import ToolExecutionError
 from nazar_agent.findings import Evidence
 from nazar_agent.findings.models import Confidence
 from nazar_agent.nazar import NazarClient
 from nazar_agent.recommendations.skeptic import SkepticView
+from nazar_agent.recommendations.wording import about
 from nazar_agent.tools.common import call_nazar
 
 ActionLevel = Literal["record_only", "changes_pay"]
@@ -152,6 +160,7 @@ class ValidatedAction:
     params: _Params | None
     preview: Preview | None
     problems: tuple[str, ...]
+    about: dict[str, str] = field(default_factory=dict)  # the record's names, for the owner's sentence
 
     @property
     def valid(self) -> bool:
@@ -451,10 +460,11 @@ async def validate_action(
     if violation:
         return rejected(violation, params=params)
 
+    named = about(spec.name, spec.targets(params)[0], evidence)
     if spec.preview is None:
-        return ValidatedAction(spec.name, spec.level, params, None, ())
+        return ValidatedAction(spec.name, spec.level, params, None, (), named)
     try:
         preview = await spec.preview(nazar, params)
     except ToolExecutionError as exc:
         return rejected(f"NAZAR could not compute before → after: {exc}", params=params)
-    return ValidatedAction(spec.name, spec.level, params, preview, ())
+    return ValidatedAction(spec.name, spec.level, params, preview, (), named)

@@ -10,7 +10,6 @@ const ACTIONS = {
   void_shift: "Не засчитывать день",
   change_schedule: "Изменить график объекта",
 };
-const REVIEW_STATUS = { no_violation: "нарушения нет", confirmed: "нарушение подтверждено", insufficient_data: "недостаточно данных", not_reviewed: "не разобрано" };
 const DAY_FIELDS = { worked_minutes: "Отработано, мин", paid_minutes: "К оплате, мин", late_minutes: "Опоздание, мин", early_leave_minutes: "Ранний уход, мин" };
 const SCHEDULE_FIELDS = { shift_start: "Начало смены", shift_end: "Конец смены", working_days: "Рабочие дни" };
 const WEEKDAYS = ["", "пн", "вт", "ср", "чт", "пт", "сб", "вс"];
@@ -293,28 +292,18 @@ function previewTable(preview, fields) {
   return el("table", { class: "diff" }, el("tr", {}, el("th", {}, ""), el("th", {}, "Было"), el("th", {}, "Станет")), rows);
 }
 
-function describeParams(action) {
-  const params = action.params;
-  if (action.name === "review_event") return `Итог: ${REVIEW_STATUS[params.status] || params.status}. ${params.comment}`;
-  if (action.name === "adjust_shift") {
-    const spans = params.intervals.map((item) => `${item.start_at.slice(11, 16)}–${item.end_at.slice(11, 16)}`).join(", ");
-    return `${params.work_date}: засчитать ${spans}. ${params.reason}`;
-  }
-  if (action.name === "change_schedule") {
-    return `С сегодняшнего дня смена ${params.shift_start}–${params.shift_end}; прошлые дни NAZAR не пересчитывает. ${params.reason}`;
-  }
-  return `${params.work_date}: ${params.reason}`;
-}
-
-function actionBlock(action) {
+// One action the team proposes: what will change, said by code, and the buttons.
+function actionBlock(action, card) {
   const result = el("div", { class: "muted" });
   const buttons = el("div", { class: "row" });
   const pays = action.level === "changes_pay";
   const block = el("div", { class: "action" },
-    el("div", { class: "title" }, ACTIONS[action.name] || action.name),
-    el("span", { class: pays ? "level pay" : "level" }, pays ? "Меняет оплату — было и станет считает NAZAR" : "Не меняет оплату"),
-    el("div", {}, describeParams(action)),
+    el("div", { class: "title" }, ACTIONS[action.name] || action.name,
+      el("span", { class: pays ? "level pay" : "level" }, pays ? "меняет оплату — было и станет считает NAZAR" : "не меняет оплату")),
+    el("div", { class: "what" }, action.text),
     previewTable(action.preview, action.name === "change_schedule" ? SCHEDULE_FIELDS : DAY_FIELDS),
+    action.reason ? el("div", { class: "muted" }, "В NAZAR будет записано: «", action.reason, "»") : null,
+    card ? el("div", { class: "muted from" }, "Почему: ", card.title, " — ", card.subject.name) : null,
     buttons, result);
 
   const decide = async (kind, body) => {
@@ -371,11 +360,13 @@ function actionBlock(action) {
   return block;
 }
 
+// A finding, folded: the title and the confidence; the reasoning behind "Подробнее".
 function cardView(card, index) {
   const skeptic = card.skeptic ? VERDICT[card.skeptic.verdict] : "не высказался";
-  const node = el("article", { class: `card ${card.confidence}`, style: `animation-delay:${index * 120}ms` },
-    el("div", { class: "card-head" },
-      el("div", {}, el("h2", {}, card.title), el("div", { class: "subject" }, card.subject.name)),
+  const node = el("details", { class: `card ${card.confidence}`, style: `animation-delay:${index * 120}ms` },
+    el("summary", { class: "card-head" },
+      el("div", {}, el("h2", {}, card.title), el("div", { class: "subject" }, card.subject.name),
+        el("span", { class: "more" }, "Подробнее")),
       el("div", { class: `meter ${card.confidence}` }, el("span", { class: "bars" }, el("i"), el("i"), el("i")),
         el("small", {}, `уверенность ${CONFIDENCE[card.confidence]}`))),
     el("div", { class: "badges" },
@@ -388,10 +379,7 @@ function cardView(card, index) {
     section("Может быть и иначе", card.alternatives, "alts"),
     section("Раньше вы не согласились и объяснили", (card.owner_said || []).map((text) => `«${text}»`), "owner"),
     section("Как проверить", card.check_steps),
-    card.actions.length || card.actions_why ? el("div", { class: "section" },
-      el("h3", {}, "Что можно сделать"),
-      card.actions_why ? el("div", { class: "muted" }, card.actions_why) : null,
-      card.actions.map(actionBlock)) : null);
+    card.actions_why ? el("div", { class: "section" }, el("h3", {}, "Почему предложено действие"), el("div", { class: "muted" }, card.actions_why)) : null);
   return node;
 }
 
@@ -408,10 +396,16 @@ function choiceButton(choice) {
 function renderAnswer(data) {
   const removed = data.removed_by_fact_checker.map((item) => `${item.fact || item.finding}: ${item.reasons.join("; ")}`);
   const rounds = data.fact_checker_rounds.flat();
+  const actions = data.cards.flatMap((card) => card.actions.map((action) => actionBlock(action, card)));
+  // Short first: what the team thinks and what it will do if the owner agrees; the reasoning is folded below.
   $("answer").replaceChildren(...[
+    actions.length ? el("h3", { class: "lead" }, "Что я думаю") : null,
     el("p", { class: "summary" }, data.summary),
     (data.answer || []).length ? el("ul", { class: "answer-facts" }, data.answer.map((fact) => el("li", {}, fact.text))) : null,
     (data.choices || []).length ? el("div", { class: "suggest choices" }, data.choices.map(choiceButton)) : null,
+    actions.length ? el("h3", { class: "lead" }, "Что сделаю, если согласитесь") : null,
+    actions,
+    data.cards.length ? el("h3", { class: "lead" }, "Почему так думаем") : null,
     data.cards.map(cardView),
     section("Чего не видно в данных", data.data_gaps.concat(data.notes)),
     rounds.length || removed.length ? el("details", { class: "trace" },

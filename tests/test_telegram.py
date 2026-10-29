@@ -239,6 +239,8 @@ def test_schedule_change_reads_as_hours_before_and_after():
         "level": "changes_pay",
         "status": "pending",
         "params": {"object_id": "x", "shift_start": "09:00", "shift_end": "19:00", "reason": "r"},
+        "text": "Объект Яшнабад: смена 09:00–19:00 вместо 08:00–18:00 с сегодняшнего дня.",
+        "reason": "r",
         "preview": {
             "before": {"shift_start": "08:00", "shift_end": "18:00", "working_days": [1, 2, 3, 4, 5, 6]},
             "after": {"shift_start": "09:00", "shift_end": "19:00", "working_days": [1, 2, 3, 4, 5]},
@@ -247,7 +249,8 @@ def test_schedule_change_reads_as_hours_before_and_after():
 
     text = action_text(action, 1)
 
-    assert "Изменить график объекта" in text and "прошлые дни не пересчитываются" in text
+    assert text.startswith("<b>1.</b> Объект Яшнабад: смена 09:00–19:00 вместо 08:00–18:00")
+    assert "В NAZAR будет записано:</i> «r»" in text
     assert "Смена: 08:00–18:00 → <b>09:00–19:00</b>" in text
     assert "Рабочие дни: пн, вт, ср, чт, пт, сб → <b>пн, вт, ср, чт, пт</b>" in text
 
@@ -285,3 +288,16 @@ async def test_a_failed_question_says_what_happened_in_words(setup):
     await bot.handle(message("Кто опоздал?"))
 
     assert "Модель ИИ долго не отвечает" in api.sent[-1][1]
+
+
+def test_card_says_the_action_first_and_folds_the_reasoning():
+    view = card()
+    view["actions"] = [{
+        "proposal_id": "p", "name": "change_schedule", "level": "changes_pay", "status": "pending",
+        "params": {}, "preview": None, "text": "Объект Яшнабад: смена 09:00–19:00.", "reason": None,
+    }]
+
+    text = card_text(view, 1)
+
+    assert text.index("Сделаю, если согласитесь") < text.index("<blockquote expandable>")
+    assert text.endswith("</blockquote>")

@@ -427,6 +427,7 @@ visitor applied is gone by morning. Deployment next to NAZAR:
 | Assistant window: ask, cards, apply / disagree / postpone / undo, audit trail | done (opened from the NAZAR cabinet with a one-minute pass; acts with that person's rights) |
 | Dispatcher reads the request: kind, language, period, names; short answers without the analyst; a name asked back with buttons | done |
 | Direct answers checked like findings; today, period totals and names counted by code; failures said in plain words | done |
+| Short answer first: what the team thinks, what it will do if the owner agrees — each action said by code from its own parameters (names, dates, hours, pay before → after) in Russian, English or Uzbek; the reasoning folded under "Подробнее", in the bot under an expandable quote | done |
 | Telegram bot: text and voice questions, cards with buttons, a reason to disagree, undo; allowlisted chats | done |
 | Voice: Telegram Ogg/Opus → WAV → Muse Spark 1.2 audio input (Russian verified; Uzbek still to verify) | done |
 | Morning brief at a set local time and on `/brief` | done |

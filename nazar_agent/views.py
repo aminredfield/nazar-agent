@@ -8,6 +8,7 @@ from typing import Any
 from nazar_agent.actions import AuditEntry, Proposal
 from nazar_agent.findings import Analysis
 from nazar_agent.recommendations import Card, Recommendations
+from nazar_agent.recommendations.wording import describe
 
 
 def answer_view(
@@ -69,6 +70,10 @@ def proposal_view(proposal: Proposal) -> dict[str, Any]:
         "status": proposal.status,
         "params": proposal.params,
         "preview": proposal.preview,
+        # What will change, said by code from the parameters themselves; the
+        # reason is what NAZAR's record will say.
+        "text": describe(proposal.action, proposal.params, proposal.preview, proposal.card, proposal.card.get("lang", "ru")),
+        "reason": proposal.params.get("reason") or proposal.params.get("comment"),
     }
 
 

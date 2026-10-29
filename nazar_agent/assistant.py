@@ -199,7 +199,7 @@ class Assistant:
         finally:
             await analyst_llm.aclose()
             await skeptic_llm.aclose()
-        proposals = Executor(self.store, nazar).propose(recommendations.cards, question)
+        proposals = Executor(self.store, nazar).propose(recommendations.cards, question, request.lang)
         view = answer_view(analysis, recommendations, proposals, meter.by_role())
         return Answer(question, chosen, analysis, recommendations, proposals, {**view, "analyst": chosen, "choices": []})
 
