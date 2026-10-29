@@ -23,6 +23,47 @@ function chooseImportFile(file) {
   drop.addEventListener("click", () => chooseImportFile(null));
   $("import-chosen").replaceChildren(el("span", { class: "chip" }, t("zone_file", file.name), drop));
 }
+// Samples to try the import with, each with something to catch: files from
+// static/samples (scripts/make_import_samples.py), lists to paste.
+const SAMPLE_FILES = { sample_notebook: "notebook.jpg", sample_csv: "crew.csv", sample_excel: "crew.xlsx" };
+const SAMPLE_LISTS = {
+  sample_simple: "Chilonzor City: Jasur Toirov, Laylo Usmonova\nSergeli warehouse: Aziz Saidov, Malika Ahmedova",
+  sample_problems: "Chilonzor:\n1. Normatov Azamat\n2. Sardor Yusupov\n3. Ergashev\n4. Sardor Yusupov\nYashnobod:\n5. Botir Abdullaev",
+  sample_cyrillic: "Объект Чиланзар — Тоиров Жасур, Каримов Бобур\nСклад Сергели — Рахимов, Саидов Азиз",
+};
+
+async function sampleFile(name) {
+  const response = await fetch(`/static/samples/${name}`);
+  if (!response.ok) throw new Error(t("zone_wrong"));
+  const blob = await response.blob();
+  return new File([blob], name, { type: blob.type });
+}
+
+function renderSamples() {
+  const files = Object.entries(SAMPLE_FILES).map(([key, name]) => {
+    const take = el("button", { type: "button", class: "small" }, t(key));
+    take.addEventListener("click", async () => { $("import-text").value = ""; chooseImportFile(await sampleFile(name)); });
+    const view = el("a", { href: `/static/samples/${name}`, target: "_blank", rel: "noopener" }, t("sample_view"));
+    return el("span", { class: "sample" }, take, view);
+  });
+  const lists = Object.entries(SAMPLE_LISTS).map(([key, text]) => {
+    const take = el("button", { type: "button", class: "small" }, t(key));
+    take.addEventListener("click", () => { chooseImportFile(null); $("import-text").value = text; $("import-text").focus(); });
+    return take;
+  });
+  $("import-samples").replaceChildren(el("span", { class: "muted" }, t("samples_title")), ...files, ...lists);
+}
+renderSamples();
+
+// A face to try the photo queue with: a made-up person (demo/faces/faces.csv).
+function sampleFaceButton(draft, status, then = null) {
+  const take = el("button", { type: "button", class: "small" }, t("sample_face"));
+  take.addEventListener("click", async () => {
+    if (await photograph(draft, await sampleFile("new_worker.jpg"), status) && then) then();
+  });
+  return take;
+}
+
 $("import-zone").append(photoZone({
   accept: "image/jpeg,image/png,image/webp,.xlsx,.csv,.txt", hint: "import_file", onFile: chooseImportFile,
 }));
@@ -101,7 +142,7 @@ async function loadWaiting() {
       const pick = photoZone({ compact: true, onFile: (file) => photograph(draft, file, null) });
       const remove = el("button", { type: "button" }, t("remove"));
       remove.onclick = async () => { await api(`/api/import/drafts/${draft.id}/discard`, { actor: $("actor").value }); loadWaiting(); loadAudit(); };
-      return el("li", { class: "row" }, `${draft.full_name} · ${draft.site_name || t("no_site")} `, pick, remove);
+      return el("li", { class: "row" }, `${draft.full_name} · ${draft.site_name || t("no_site")} `, pick, sampleFaceButton(draft, null), remove);
     }));
     if (!waiting.length) $("waiting").replaceChildren(el("li", { class: "muted" }, t("nobody_waiting")));
   } catch (error) {
@@ -147,7 +188,7 @@ function shootNext(skipped = new Set()) {
     el("div", { class: "next" }, t("next", next.full_name)),
     el("div", { class: "muted" }, next.site_name || t("no_site")),
     camera,
-    status, el("div", { class: "row", style: "justify-content:center" }, skip, stop)));
+    status, el("div", { class: "row", style: "justify-content:center" }, sampleFaceButton(next, status, () => shootNext(skipped)), skip, stop)));
 }
 $("start-shooting").addEventListener("click", async () => { await loadWaiting(); shootNext(); });
 $("refresh-waiting").addEventListener("click", loadWaiting);

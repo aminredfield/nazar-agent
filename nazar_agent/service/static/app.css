@@ -1,5 +1,7 @@
 /* NAZAR Agent — the assistant window, in NAZAR's own colours (frontend/src/styles/index.css). */
 
+[hidden] { display: none !important; }  /* "hidden" wins over a class's display */
+
 /* Light by default, as NAZAR's cabinet; dark when the owner turns it on (i18n.js keeps the choice). */
 :root {
   --violet: #7c3aed;
@@ -144,6 +146,22 @@ main { max-width: 1040px; margin: 0 auto; padding: 8px 20px 40px; }
 .grad { background: linear-gradient(90deg, var(--grad-start), var(--violet) 45%, var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .lead { color: var(--muted); max-width: 760px; margin: 12px 0 16px; font-size: 16px; }
 .models { display: flex; flex-wrap: wrap; gap: 8px; }
+.powers { list-style: none; padding: 0; margin: 0 0 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.powers li { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--card); }
+.powers b { display: block; font-size: 14px; }
+.powers span { color: var(--muted); font-size: 13px; }
+.demo-line { color: var(--muted); font-size: 14px; margin: 0 0 14px; max-width: 760px; }
+.try { margin: 6px 0 14px; }
+.samples { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-bottom: 10px; font-size: 13px; }
+.samples .sample { display: inline-flex; align-items: center; gap: 4px; }
+.samples a { font-size: 12px; color: var(--muted); }
+.try h2 { font-size: 15px; margin: 0 0 8px; }
+.try-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.try-card { text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 12px; font-size: 13px; cursor: pointer; }
+.try-card b { font-size: 14px; color: var(--ink); }
+.try-card .try-q { color: var(--ink); overflow-wrap: anywhere; }
+.try-card small { color: var(--muted); font-size: 12px; line-height: 1.35; }
+.try-card small i { font-style: normal; font-weight: 600; }
 .chip {
   display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px;
   border: 1px solid var(--line); background: var(--chip-bg); font-size: 13px; color: var(--ink);
@@ -438,6 +456,12 @@ button.mic.recording { color: var(--bad); border-color: var(--bad); background: 
   .team-pill { order: 3; }
   .prefs { margin-left: auto; }
   .usage { overflow-x: auto; }
+  /* A phone shows the examples as a row to swipe, not a page of cards. */
+  .try-grid { grid-auto-flow: column; grid-auto-columns: 80%; grid-template-columns: none; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; }
+  .try-card { scroll-snap-align: start; }
+  .powers { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .powers li { padding: 8px 10px; }
+  .powers span { font-size: 12px; }
   .run-body > * { min-width: 0; }
   main { padding: 4px 16px 32px; }
   .run-body { grid-template-columns: 1fr; }

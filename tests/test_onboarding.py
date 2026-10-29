@@ -81,11 +81,19 @@ def test_rows_that_need_a_decision_are_highlighted_with_the_reason():
     ivanov, zarina, sidorov, rustam, twin = rows
     assert ivanov.issues == () and ivanov.site_id == factories.SITE
     assert "похож на действующего сотрудника «Зарина Хакимова»" in zarina.issues[0]
-    assert sidorov.issues == ("только фамилия — допишите имя или оставьте так",)
+    assert sidorov.issues == ("одно слово — допишите имя или фамилию, или оставьте так",)
     assert rustam.issues[0] == "плохо читается: «Абд?лаев Р.» — вторая буква неразборчива"
     assert twin.full_name == "Иванов Алишер"
     assert set(twin.issues) == {"встречается в списке дважды", "объект «Объект 3» не найден — выберите из списка"}
     assert twin.site_id is None
+
+
+def test_the_reasons_are_in_the_window_language():
+    rows = review([person("Umida"), person("Hakimova Zarina", site="Mars")], SITES, factories.EMPLOYEES, lang="en")
+
+    assert rows[0].issues == ("one word only — add the first or last name, or keep it",)
+    assert rows[1].issues == ("looks like the current employee “Зарина Хакимова” — maybe a duplicate", "no site “Mars” — pick one from the list")
+    assert review([person("Umida")], SITES, [], lang="uz")[0].issues[0].startswith("faqat bitta so'z")
 
 
 def test_name_and_site_matching():

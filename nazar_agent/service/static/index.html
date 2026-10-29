@@ -1,15 +1,15 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NAZAR · Помощник</title>
+<title>NAZAR · Assistant</title>
 <link rel="icon" href="/static/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="/static/app.css?v=14">
-<script src="/static/i18n.js?v=14"></script>
+<link rel="stylesheet" href="/static/app.css?v=15">
+<script src="/static/i18n.js?v=15"></script>
 </head>
 <body>
 <div class="backdrop" aria-hidden="true"></div>
@@ -37,6 +37,13 @@
   <section class="hero">
     <h1><span data-i18n="hero_title">Команда ИИ-агентов проверяет учёт.</span> <span class="grad" data-i18n="hero_grad">Решаете вы.</span></h1>
     <p class="lead" data-i18n="hero_lead"></p>
+    <ul class="powers">
+      <li><b data-i18n="p1_t"></b><span data-i18n="p1"></span></li>
+      <li><b data-i18n="p2_t"></b><span data-i18n="p2"></span></li>
+      <li><b data-i18n="p3_t"></b><span data-i18n="p3"></span></li>
+      <li><b data-i18n="p4_t"></b><span data-i18n="p4"></span></li>
+    </ul>
+    <p class="demo-line" id="demo-line" hidden data-i18n="hero_demo"></p>
     <div class="models">
       <span class="chip"><i class="m-a"></i><span data-i18n="chip_analysts"></span></span>
       <span class="chip"><i class="m-o"></i><span data-i18n="chip_open"></span></span>
@@ -50,20 +57,19 @@
   </nav>
 
   <section id="tab-ask">
+    <section class="try" aria-labelledby="try-title">
+      <h2 id="try-title" data-i18n="try_title"></h2>
+      <div class="try-grid" id="try-list"></div>
+    </section>
     <form class="ask glass" id="ask">
       <textarea id="question" maxlength="500" required data-i18n-placeholder="question_placeholder"></textarea>
-      <div class="suggest" id="suggest">
-        <button type="button" data-i18n="s1" data-q="s1_q" data-a="attendance"></button>
-        <button type="button" data-i18n="s2" data-q="s2_q" data-a="timesheet"></button>
-        <button type="button" data-i18n="s3" data-q="s3_q" data-a="auto"></button>
-      </div>
       <div class="row">
-        <div class="seg" id="analyst-seg" role="radiogroup" data-i18n-aria="analyst_aria">
+        <div class="seg" id="analyst-seg" role="radiogroup" hidden data-i18n-aria="analyst_aria">
           <button type="button" data-value="auto" aria-checked="true" role="radio" data-i18n="seg_auto"></button>
           <button type="button" data-value="attendance" aria-checked="false" role="radio" data-i18n="seg_attendance"></button>
           <button type="button" data-value="timesheet" aria-checked="false" role="radio" data-i18n="seg_timesheet"></button>
         </div>
-        <label class="muted actor" id="actor-label"><span data-i18n="you"></span> <input type="text" id="actor" value="Владелец" maxlength="80"></label>
+        <input type="hidden" id="actor" value="Owner">
         <button type="button" class="ghost" id="new-dialog" hidden data-i18n="new_dialog"></button>
         <button type="button" class="mic" id="mic" hidden data-i18n-title="mic" data-i18n-aria="mic">🎤</button>
         <button class="primary" id="send" type="submit"><span data-i18n="send"></span></button>
@@ -103,6 +109,7 @@
 
   <section id="tab-import" hidden>
     <form class="ask glass" id="import-form">
+      <div class="samples" id="import-samples"></div>
       <textarea id="import-text" maxlength="20000" data-i18n-placeholder="import_placeholder"></textarea>
       <div id="import-zone"></div>
       <div class="row">
@@ -136,9 +143,9 @@
 </main>
 
 <footer class="foot" data-i18n="footer"></footer>
-<script src="/static/media.js?v=14"></script>
-<script src="/static/app.js?v=14"></script>
-<script src="/static/people.js?v=14"></script>
-<script src="/static/setup.js?v=14"></script>
+<script src="/static/media.js?v=15"></script>
+<script src="/static/app.js?v=15"></script>
+<script src="/static/people.js?v=15"></script>
+<script src="/static/setup.js?v=15"></script>
 </body>
 </html>

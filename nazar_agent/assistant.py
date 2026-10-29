@@ -176,7 +176,13 @@ class Assistant:
             await self.reporter.send(company_id=company, source=source, calls=meter.calls)
 
     async def read_list(
-        self, *, text: str | None, file: bytes | None, content_type: str | None, nazar: NazarClient | None = None
+        self,
+        *,
+        text: str | None,
+        file: bytes | None,
+        content_type: str | None,
+        nazar: NazarClient | None = None,
+        lang: str = "ru",
     ) -> tuple[list[ImportRow], list[Site]]:
         """A list of people → rows checked against the company's sites and employees."""
         acting = self._acting(nazar)
@@ -191,7 +197,7 @@ class Assistant:
             await llm.aclose()
             # After NAZAR was asked: by then the bot's service account knows its company.
             await self.spent("import", text or "(file)", meter)
-        return review(people, sites, employees), sites
+        return review(people, sites, employees, lang), sites
 
     async def sites(self, *, nazar: NazarClient | None = None) -> list[Site]:
         objects = await call_nazar(self._acting(nazar).get("/objects", {"include_inactive": False}))

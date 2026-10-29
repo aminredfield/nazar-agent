@@ -246,7 +246,7 @@ def score_import(rows: list[dict[str, Any]], expected: dict[str, str]) -> dict[s
     checks = {
         "duplicate": "похож на действующего",
         "twice": "встречается в списке дважды",
-        "surname": "только фамилия",
+        "surname": "одно слово",
     }
     caught, missed, false_flags = [], [], []
     for name, issue in expected.items():

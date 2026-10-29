@@ -508,13 +508,22 @@ function chooseAnalyst(value) {
 }
 const chosenAnalyst = () => [...$("analyst-seg").children].find((button) => button.getAttribute("aria-checked") === "true").dataset.value;
 for (const button of $("analyst-seg").children) button.addEventListener("click", () => chooseAnalyst(button.dataset.value));
-for (const button of $("suggest").children) {
-  button.addEventListener("click", () => {
-    $("question").value = t(button.dataset.q);
-    chooseAnalyst(button.dataset.a);
-    $("question").focus();
-  });
+// "Try these": each card asks its question at once; the line under it says what should happen.
+function renderTry() {
+  $("try-list").replaceChildren(...L().TRY.map((item) => {
+    const card = el("button", { type: "button", class: "try-card" },
+      el("b", {}, item.t), el("span", { class: "try-q" }, `“${item.q}”`),
+      el("small", {}, el("i", {}, t("try_expect")), " ", item.e));
+    card.addEventListener("click", () => {
+      if ($("send").disabled) return; // one question at a time: the team is still on the last one
+      $("question").value = item.q;
+      chooseAnalyst("auto");
+      $("ask").requestSubmit();
+    });
+    return card;
+  }));
 }
+renderTry();
 
 // Enter asks, Shift+Enter starts a new line.
 // ---- Voice ------------------------------------------------------------------
@@ -601,7 +610,8 @@ $("ask").addEventListener("submit", async (event) => {
   $("status").textContent = "";
   $("answer").replaceChildren();
   startRun($("question").value);
-  $("run").scrollIntoView({ behavior: "smooth", block: "start" }); // the team's work is the first thing to see
+  // The team's work is the first thing to see. Not "smooth": the feed scrolling itself would stop it halfway.
+  $("run").scrollIntoView({ block: "start" });
   try {
     const answer = await api("/api/ask", { question: $("question").value, analyst: chosenAnalyst(), lang: LANG });
     await pollProgress(); // a tick may have been in flight: one more for the last events
@@ -676,7 +686,6 @@ async function signIn() {
     if (me.mode === "person" || me.mode === "demo") {
       const initials = me.full_name.split(/\s+/).map((part) => part[0] || "").join("").slice(0, 2).toUpperCase();
       $("who").replaceChildren(el("span", { class: "avatar" }, initials), el("span", {}, me.full_name, el("small", {}, me.company_name)));
-      $("actor-label").hidden = true;
     }
     if (me.mode === "demo") showDemo();
     return true;
@@ -703,6 +712,7 @@ function showDemo() {
     }
   });
   $("who").prepend(el("span", { class: "demo-tag", title: t("demo_title"), "data-i18n": "demo", "data-i18n-title": "demo_title" }, t("demo")), reset);
+  $("demo-line").hidden = false;
 }
 
 function notice(text) {
@@ -724,6 +734,8 @@ for (const button of $("lang-seg").children) {
   button.addEventListener("click", () => {
     setLang(button.dataset.lang);
     showPrefs();
+    renderTry();
+    renderSamples();
     if (shownAnswer) renderAnswer(shownAnswer);
     renderHistory();
     loadAudit();

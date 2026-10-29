@@ -4,7 +4,7 @@ Only rows with something to decide are highlighted, each with the reason:
 
 - not legible — the model was not sure it read the name; the line as written
   is shown next to it;
-- only a surname — add the name or keep it as it is;
+- one word only — add the other name or keep it as it is;
 - looks like an existing employee — likely a duplicate;
 - the same person twice in this list;
 - site not found — pick an existing one; a new site needs its point on the
@@ -30,6 +30,30 @@ SAME_SITE = 0.6
 GENERIC_SITE_WORDS = frozenset({"obyekt", "obekt", "uchastok", "ploshadka", "site", "location", "object"})
 
 
+# The reasons, in the window's language.
+ISSUES = {
+    "illegible": {
+        "ru": "плохо читается: «{written}»", "uz": "yaxshi o'qilmaydi: «{written}»", "en": "hard to read: “{written}”",
+    },
+    "one_word": {
+        "ru": "одно слово — допишите имя или фамилию, или оставьте так",
+        "uz": "faqat bitta so'z — ism yoki familiyani qo'shing yoki shunday qoldiring",
+        "en": "one word only — add the first or last name, or keep it",
+    },
+    "twin": {
+        "ru": "похож на действующего сотрудника «{name}» — может быть дубль",
+        "uz": "amaldagi xodim «{name}»ga o'xshaydi — dublikat bo'lishi mumkin",
+        "en": "looks like the current employee “{name}” — maybe a duplicate",
+    },
+    "twice": {"ru": "встречается в списке дважды", "uz": "ro'yxatda ikki marta bor", "en": "listed twice"},
+    "no_site": {
+        "ru": "объект «{site}» не найден — выберите из списка",
+        "uz": "«{site}» obyekti topilmadi — ro'yxatdan tanlang",
+        "en": "no site “{site}” — pick one from the list",
+    },
+}
+
+
 @dataclass(frozen=True, slots=True)
 class Site:
     id: str
@@ -46,28 +70,34 @@ class ImportRow:
     issues: tuple[str, ...]
 
 
-def review(people: list[ListedPerson], sites: list[Site], employees: list[dict[str, Any]]) -> list[ImportRow]:
+def review(
+    people: list[ListedPerson], sites: list[Site], employees: list[dict[str, Any]], lang: str = "ru"
+) -> list[ImportRow]:
+    def said(kind: str, **values: str) -> str:
+        return ISSUES[kind].get(lang, ISSUES[kind]["en"]).format(**values)
+
     rows = []
     seen: list[str] = []
     for person in people:
         issues: list[str] = []
         name = " ".join(person.full_name.split())
         if not person.legible:
-            issues.append(f"плохо читается: «{person.as_written}»" + (f" — {person.note}" if person.note else ""))
+            # The model's note stays in the words it wrote it in.
+            issues.append(said("illegible", written=person.as_written) + (f" — {person.note}" if person.note else ""))
         if len(name.split()) == 1:
-            issues.append("только фамилия — допишите имя или оставьте так")
+            issues.append(said("one_word"))
         twin = next((employee for employee in employees if same_person(name, employee["full_name"])), None)
         if twin is not None:
-            issues.append(f"похож на действующего сотрудника «{twin['full_name']}» — может быть дубль")
+            issues.append(said("twin", name=twin["full_name"]))
         if any(same_person(name, other) for other in seen):
-            issues.append("встречается в списке дважды")
+            issues.append(said("twice"))
         seen.append(name)
 
         site_id = None
         if person.site.strip():
             site = match_site(person.site, sites)
             if site is None:
-                issues.append(f"объект «{person.site}» не найден — выберите из списка")
+                issues.append(said("no_site", site=person.site))
             else:
                 site_id = site.id
         rows.append(ImportRow(name, person.as_written, person.site, site_id, tuple(issues)))

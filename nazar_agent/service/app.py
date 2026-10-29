@@ -380,7 +380,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         _add_cost(http, current, day, IMPORT_COST_ESTIMATE_USD)
         try:
             rows, sites = await current.assistant.read_list(
-                text=text, file=content, content_type=file.content_type if file else None, nazar=current.nazar
+                text=text, file=content, content_type=file.content_type if file else None, nazar=current.nazar, lang=lang
             )
         except ParseError as exc:
             raise HTTPException(422, str(exc)) from exc

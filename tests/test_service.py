@@ -33,7 +33,7 @@ def test_window_is_served(setup):
 
     response = client.get("/")
 
-    assert response.status_code == 200 and "NAZAR · Помощник" in response.text
+    assert response.status_code == 200 and "NAZAR · Assistant" in response.text
 
 
 def test_apply_then_undo_through_the_api(setup):
