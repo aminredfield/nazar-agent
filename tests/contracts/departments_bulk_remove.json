@@ -1,0 +1,14 @@
+{
+ "request": "POST /departments/bulk-remove",
+ "status": 200,
+ "body": {
+  "request_id": "req_7c82bb76ee7a43d6a83231eb",
+  "success": true,
+  "data": {
+   "changed_count": 1,
+   "effective_from": "2026-10-29"
+  },
+  "error": null,
+  "message": null
+ }
+}

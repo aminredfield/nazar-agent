@@ -92,21 +92,29 @@ def site(world: World, item: Site, updated_at: datetime) -> dict[str, Any]:
         "early_leave_grace_minutes": EARLY_LEAVE_GRACE_MINUTES, "overtime_after_minutes": 0,
         "max_overtime_minutes": MAX_OVERTIME_MINUTES, "auto_close_after_minutes": AUTO_CLOSE_AFTER_MINUTES,
         "work_schedule_mode": schedule.mode, "working_days": list(schedule.working_days), "trusted_networks": [],
-        "assigned_employee_count": sum(1 for person in world.people.values() if person.site_id == item.id and person.is_active),
+        "assigned_employee_count": sum(
+            1 for person in world.people.values() if item.id in world.sites_of(person.id) and person.is_active
+        ),
         "schedule_conflict_count": 0, "created_at": iso(item.created_at), "updated_at": iso(updated_at),
     }
 
 
 def assignments(world: World, site_id: str) -> dict[str, Any]:
-    people = sorted((person for person in world.people.values() if person.site_id == site_id), key=lambda person: person.code)
+    people = sorted(
+        (person for person in world.people.values() if site_id in world.sites_of(person.id)), key=lambda person: person.code
+    )
+
+    def starts_on(person: Person) -> date:
+        return person.assigned_from if person.site_id == site_id else world.extra_sites[person.id][site_id]
+
     return {
         "object_id": site_id,
         "assignments": [
             {
                 "employee_id": person.id, "employee_name": person.name, "employee_external_id": person.code,
                 "is_active": person.is_active, "assigned_at": iso(person.created_at), "schedule_mode": "object_default",
-                "shift_start": None, "shift_end": None, "working_days": None, "assignment_id": assignment_id(person),
-                "starts_on": person.assigned_from.isoformat(), "ends_on": None, "schedule_type": None,
+                "shift_start": None, "shift_end": None, "working_days": None, "assignment_id": assignment_id(person, site_id),
+                "starts_on": starts_on(person).isoformat(), "ends_on": None, "schedule_type": None,
                 "cycle_anchor_date": None, "cycle_pattern": None, "is_24_hours": False, "shift_duration_minutes": 0,
                 "origin": "manual", "source_department_name": None, "schedule_conflict": False,
                 "conflicting_department_ids": [], "conflicting_department_names": [], "primary_department_id": None,
@@ -117,15 +125,16 @@ def assignments(world: World, site_id: str) -> dict[str, Any]:
     }
 
 
-def employee(world: World, person: Person) -> dict[str, Any]:
+def employee(world: World, person: Person, groups: list[dict[str, str]] | None = None) -> dict[str, Any]:
+    """``groups`` — the groups the person is in now (demo.setup.groups_of)."""
     events = world.events_of(person.id)
     last = events[-1] if events else None
     home = world.sites.get(person.site_id or "")
     return {
         "id": person.id, "full_name": person.name, "employee_id": person.code,
-        "preview_image_url": f"/media/persons/{person.id}.jpg", "is_active": person.is_active, "departments": [],
+        "preview_image_url": f"/media/persons/{person.id}.jpg", "is_active": person.is_active, "departments": groups or [],
         "created_at": iso(person.created_at), "updated_at": iso(person.created_at), "face_ready": True,
-        "has_pay_rate": False, "primary_object_name": home.name if home else None, "object_count": 1 if home else 0,
+        "has_pay_rate": False, "primary_object_name": home.name if home else None, "object_count": len(world.sites_of(person.id)),
         "schedule": None, "last_event_type": last.event_type if last else None, "last_event_at": iso(last.at) if last else None,
     }
 

@@ -1,0 +1,11 @@
+{
+ "request": "DELETE /objects/{id}",
+ "status": 200,
+ "body": {
+  "request_id": "req_5b6b6f3d8d7246828a81589b",
+  "success": true,
+  "data": null,
+  "error": null,
+  "message": "Object deleted successfully."
+ }
+}

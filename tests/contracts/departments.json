@@ -1,0 +1,11 @@
+{
+ "request": "GET /departments",
+ "status": 200,
+ "body": {
+  "request_id": "req_fe013fc2f59444a49d16f934",
+  "success": true,
+  "data": [],
+  "error": null,
+  "message": null
+ }
+}

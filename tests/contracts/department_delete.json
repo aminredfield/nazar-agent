@@ -1,0 +1,11 @@
+{
+ "request": "DELETE /departments/{id}",
+ "status": 200,
+ "body": {
+  "request_id": "req_d5c4f7014a3f4cbf90f6c550",
+  "success": true,
+  "data": null,
+  "error": null,
+  "message": null
+ }
+}

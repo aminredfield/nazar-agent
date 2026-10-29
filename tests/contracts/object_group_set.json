@@ -1,0 +1,29 @@
+{
+ "request": "POST /objects/{id}/groups",
+ "status": 200,
+ "body": {
+  "request_id": "req_dbe19fc980704c1fb30b778a",
+  "success": true,
+  "data": {
+   "object_id": "54c7b628-b3e5-4f90-ba39-6947e5d343e9",
+   "groups": [
+    {
+     "department_id": "942ea77d-9d00-4b4a-8ce6-47970576cb89",
+     "name": "Контракт: бригада",
+     "color": "violet",
+     "employee_count": 0,
+     "schedule_mode": "object_default",
+     "shift_start": null,
+     "shift_end": null,
+     "working_days": null,
+     "schedule_type": null,
+     "cycle_anchor_date": null,
+     "cycle_pattern": null,
+     "assigned_at": "2026-10-29T16:28:45.000106Z"
+    }
+   ]
+  },
+  "error": null,
+  "message": "Группа настроена на объекте."
+ }
+}

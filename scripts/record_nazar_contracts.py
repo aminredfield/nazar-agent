@@ -8,6 +8,9 @@ created from a demo face, as the agent's list import would.
     NAZAR_BASE_URL=http://localhost:8000/api NAZAR_EMAIL=... NAZAR_PASSWORD=... NAZAR_AGENT_KEY=... \\
         python scripts/record_nazar_contracts.py --face path/to/demo-face.jpg
 
+``--only setup`` records just the routes of setting up through the chat (a
+site, a group, its schedule, members) on a site it creates and deletes again.
+
 Tokens, passwords and e-mail addresses are redacted before saving; lists are
 cut to a few items. The demo NAZAR (nazar_agent/demo) must answer with the same
 fields of the same types: tests/test_contracts.py.
@@ -80,7 +83,39 @@ def _trim(value: Any) -> Any:
     return value
 
 
-async def record(face: Path) -> list[str]:
+async def record_setup(rec: Recorder, employees: list[dict[str, Any]], today: date) -> None:
+    """A new site with a group on it and one member — then all of it taken off and deleted again."""
+    await rec.call("departments", "GET", "/departments")
+    group = await rec.call("department_create", "POST", "/departments", json={"name": "Контракт: бригада", "color": "violet"})
+    site = await rec.call("object_create", "POST", "/objects", json={
+        "name": "Контракт: ЖК Олмазор", "address": "Ташкент, Чиланзар", "latitude": 41.2856, "longitude": 69.2034,
+        "radius_meters": 100, "shift_start": "08:00", "shift_end": "17:00", "work_schedule_mode": "custom",
+        "working_days": [1, 2, 3, 4, 5, 6],
+    })
+    try:
+        await rec.call("object_schedule_preview", "POST", f"/objects/{site['id']}/schedule-preview", json={
+            "schedule_mode": "custom", "schedule_type": "weekly", "shift_start": "08:00", "shift_end": "17:00",
+            "working_days": [1, 2, 3, 4, 5, 6], "start_date": today.isoformat(), "days": 7,
+        })
+        await rec.call("object_group_set", "POST", f"/objects/{site['id']}/groups",
+                       json={"department_id": group["id"], "schedule_mode": "object_default"})
+        member = next(item["id"] for item in employees if item.get("is_active", True))
+        await rec.call("departments_bulk_add", "POST", "/departments/bulk-add",
+                       json={"employee_ids": [member], "department_ids": [group["id"]], "effective_from": today.isoformat()})
+        await rec.call("object_assignments_add", "POST", f"/objects/{site['id']}/assignments",
+                       json={"employee_ids": [member], "start_date": today.isoformat()}, save=False)
+        await rec.call("object_groups", "GET", f"/objects/{site['id']}/groups")
+        await rec.call("object_assignments_clear", "POST", f"/objects/{site['id']}/assignments",
+                       json={"employee_ids": [], "end_date": today.isoformat()}, save=False)
+        await rec.call("departments_bulk_remove", "POST", "/departments/bulk-remove",
+                       json={"employee_ids": [member], "department_ids": [group["id"]], "effective_from": today.isoformat()})
+        await rec.call("object_group_remove", "DELETE", f"/objects/{site['id']}/groups/{group['id']}")
+    finally:
+        await rec.call("department_delete", "DELETE", f"/departments/{group['id']}")
+        await rec.call("object_delete", "DELETE", f"/objects/{site['id']}")
+
+
+async def record(face: Path, only: str | None = None) -> list[str]:
     base = os.environ["NAZAR_BASE_URL"].rstrip("/")
     email, password, key = os.environ["NAZAR_EMAIL"], os.environ["NAZAR_PASSWORD"], os.environ["NAZAR_AGENT_KEY"]
     CONTRACTS.mkdir(parents=True, exist_ok=True)
@@ -89,19 +124,23 @@ async def record(face: Path) -> list[str]:
     # Cookie sign-in, as a local setup does.
     async with httpx.AsyncClient(base_url=base, headers=marker, timeout=60) as cookies:
         session = Recorder(cookies)
-        await session.call("auth_login", "POST", "/auth/login", json={"email": email, "password": password})
-        await session.call("auth_refresh", "POST", "/auth/refresh")
+        await session.call("auth_login", "POST", "/auth/login", json={"email": email, "password": password}, save=only is None)
+        await session.call("auth_refresh", "POST", "/auth/refresh", save=only is None)
         saved = session.saved
 
     async with httpx.AsyncClient(base_url=base, headers=marker, timeout=60) as http:
         rec = Recorder(http)
         signed = await rec.call(
             "ai_agent_service_session", "POST", "/ai-agent/service-session",
-            json={"email": email, "password": password}, headers={"X-Agent-Key": key},
+            json={"email": email, "password": password}, headers={"X-Agent-Key": key}, save=only is None,
         )
         http.headers["Authorization"] = f"Bearer {signed['access_token']}"
         company_id = signed["company_id"]
 
+        today = datetime.now(TZ).date()
+        if only == "setup":
+            await record_setup(rec, await rec.call("employees_now", "GET", "/employees", save=False), today)
+            return rec.saved
         handoff = await rec.call("ai_agent_handoff", "POST", "/ai-agent/handoff")
         await rec.call(
             "ai_agent_session", "POST", "/ai-agent/session",
@@ -193,9 +232,12 @@ def _local_start(day: date) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--face", type=Path, required=True, help="a demo face photo for the employee and quality checks")
+    parser.add_argument("--face", type=Path, help="a demo face photo for the employee and quality checks")
+    parser.add_argument("--only", choices=["setup"], help="record only these routes, the others stay as they are")
     args = parser.parse_args()
-    for line in asyncio.run(record(args.face)):
+    if args.face is None and args.only is None:
+        parser.error("--face is needed to record every route")
+    for line in asyncio.run(record(args.face, args.only)):
         print(line)
 
 

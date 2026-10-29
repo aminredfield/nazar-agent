@@ -33,9 +33,17 @@ from PIL import Image, ImageFilter, ImageStat, UnidentifiedImageError
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from nazar_agent.demo import setup as company
 from nazar_agent.demo import views
 from nazar_agent.demo.photos import FACES, photo
-from nazar_agent.demo.timesheet import Adjustment, Book, assignment_id, day_row, period_rows, setup_check
+from nazar_agent.demo.timesheet import (
+    Adjustment,
+    Book,
+    assignment_id,
+    day_row,
+    period_rows,
+    setup_check,
+)
 from nazar_agent.demo.world import TZ, Person, Schedule, World, day_world, stable_id
 
 DEMO_EMAIL = "owner@demo.nazar"
@@ -78,6 +86,7 @@ class DemoNazar:
     uploads: dict[str, bytes] = field(default_factory=dict)
     usage: list[dict[str, Any]] = field(default_factory=list)
     updated: dict[str, datetime] = field(default_factory=dict)
+    setup: company.Setup = field(default_factory=company.Setup)  # groups and their schedules at sites
 
     @classmethod
     def today(cls, clock: Callable[[], datetime] | None = None, **options: Any) -> DemoNazar:
@@ -99,6 +108,7 @@ class DemoNazar:
         self.uploads.clear()
         self.usage.clear()
         self.updated.clear()
+        self.setup = company.Setup()
 
     def issue(self, ttl: timedelta = ACCESS_TTL, store: dict[str, datetime] | None = None) -> tuple[str, datetime]:
         store = self.tokens if store is None else store
@@ -269,6 +279,59 @@ def create_app(state: DemoNazar | None = None) -> FastAPI:
             for item in world.sites.values() if include_inactive or item.is_active
         ])
 
+    @app.post("/objects", dependencies=auth, status_code=201)
+    async def create_object(body: company.SiteCreate) -> JSONResponse:
+        site = company.create_site(nazar.world, body, nazar.clock())
+        return ok(views.site(nazar.world, site, site.created_at), status=201)
+
+    @app.delete("/objects/{object_id}", dependencies=auth)
+    async def delete_object(object_id: uuid.UUID) -> JSONResponse:
+        _site_or_404(nazar, str(object_id))
+        company.delete_site(nazar.world, nazar.setup, str(object_id))
+        return ok(None)
+
+    @app.post("/objects/{object_id}/schedule-preview", dependencies=auth)
+    async def schedule_preview(object_id: uuid.UUID, body: company.SchedulePreview) -> JSONResponse:
+        return ok(company.preview(_site_or_404(nazar, str(object_id)), body, nazar.world.today))
+
+    @app.get("/objects/{object_id}/groups", dependencies=auth)
+    async def site_groups(object_id: uuid.UUID) -> JSONResponse:
+        _site_or_404(nazar, str(object_id))
+        return ok(company.groups_view(nazar.world, nazar.setup, str(object_id)))
+
+    @app.post("/objects/{object_id}/groups", dependencies=auth)
+    async def set_site_group(object_id: uuid.UUID, body: company.GroupSchedule) -> JSONResponse:
+        _site_or_404(nazar, str(object_id))
+        company.set_group(nazar.setup, str(object_id), body, nazar.clock())
+        return ok(company.groups_view(nazar.world, nazar.setup, str(object_id)))
+
+    @app.delete("/objects/{object_id}/groups/{department_id}", dependencies=auth)
+    async def remove_site_group(object_id: uuid.UUID, department_id: uuid.UUID) -> JSONResponse:
+        _site_or_404(nazar, str(object_id))
+        company.remove_group(nazar.setup, str(object_id), str(department_id))
+        return ok(company.groups_view(nazar.world, nazar.setup, str(object_id)))
+
+    @app.get("/departments", dependencies=auth)
+    async def departments() -> JSONResponse:
+        return ok([company.department_view(item) for item in nazar.setup.departments.values()])
+
+    @app.post("/departments", dependencies=auth, status_code=201)
+    async def create_department(body: company.DepartmentCreate) -> JSONResponse:
+        return ok(company.department_view(company.create_department(nazar.setup, body, nazar.clock())), status=201)
+
+    @app.delete("/departments/{department_id}", dependencies=auth)
+    async def delete_department(department_id: uuid.UUID) -> JSONResponse:
+        company.delete_department(nazar.setup, str(department_id))
+        return ok(None)
+
+    @app.post("/departments/bulk-add", dependencies=auth)
+    async def add_members(body: company.Membership) -> JSONResponse:
+        return ok(company.membership(nazar.world, nazar.setup, body, add=True, today=nazar.world.today))
+
+    @app.post("/departments/bulk-remove", dependencies=auth)
+    async def remove_members(body: company.Membership) -> JSONResponse:
+        return ok(company.membership(nazar.world, nazar.setup, body, add=False, today=nazar.world.today))
+
     @app.patch("/objects/{object_id}", dependencies=auth)
     async def update_object(object_id: uuid.UUID, body: SiteUpdate) -> JSONResponse:
         return ok(_update_site(nazar, str(object_id), body))
@@ -285,7 +348,7 @@ def create_app(state: DemoNazar | None = None) -> FastAPI:
     @app.get("/employees", dependencies=auth)
     async def employees() -> JSONResponse:
         people = sorted(nazar.world.people.values(), key=lambda person: person.code)
-        return ok([views.employee(nazar.world, person) for person in people])
+        return ok([views.employee(nazar.world, person, company.groups_of(nazar.setup, person.id)) for person in people])
 
     @app.post("/employees", dependencies=auth, status_code=201)
     async def create_employee(
@@ -438,6 +501,11 @@ def _errors(app: FastAPI) -> None:
         details = [{key: value for key, value in error.items() if key != "url"} for error in exc.errors()]
         return _failure(422, "VALIDATION_ERROR", "Request validation failed.", jsonable_encoder(details, custom_encoder={Exception: str}))
 
+    @app.exception_handler(company.SetupError)
+    async def setup_error(request: Request, exc: company.SetupError) -> JSONResponse:
+        code = {404: "NOT_FOUND", 409: "CONFLICT"}.get(exc.status, "VALIDATION_ERROR")
+        return _failure(exc.status, code, exc.message)
+
     @app.exception_handler(StarletteHTTPException)
     async def http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         code = "NOT_FOUND" if exc.status_code == 404 else "HTTP_ERROR"
@@ -501,19 +569,30 @@ def _update_site(nazar: DemoNazar, site_id: str, body: SiteUpdate) -> dict[str, 
 
 
 def _assign(nazar: DemoNazar, site_id: str, body: AssignmentsBody) -> dict[str, Any]:
-    """NAZAR replaces the site's whole list: the people sent are there from start_date, the rest leave."""
+    """NAZAR replaces the site's whole list: the people sent are there from start_date, the rest leave.
+
+    Someone who works elsewhere keeps that site too: this one is added to it.
+    """
     _site_or_404(nazar, site_id)
+    world = nazar.world
     wanted = {str(employee_id) for employee_id in body.employee_ids}
-    unknown = wanted - nazar.world.people.keys()
+    unknown = wanted - world.people.keys()
     if unknown:
         raise not_found("Employee")
-    start = body.start_date or nazar.world.today
-    for person in nazar.world.people.values():
-        if person.id in wanted and person.site_id != site_id:
-            person.site_id, person.assigned_from = site_id, start
-        elif person.id not in wanted and person.site_id == site_id:
-            person.site_id = None
-    return views.assignments(nazar.world, site_id)
+    start = body.start_date or world.today
+    for person in world.people.values():
+        extra = world.extra_sites.setdefault(person.id, {})
+        here = site_id in world.sites_of(person.id)
+        if person.id in wanted and not here:
+            if person.site_id is None:
+                person.site_id, person.assigned_from = site_id, start
+            else:
+                extra[site_id] = start
+        elif person.id not in wanted and here:
+            if person.site_id == site_id:
+                person.site_id = None
+            extra.pop(site_id, None)
+    return views.assignments(world, site_id)
 
 
 async def _read_photo(upload: UploadFile) -> bytes:

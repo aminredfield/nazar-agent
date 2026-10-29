@@ -130,6 +130,36 @@ async def answers() -> dict[str, httpx.Response]:
         got["employee_create"] = await client.post(
             "/employees", data={"full_name": "Контракт Проверка"}, files=[("photos", ("photo.jpg", picture, "image/jpeg"))]
         )
+        # Setting up through the chat: a new site, a group on it, one member — then all of it taken off again.
+        got["departments"] = await client.get("/departments")
+        got["department_create"] = await client.post("/departments", json={"name": "Контракт: бригада", "color": "violet"})
+        group = got["department_create"].json()["data"]["id"]
+        got["object_create"] = await client.post("/objects", json={
+            "name": "Контракт: ЖК Олмазор", "address": "Ташкент, Чиланзар", "latitude": 41.2856, "longitude": 69.2034,
+            "radius_meters": 100, "shift_start": "08:00", "shift_end": "17:00", "work_schedule_mode": "custom",
+            "working_days": [1, 2, 3, 4, 5, 6],
+        })
+        new_site = got["object_create"].json()["data"]["id"]
+        got["object_schedule_preview"] = await client.post(f"/objects/{new_site}/schedule-preview", json={
+            "schedule_mode": "custom", "schedule_type": "weekly", "shift_start": "08:00", "shift_end": "17:00",
+            "working_days": [1, 2, 3, 4, 5, 6], "start_date": today.isoformat(), "days": 7,
+        })
+        got["object_group_set"] = await client.post(
+            f"/objects/{new_site}/groups", json={"department_id": group, "schedule_mode": "object_default"}
+        )
+        member = assigned[0]
+        got["departments_bulk_add"] = await client.post("/departments/bulk-add", json={
+            "employee_ids": [member], "department_ids": [group], "effective_from": today.isoformat(),
+        })
+        await client.post(f"/objects/{new_site}/assignments", json={"employee_ids": [member], "start_date": today.isoformat()})
+        got["object_groups"] = await client.get(f"/objects/{new_site}/groups")
+        await client.post(f"/objects/{new_site}/assignments", json={"employee_ids": []})
+        got["departments_bulk_remove"] = await client.post("/departments/bulk-remove", json={
+            "employee_ids": [member], "department_ids": [group], "effective_from": today.isoformat(),
+        })
+        got["object_group_remove"] = await client.delete(f"/objects/{new_site}/groups/{group}")
+        got["department_delete"] = await client.delete(f"/departments/{group}")
+        got["object_delete"] = await client.delete(f"/objects/{new_site}")
         got["error_404"] = await client.get("/attendance/events/00000000-0000-4000-8000-000000000000")
         got["error_422"] = await client.get("/timesheet", params={"date_from": "not-a-date", "date_to": today.isoformat()})
     return got

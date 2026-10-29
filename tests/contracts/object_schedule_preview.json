@@ -1,0 +1,58 @@
+{
+ "request": "POST /objects/{id}/schedule-preview",
+ "status": 200,
+ "body": {
+  "request_id": "req_e685db4011bb4e21ac199cf5",
+  "success": true,
+  "data": {
+   "schedule_type": "weekly",
+   "schedule_label": "weekly:1,2,3,4,5,6",
+   "is_24_hours": false,
+   "shift_duration_minutes": 540,
+   "days": [
+    {
+     "date": "2026-10-29",
+     "is_working": true,
+     "planned_start_at": "2026-10-29T03:00:00Z",
+     "planned_end_at": "2026-10-29T12:00:00Z",
+     "planned_minutes": 540,
+     "is_24_hours": false,
+     "schedule_source": "employee_weekly",
+     "exception_reason": null
+    },
+    {
+     "date": "2026-10-30",
+     "is_working": true,
+     "planned_start_at": "2026-10-30T03:00:00Z",
+     "planned_end_at": "2026-10-30T12:00:00Z",
+     "planned_minutes": 540,
+     "is_24_hours": false,
+     "schedule_source": "employee_weekly",
+     "exception_reason": null
+    },
+    {
+     "date": "2026-10-31",
+     "is_working": true,
+     "planned_start_at": "2026-10-31T03:00:00Z",
+     "planned_end_at": "2026-10-31T12:00:00Z",
+     "planned_minutes": 540,
+     "is_24_hours": false,
+     "schedule_source": "employee_weekly",
+     "exception_reason": null
+    },
+    {
+     "date": "2026-11-01",
+     "is_working": false,
+     "planned_start_at": null,
+     "planned_end_at": null,
+     "planned_minutes": 0,
+     "is_24_hours": false,
+     "schedule_source": null,
+     "exception_reason": null
+    }
+   ]
+  },
+  "error": null,
+  "message": null
+ }
+}

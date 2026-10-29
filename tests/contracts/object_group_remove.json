@@ -1,0 +1,14 @@
+{
+ "request": "DELETE /objects/{id}/groups/{id}",
+ "status": 200,
+ "body": {
+  "request_id": "req_ae633e5c58e64c2db53d223d",
+  "success": true,
+  "data": {
+   "object_id": "54c7b628-b3e5-4f90-ba39-6947e5d343e9",
+   "groups": []
+  },
+  "error": null,
+  "message": "Группа снята с объекта."
+ }
+}

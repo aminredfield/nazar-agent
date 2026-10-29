@@ -27,6 +27,11 @@ ENDPOINTS = frozenset({
     "POST /timesheet/adjustments/preview", "POST /timesheet/adjustments", "DELETE /timesheet/adjustments/{id}",
     "POST /timesheet/adjustments/void", "DELETE /timesheet/adjustments/void/{id}",
     "GET /media/{path}",
+    # Setting up through the chat.
+    "POST /objects", "DELETE /objects/{id}", "POST /objects/{id}/schedule-preview",
+    "GET /objects/{id}/groups", "POST /objects/{id}/groups", "DELETE /objects/{id}/groups/{id}",
+    "GET /departments", "POST /departments", "DELETE /departments/{id}",
+    "POST /departments/bulk-add", "POST /departments/bulk-remove",
 })
 SAMPLE = 5  # list items looked at to learn an item's shape
 

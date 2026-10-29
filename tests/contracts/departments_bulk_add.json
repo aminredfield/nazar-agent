@@ -1,0 +1,14 @@
+{
+ "request": "POST /departments/bulk-add",
+ "status": 200,
+ "body": {
+  "request_id": "req_618db8c762c245258bf804b9",
+  "success": true,
+  "data": {
+   "changed_count": 1,
+   "effective_from": "2026-10-29"
+  },
+  "error": null,
+  "message": null
+ }
+}

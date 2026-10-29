@@ -146,6 +146,8 @@ class World:
     sites: dict[str, Site]
     people: dict[str, Person]
     timeline: list[Event]  # every generated event in time order, some maybe still ahead of now
+    # A second site, as NAZAR allows: person → {site → first day}. The timesheet counts the home site only.
+    extra_sites: dict[str, dict[str, date]] = field(default_factory=dict)
     _by_person: dict[str, list[Event]] | None = field(default=None, repr=False)
     _moments: list[datetime] | None = field(default=None, repr=False)
 
@@ -159,6 +161,12 @@ class World:
         if self._moments is None:
             self._moments = [event.at for event in self.timeline]
         return self.timeline[: bisect_right(self._moments, self.now)]
+
+    def sites_of(self, person_id: str) -> list[str]:
+        """Every site a person works on: the home one first."""
+        person = self.people[person_id]
+        home = [person.site_id] if person.site_id else []
+        return home + [site for site in self.extra_sites.get(person_id, {}) if site != person.site_id]
 
     def events_of(self, person_id: str) -> list[Event]:
         """One person's events by now, in time order."""

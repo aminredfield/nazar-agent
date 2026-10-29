@@ -1,0 +1,18 @@
+{
+ "request": "POST /departments",
+ "status": 201,
+ "body": {
+  "request_id": "req_bb9b519db0fc4dada2f05124",
+  "success": true,
+  "data": {
+   "id": "942ea77d-9d00-4b4a-8ce6-47970576cb89",
+   "name": "Контракт: бригада",
+   "color": "violet",
+   "employee_count": 0,
+   "created_at": "2026-10-29T16:28:44.860013Z",
+   "updated_at": "2026-10-29T16:28:44.860013Z"
+  },
+  "error": null,
+  "message": null
+ }
+}
