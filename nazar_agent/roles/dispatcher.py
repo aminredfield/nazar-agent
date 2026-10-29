@@ -130,7 +130,7 @@ class Request:
     people: tuple[str, ...] = ()
     sites: tuple[str, ...] = ()
     clipped: bool = False  # the period asked for was longer than MAX_PERIOD_DAYS
-    resolved: tuple[str, ...] = ()  # "Rustam → Рустам Юлдашев (employee id …)", found by code
+    resolved: tuple[str, ...] = ()  # "Rustam → Rustam Yuldashev (employee id …)", found by code
     meant: str = ""  # a follow-up written out in full; "" when the message stands alone
     earlier: str = ""  # the previous answer in this conversation, for a follow-up
 

@@ -29,7 +29,7 @@ async def test_today_names_who_came_late_though_the_timesheet_has_no_lateness_ye
     assert late == truth.late(truth.today) and len(late) == today["counts"]["late"] == 3
     assert [person["name"] for person in today["people"] if person["status"] == "not_arrived"] == truth.absent(truth.today)
     assert today["counts"]["on_site"] == len(truth.on_site_now())
-    zuhra = next(person for person in today["people"] if person["name"] == "Зухра Набиева")
+    zuhra = next(person for person in today["people"] if person["name"] == "Zuhra Nabieva")
     assert (zuhra["shift_start"], zuhra["late_grace_minutes"], zuhra["id"]) == ("08:00", 10, f"today:{zuhra['employee_id']}")
 
 
@@ -45,7 +45,7 @@ async def test_a_period_is_counted_by_code(demo):
     assert "today_note" in month and "today_note" not in day
     assert sorted(person["employee_name"] for person in day["by_day"][0]["late"]) == truth.late(saturday)
     assert day["by_day"][0]["weekday"] == "Saturday"
-    sergeli = next(site for site in yesterday["by_site"] if "Сергели" in site["name"])
+    sergeli = next(site for site in yesterday["by_site"] if "Sergeli" in site["name"])
     assert sergeli["worked_minutes"] == truth.site_worked_minutes("sergeli", truth.yesterday)
 
 
@@ -60,9 +60,9 @@ async def test_one_site_is_counted_alone(demo):
 
 
 @pytest.mark.parametrize(("query", "found"), [
-    ("Тимур Хасонов", ["Тимур Хасанов"]),  # a typo
-    ("Rustam aka", ["Рустам Юлдашев"]),  # Latin letters, a form of address
-    ("Сергели", ["Склад-ангар, Сергели"]),
+    ("Тимур Хасонов", ["Timur Hasanov"]),  # a typo
+    ("Rustam aka", ["Rustam Yuldashev"]),  # Latin letters, a form of address
+    ("Сергели", ["Sergeli warehouse"]),
 ])
 async def test_a_name_is_found_as_the_owner_wrote_it(demo, query, found):
     tools, _ = demo
@@ -78,9 +78,9 @@ async def test_two_close_names_are_both_returned_to_ask_which_one(demo):
     result = await tools["find_people_and_sites"].handler(FindParams(query="Каримов"))
     nobody = await tools["find_people_and_sites"].handler(FindParams(query="Алишер Усманов"))
 
-    assert {"Бобур Каримов", "Феруза Каримова"} <= {match["name"] for match in result["matches"]} and result["ambiguous"]
+    assert {"Bobur Karimov", "Feruza Karimova"} <= {match["name"] for match in result["matches"]} and result["ambiguous"]
     assert nobody["matches"] == [] and nobody["note"]
 
 
 def test_a_different_name_is_not_a_match():
-    assert similarity("Алишер Усманов", "Азамат Норматов") < 0.75
+    assert similarity("Алишер Усманов", "Azamat Normatov") < 0.75

@@ -42,7 +42,7 @@ async def company(tmp_path):
 
 OPEN_OLMAZOR = asked(
     site_name="ЖК Олмазор", address="Ташкент, Чиланзар", shift_start="08:00", shift_end="17:00",
-    working_days=[1, 2, 3, 4, 5, 6], group_name="бригада Рустама", people=["Рустам", "Бобур Каримов"],
+    working_days=[1, 2, 3, 4, 5, 6], group_name="бригада Рустама", people=["Рустам", "Bobur Karimov"],
 )
 
 
@@ -58,8 +58,8 @@ async def test_a_new_site_with_a_crew_becomes_a_ready_plan_in_words(company):
     assert shown["steps"][0]["text"] == (
         "Создам объект «ЖК Олмазор», Ташкент, Чиланзар: точка 41.28561, 69.20341, радиус 100 м; смена 08:00–17:00, пн–сб."
     )
-    assert shown["steps"][3]["text"] == "Добавлю в группу «Бригада Рустама»: Рустам Юлдашев, Бобур Каримов."
-    assert shown["steps"][4]["text"] == "Назначу на объект «ЖК Олмазор» с 28.10: Рустам Юлдашев, Бобур Каримов."
+    assert shown["steps"][3]["text"] == "Добавлю в группу «Бригада Рустама»: Rustam Yuldashev, Bobur Karimov."
+    assert shown["steps"][4]["text"] == "Назначу на объект «ЖК Олмазор» с 28.10: Rustam Yuldashev, Bobur Karimov."
     assert [day["working"] for day in shown["preview"]] == [True, True, True, True, False, True, True]  # from Wednesday
     assert summary(plan, "ru").startswith("Подготовил план: шагов — 5")
     assert not any(site.name == "ЖК Олмазор" for site in demo.world.sites.values())  # nothing written yet
@@ -72,7 +72,7 @@ async def test_people_already_working_elsewhere_at_the_same_hours_are_found(comp
     plan = await build(draft, nazar, NOW.date())
     shown = setup_view(draft, plan, "ru")
 
-    rustam = next(item for item in shown["clashes"] if item["name"] == "Рустам Юлдашев")
+    rustam = next(item for item in shown["clashes"] if item["name"] == "Rustam Yuldashev")
     assert "уже работает на объекте" in rustam["text"] and "08:00–18:00" in rustam["text"] and "(08:00–17:00)" in rustam["text"]
     assert [option["kind"] for option in rustam["options"]] == ["shift", "shift", "skip"]  # no move yet
     assert rustam["options"][0]["shift"]["start"] == "18:00"
@@ -88,7 +88,7 @@ async def test_what_is_missing_is_asked_not_guessed(company):
     assert [item["kind"] for item in shown["missing"]] == ["point", "shift", "choose_person"]
     assert not plan.ready and summary(plan, "ru").startswith("Готовлю план")
     karimov = draft.person("Каримов")
-    assert {name for _, name in karimov.choices} == {"Бобур Каримов", "Феруза Каримова"}
+    assert {name for _, name in karimov.choices} == {"Bobur Karimov", "Feruza Karimova"}
     assert draft.person("Жасур Тоиров").state == "new"
     assert plan.steps[-1].kind == "wait_for_photo" and "Жасур Тоиров" in shown["steps"][-1]["text"]
 
@@ -102,8 +102,8 @@ async def test_a_follow_up_changes_the_draft_it_continues(company):
 
     assert (draft.shift.start, draft.shift.end, draft.shift.days) == ("09:00", "18:00", (1, 2, 3, 4, 5, 6))
     assert draft.site.name == "ЖК Олмазор" and draft.site.has_point  # kept
-    assert draft.person("Бобур Каримов").state == "skip"
-    assert plan.steps[-1].params["names"] == ["Рустам Юлдашев"]
+    assert draft.person("Bobur Karimov").state == "skip"
+    assert plan.steps[-1].params["names"] == ["Rustam Yuldashev"]
 
 
 async def test_a_group_on_an_existing_site_gets_its_own_shift_and_nazars_preview(company):
@@ -157,13 +157,13 @@ async def test_the_assistant_keeps_one_draft_per_conversation(tmp_path, monkeypa
     link = connect(settings)
     helper = Assistant(settings, ProposalStore(tmp_path / "a.sqlite3"), service=link.client())
 
-    first = await helper.ask(f"Открываем ЖК Олмазор {OLMAZOR}, смена с 8 до 17 пн–сб, бригада Рустама: Рустам и Бобур Каримов", conversation="w")
+    first = await helper.ask(f"Открываем ЖК Олмазор {OLMAZOR}, смена с 8 до 17 пн–сб, бригада Рустама: Рустам и Bobur Karimov", conversation="w")
     second = await helper.ask("Бобура не надо", conversation="w")
 
     assert first.view["reply"] == "setup" and first.view["setup"]["ready"] and first.view["cards"] == []
     assert "A setup is being made in this conversation" in llms[2].requests[0]["instructions"]
-    assert second.view["setup"]["steps"][-1]["text"].endswith("Рустам Юлдашев.")
-    assert helper.setup.drafts.get("w").person("Бобур Каримов").state == "skip"
+    assert second.view["setup"]["steps"][-1]["text"].endswith("Rustam Yuldashev.")
+    assert helper.setup.drafts.get("w").person("Bobur Karimov").state == "skip"
 
 
 def test_the_bot_shows_the_plan_and_sends_the_owner_to_the_window():

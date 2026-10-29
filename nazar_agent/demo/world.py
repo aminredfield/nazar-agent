@@ -40,7 +40,7 @@ from zoneinfo import ZoneInfo
 TZ = ZoneInfo("Asia/Tashkent")
 NAMESPACE = uuid.UUID("6f0f3c1e-8a52-4d1b-9c55-2b7d2a1f9e10")
 COMPANY_NAME = "Mustahkam Qurilish"
-OWNER_NAME = "Демо Стройка"
+OWNER_NAME = "Demo Owner"
 LATE_GRACE_MINUTES = 10
 ABSENCE_CHANCE = 0.04
 LATE_CHANCE = 0.1
@@ -178,29 +178,29 @@ class World:
 
 
 SITES = (
-    ("chilonzor", "ЖК «Чиланзар Сити», блок 3", "г. Ташкент, Чиланзарский район, ул. Арнасой, 7", 41.28032, 69.19115, 150.0),
-    ("sergeli", "Склад-ангар, Сергели", "г. Ташкент, Сергелийский район, ул. Янги Сергели, 42", 41.22681, 69.21904, 120.0),
-    ("yashnobod", "ЖК «Яшнабад», отделка", "г. Ташкент, Яшнабадский район, ул. Махтумкули, 95", 41.30692, 69.33641, 100.0),
+    ("chilonzor", "Chilonzor City, block 3", "7 Arnasoy St, Chilonzor district, Tashkent", 41.28032, 69.19115, 150.0),
+    ("sergeli", "Sergeli warehouse", "42 Yangi Sergeli St, Sergeli district, Tashkent", 41.22681, 69.21904, 120.0),
+    ("yashnobod", "Yashnobod residential, finishing", "95 Makhtumkuli St, Yashnobod district, Tashkent", 41.30692, 69.33641, 100.0),
 )
 # Every site is set to 08:00–18:00, six days a week. For Yashnobod that is the mistake to find.
 SITE_SCHEDULE = ("08:00", "18:00", (1, 2, 3, 4, 5, 6))
 ROSTER: tuple[tuple[str, str, str, Kind], ...] = (
-    ("Рустам Юлдашев", "rustam_yuldashev.jpg", "chilonzor", "foreman"),
-    ("Азамат Норматов", "azamat_normatov.jpg", "chilonzor", "worker"),
-    ("Бобур Каримов", "bobur_karimov.jpg", "chilonzor", "worker"),
-    ("Илхом Тураев", "ilhom_turaev.jpg", "chilonzor", "worker"),
-    ("Нодира Сафарова", "nodira_safarova.jpg", "chilonzor", "worker"),
-    ("Шерзод Алимов", "sherzod_alimov.jpg", "chilonzor", "weak_gps"),
-    ("Тимур Хасанов", "timur_hasanov.jpg", "chilonzor", "left"),
-    ("Гулчехра Ибрагимова", "gulchehra_ibragimova.jpg", "chilonzor", "left"),
-    ("Мохира Юнусова", "mohira_yunusova.jpg", "chilonzor", "left"),
-    ("Феруза Каримова", "feruza_karimova.jpg", "chilonzor", "left"),
-    ("Дилшод Мирзаев", "dilshod_mirzaev.jpg", "sergeli", "foreman_honest"),
-    ("Хуршид Рахмонов", "hurshid_rahmonov.jpg", "sergeli", "no_phone"),
-    ("Анвар Бакиров", "anvar_bakirov.jpg", "sergeli", "no_phone"),
-    ("Зухра Набиева", "zuhra_nabieva.jpg", "yashnobod", "late_crew"),
-    ("Камола Ташпулатова", "kamola_tashpulatova.jpg", "yashnobod", "late_crew"),
-    ("Дилфуза Эргашева", "dilfuza_ergasheva.jpg", "yashnobod", "late_crew"),
+    ("Rustam Yuldashev", "rustam_yuldashev.jpg", "chilonzor", "foreman"),
+    ("Azamat Normatov", "azamat_normatov.jpg", "chilonzor", "worker"),
+    ("Bobur Karimov", "bobur_karimov.jpg", "chilonzor", "worker"),
+    ("Ilhom Turaev", "ilhom_turaev.jpg", "chilonzor", "worker"),
+    ("Nodira Safarova", "nodira_safarova.jpg", "chilonzor", "worker"),
+    ("Sherzod Alimov", "sherzod_alimov.jpg", "chilonzor", "weak_gps"),
+    ("Timur Hasanov", "timur_hasanov.jpg", "chilonzor", "left"),
+    ("Gulchehra Ibragimova", "gulchehra_ibragimova.jpg", "chilonzor", "left"),
+    ("Mohira Yunusova", "mohira_yunusova.jpg", "chilonzor", "left"),
+    ("Feruza Karimova", "feruza_karimova.jpg", "chilonzor", "left"),
+    ("Dilshod Mirzaev", "dilshod_mirzaev.jpg", "sergeli", "foreman_honest"),
+    ("Hurshid Rahmonov", "hurshid_rahmonov.jpg", "sergeli", "no_phone"),
+    ("Anvar Bakirov", "anvar_bakirov.jpg", "sergeli", "no_phone"),
+    ("Zuhra Nabieva", "zuhra_nabieva.jpg", "yashnobod", "late_crew"),
+    ("Kamola Tashpulatova", "kamola_tashpulatova.jpg", "yashnobod", "late_crew"),
+    ("Dilfuza Ergasheva", "dilfuza_ergasheva.jpg", "yashnobod", "late_crew"),
 )
 
 

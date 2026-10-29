@@ -255,7 +255,7 @@ async def test_a_handoff_pass_works_once():
 
 async def test_the_timesheet_counts_the_late_crew_as_late_every_day():
     state = demo()
-    zuhra = people(state, "Зухра Набиева")
+    zuhra = people(state, "Zuhra Nabieva")
     async with signed_in(state) as client:
         rows = (await client.get("/timesheet", params={
             "date_from": "2026-10-19", "date_to": "2026-10-27", "employee_id": zuhra,
@@ -284,14 +284,14 @@ async def test_the_setup_check_finds_the_wrong_schedule_and_no_false_weekday():
     findings = {finding["code"]: finding for finding in check["findings"]}
 
     assert set(findings) == {"mass_lateness"}
-    assert [site["object_name"] for site in findings["mass_lateness"]["details"]["objects"]] == ["ЖК «Яшнабад», отделка"]
-    assert set(findings["mass_lateness"]["employee_names"]) == {"Зухра Набиева", "Камола Ташпулатова", "Дилфуза Эргашева"}
+    assert [site["object_name"] for site in findings["mass_lateness"]["details"]["objects"]] == ["Yashnobod residential, finishing"]
+    assert set(findings["mass_lateness"]["employee_names"]) == {"Zuhra Nabieva", "Kamola Tashpulatova", "Dilfuza Ergasheva"}
     assert check["date_to"] == "2026-10-27"
 
 
 async def test_a_preview_is_what_applying_gives_and_undo_puts_the_day_back():
     state = demo()
-    azamat = people(state, "Азамат Норматов")
+    azamat = people(state, "Azamat Normatov")
     day = {"employee_id": azamat, "work_date": "2026-10-26"}
     async with signed_in(state) as client:
         before = (await client.get("/timesheet/day/detail", params=day)).json()["data"]["day"]
@@ -312,7 +312,7 @@ async def test_a_preview_is_what_applying_gives_and_undo_puts_the_day_back():
 
 async def test_a_voided_day_is_absent_and_comes_back():
     state = demo()
-    timur = people(state, "Тимур Хасанов")
+    timur = people(state, "Timur Hasanov")
     day = {"employee_id": timur, "work_date": "2026-10-27"}
     async with signed_in(state) as client:
         before = (await client.get("/timesheet/day/detail", params=day)).json()["data"]["day"]
@@ -332,7 +332,7 @@ async def test_a_voided_day_is_absent_and_comes_back():
 
 async def test_an_adjustment_must_name_the_employees_own_shift():
     state = demo()
-    azamat, zuhra = people(state, "Азамат Норматов"), people(state, "Зухра Набиева")
+    azamat, zuhra = people(state, "Azamat Normatov"), people(state, "Zuhra Nabieva")
     async with signed_in(state) as client:
         foreign = await client.post("/timesheet/adjustments/void", json={
             "employee_id": azamat, "work_date": "2026-10-26", "object_id": state.world.people[zuhra].site_id, "reason": "x",
@@ -349,7 +349,7 @@ async def test_an_adjustment_must_name_the_employees_own_shift():
 async def test_a_schedule_change_applies_from_today_and_the_past_stays():
     state = demo()
     yashnobod = next(site for site in state.world.sites.values() if site.key == "yashnobod")
-    zuhra = people(state, "Зухра Набиева")
+    zuhra = people(state, "Zuhra Nabieva")
     async with signed_in(state) as client:
         updated = (await client.patch(f"/objects/{yashnobod.id}", json={
             "shift_start": "09:00", "shift_end": "19:00", "work_schedule_mode": "custom",
@@ -372,7 +372,7 @@ async def test_a_review_is_kept_and_can_be_put_back():
         back = (await client.post(f"/attendance/events/{event.id}/review", json={"status": "not_reviewed", "comment": None})).json()["data"]
         wrong = await client.post(f"/attendance/events/{event.id}/review", json={"status": "fined"})
 
-    assert (reviewed["review_status"], reviewed["review_comment"], reviewed["reviewed_by_name"]) == ("confirmed", "dead soul", "Демо Стройка")
+    assert (reviewed["review_status"], reviewed["review_comment"], reviewed["reviewed_by_name"]) == ("confirmed", "dead soul", "Demo Owner")
     assert back["review_status"] == "not_reviewed" and back["review_comment"] is None
     assert wrong.status_code == 422
 
@@ -393,7 +393,7 @@ async def test_presence_today_shows_who_is_on_site():
 
 async def test_logs_filter_and_page_newest_first():
     state = demo()
-    sherzod = people(state, "Шерзод Алимов")
+    sherzod = people(state, "Sherzod Alimov")
     async with signed_in(state) as client:
         flagged = (await client.get("/attendance/logs", params={"suspicious_only": "true", "limit": 500})).json()["data"]
         first = (await client.get("/attendance/logs", params={"limit": 5})).json()["data"]

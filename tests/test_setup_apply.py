@@ -15,12 +15,12 @@ from tests.test_dispatcher import reading as dispatcher_reading
 from tests.test_setup_plan import OLMAZOR, OPEN_OLMAZOR
 
 NOW = datetime(2026, 10, 28, 11, 30, tzinfo=ZoneInfo("Asia/Tashkent"))
-ASK = f"Открываем ЖК Олмазор {OLMAZOR}, смена с 8 до 17 пн–сб, бригада Рустама: Рустам, Бобур Каримов и Жасур Тоиров"
+ASK = f"Открываем ЖК Олмазор {OLMAZOR}, смена с 8 до 17 пн–сб, бригада Рустама: Рустам, Bobur Karimov и Жасур Тоиров"
 
 
 @pytest.fixture
 def window(tmp_path, monkeypatch):
-    reading = OPEN_OLMAZOR.model_copy(update={"people": ["Рустам", "Бобур Каримов", "Жасур Тоиров"]})
+    reading = OPEN_OLMAZOR.model_copy(update={"people": ["Рустам", "Bobur Karimov", "Жасур Тоиров"]})
     script = [turn(text=dispatcher_reading(intent="setup").model_dump_json()), turn(text=reading.model_dump_json())]
     monkeypatch.setattr(Settings, "analyst_llm", lambda self: ScriptedLLM([script.pop(0)]))
     monkeypatch.setattr(Settings, "skeptic_llm", lambda self: ScriptedLLM([]))
@@ -43,10 +43,10 @@ def test_a_plan_is_applied_step_by_step_and_undone_back_to_how_it_was(window):
     client, demo = window
     shown = client.get("/api/setup").json()["setup"]
     draft = shown["draft"]["id"]
-    rustam = people(demo, "Рустам Юлдашев")
+    rustam = people(demo, "Rustam Yuldashev")
     home = demo.world.people[rustam].site_id
 
-    client.patch("/api/setup", json={"draft_id": draft, "person": {"written": "Бобур Каримов", "state": "skip"}})
+    client.patch("/api/setup", json={"draft_id": draft, "person": {"written": "Bobur Karimov", "state": "skip"}})
     applied = client.post("/api/setup/apply", json={"draft_id": draft}).json()
 
     run = applied["run"]

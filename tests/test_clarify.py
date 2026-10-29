@@ -40,16 +40,16 @@ async def test_two_karimovs_are_asked_back_with_a_button_each(nazar):
     found = await resolve(asked("Каримовым"), "Что с Каримовым?", nazar)
 
     assert isinstance(found, Clarification) and found.found
-    assert {choice.label for choice in found.choices} == {"Бобур Каримов", "Феруза Каримова"}
+    assert {choice.label for choice in found.choices} == {"Bobur Karimov", "Feruza Karimova"}
     assert all(choice.question.startswith("Что с Каримовым? — ") for choice in found.choices)
     text = clarification(found, "ru")
-    assert "Бобур Каримов" in text and "Феруза Каримова" in text
+    assert "Bobur Karimov" in text and "Feruza Karimova" in text
 
 
 async def test_a_pressed_choice_is_not_asked_again(nazar):
-    request = asked("Каримовым", "Бобур Каримов")
+    request = asked("Каримовым", "Bobur Karimov")
 
-    assert await resolve(request, "Что с Каримовым? — Бобур Каримов", nazar) is request
+    assert await resolve(request, "Что с Каримовым? — Bobur Karimov", nazar) is request
 
 
 async def test_one_match_is_handed_to_the_analyst_with_its_id(nazar):
@@ -57,7 +57,7 @@ async def test_one_match_is_handed_to_the_analyst_with_its_id(nazar):
 
     assert isinstance(found, Request)
     [line] = found.resolved
-    assert line.startswith("Rustam aka → Рустам Юлдашев (employee id ") and "found in NAZAR" in found.hints()
+    assert line.startswith("Rustam aka → Rustam Yuldashev (employee id ") and "found in NAZAR" in found.hints()
 
 
 async def test_no_one_by_that_name_is_said_at_once(nazar):
@@ -94,7 +94,7 @@ async def test_the_assistant_asks_back_without_the_analyst(tmp_path, monkeypatch
     answer = await assistant.ask("Что с Каримовым?")
 
     assert answer.view["reply"] == "clarify" and answer.view["cards"] == []
-    assert len(answer.view["choices"]) == 2 and "Феруза Каримова" in answer.view["summary"]
+    assert len(answer.view["choices"]) == 2 and "Feruza Karimova" in answer.view["summary"]
 
 
 @pytest.mark.parametrize("intent", ["greeting", "unclear", "off_topic"])

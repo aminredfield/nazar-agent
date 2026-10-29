@@ -15,6 +15,7 @@ from typing import Any
 
 from nazar_agent.evals.score import score_analysis
 from nazar_agent.evals.truth import Truth
+from nazar_agent.latin import to_latin
 
 
 @dataclass
@@ -46,22 +47,11 @@ class Check:
 
 # Names ---------------------------------------------------------------------------
 
-_LATIN = str.maketrans({
-    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "yo", "ж": "j", "з": "z", "и": "i", "й": "y",
-    "к": "k", "л": "l", "м": "m", "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u", "ф": "f",
-    "х": "h", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "sh", "ъ": "", "ы": "i", "ь": "", "э": "e", "ю": "yu", "я": "ya",
-    "ў": "o", "қ": "q", "ғ": "g", "ҳ": "h",
-})
 
 
 def _stems(name: str) -> set[str]:
-    """Ways a name shows up in an answer: Зухра → «Зухр», «Zuhr», «Zukhr»; any word of the name counts."""
-    stems = set()
-    for word in name.lower().split():
-        stem = word[:-2] if len(word) > 5 else word[:-1] if len(word) > 3 else word
-        latin = stem.translate(_LATIN)
-        stems |= {stem, latin, latin.replace("h", "kh"), latin.replace("h", "x"), latin.replace("j", "zh")}
-    return stems
+    """Ways a name shows up in an answer, in one spelling: Zuhra → "zuhr", for «Зухры» and "Zukhra" alike; any word counts."""
+    return {word[:-2] if len(word) > 5 else word[:-1] if len(word) > 3 else word for word in to_latin(name).split()}
 
 
 def _plain(text: str) -> str:
@@ -69,7 +59,7 @@ def _plain(text: str) -> str:
 
 
 def mentioned(name: str, text: str) -> bool:
-    plain = _plain(text)
+    plain = to_latin(text)
     return any(stem in plain for stem in _stems(name))
 
 

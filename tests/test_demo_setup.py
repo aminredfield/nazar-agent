@@ -10,7 +10,7 @@ NEW_SITE = {
 
 async def test_a_second_site_is_added_to_the_first_one_not_instead_of_it():
     state = demo()
-    rustam = people(state, "Рустам Юлдашев")
+    rustam = people(state, "Rustam Yuldashev")
     home = state.world.people[rustam].site_id
     async with signed_in(state) as client:
         site = (await client.post("/objects", json=NEW_SITE)).json()["data"]
@@ -30,7 +30,7 @@ async def test_a_second_site_is_added_to_the_first_one_not_instead_of_it():
 
 async def test_a_group_counts_its_members_who_work_at_the_site():
     state = demo()
-    rustam, bobur = people(state, "Рустам Юлдашев"), people(state, "Бобур Каримов")
+    rustam, bobur = people(state, "Rustam Yuldashev"), people(state, "Bobur Karimov")
     async with signed_in(state) as client:
         site = (await client.post("/objects", json=NEW_SITE)).json()["data"]["id"]
         group = (await client.post("/departments", json={"name": "Бригада Рустама"})).json()["data"]["id"]

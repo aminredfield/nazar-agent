@@ -51,10 +51,10 @@ def test_no_day_before_the_history_is_planned():
 
 def test_dead_souls_come_from_the_foremans_phone_as_photos_of_a_screen_after_they_left():
     world = build_world(NOW)
-    foreman_phone = phone_key("Рустам Юлдашев")
+    foreman_phone = phone_key("Rustam Yuldashev")
     left_day = NOW.date() - timedelta(days=10)
 
-    for name in ("Тимур Хасанов", "Гулчехра Ибрагимова", "Мохира Юнусова", "Феруза Каримова"):
+    for name in ("Timur Hasanov", "Gulchehra Ibragimova", "Mohira Yunusova", "Feruza Karimova"):
         before = [event for event in events_of(world, name) if event.at.astimezone(TZ).date() < left_day]
         after = [event for event in events_of(world, name) if event.at.astimezone(TZ).date() >= left_day]
         assert before and {event.device_key for event in before} == {phone_key(name)}
@@ -65,15 +65,15 @@ def test_dead_souls_come_from_the_foremans_phone_as_photos_of_a_screen_after_the
 
 def test_the_honest_foreman_checks_in_his_crew_with_live_selfies_on_the_site():
     world = build_world(NOW)
-    crew = events_of(world, "Хуршид Рахмонов") + events_of(world, "Анвар Бакиров")
+    crew = events_of(world, "Hurshid Rahmonov") + events_of(world, "Anvar Bakirov")
 
-    assert {event.device_key for event in crew} == {phone_key("Дилшод Мирзаев")}
+    assert {event.device_key for event in crew} == {phone_key("Dilshod Mirzaev")}
     assert {event.photo_kind for event in crew} == {"live"} and all(event.inside for event in crew)
 
 
 def test_weak_gps_is_flagged_and_twice_outside_the_fence_with_full_days():
     world = build_world(NOW)
-    events = events_of(world, "Шерзод Алимов")
+    events = events_of(world, "Sherzod Alimov")
     outside_days = {event.at.astimezone(TZ).date() for event in events if not event.inside}
 
     assert all("gps_accuracy_warning" in event.risk_flags for event in events)
@@ -82,8 +82,8 @@ def test_weak_gps_is_flagged_and_twice_outside_the_fence_with_full_days():
 
 def test_the_finishing_crew_comes_at_nine_against_a_schedule_of_eight():
     world = build_world(NOW)
-    site = by_name(world, "Зухра Набиева").site_id
-    arrivals = [event.at.astimezone(TZ) for event in events_of(world, "Зухра Набиева") if event.event_type == "check_in"]
+    site = by_name(world, "Zuhra Nabieva").site_id
+    arrivals = [event.at.astimezone(TZ) for event in events_of(world, "Zuhra Nabieva") if event.event_type == "check_in"]
 
     assert world.sites[site].schedule_on(NOW.date()).shift_start == "08:00"
     assert all(8 * 60 + 50 <= arrival.hour * 60 + arrival.minute <= 9 * 60 + 10 for arrival in arrivals)
@@ -120,9 +120,9 @@ def test_photos_are_jpegs_and_the_same_recipe_gives_the_same_picture():
 @pytest.mark.parametrize("moment", ["2026-10-26T10:00", "2026-11-01T12:00", "2026-11-04T07:30", "2026-11-09T20:00"])
 def test_the_cases_hold_on_any_day(moment):
     world = build_world(datetime.fromisoformat(moment).replace(tzinfo=TZ))
-    weak = by_name(world, "Шерзод Алимов")
-    souls_today = [event for event in world.events if event.device_key == phone_key("Рустам Юлдашев")]
+    weak = by_name(world, "Sherzod Alimov")
+    souls_today = [event for event in world.events if event.device_key == phone_key("Rustam Yuldashev")]
 
     assert len({event.at.date() for event in world.events if event.employee_id == weak.id and not event.inside}) == 2
-    assert {by_name(world, name).id for name in ("Тимур Хасанов", "Феруза Каримова")} <= {e.employee_id for e in souls_today}
+    assert {by_name(world, name).id for name in ("Timur Hasanov", "Feruza Karimova")} <= {e.employee_id for e in souls_today}
     assert max(event.at for event in world.events) <= world.now

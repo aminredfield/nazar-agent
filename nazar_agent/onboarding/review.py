@@ -20,12 +20,14 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Any
 
+from nazar_agent.latin import to_latin
 from nazar_agent.onboarding.parse import ListedPerson
 
 SAME_PERSON = 0.88  # name similarity to call two names one person
 SAME_SITE = 0.6
-# Words a foreman writes before a site's name ("Объект Чиланзар"); they name no site.
-GENERIC_SITE_WORDS = frozenset({"объект", "обьект", "участок", "площадка", "obyekt", "obekt", "site"})
+# Words a foreman writes before a site's name ("Объект Чиланзар", "Site: Sergeli"), in
+# one spelling; they name no site.
+GENERIC_SITE_WORDS = frozenset({"obyekt", "obekt", "uchastok", "ploshadka", "site", "location", "object"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,7 +93,10 @@ def match_site(hint: str, sites: list[Site]) -> Site | None:
         if wanted and (wanted in name or name in wanted or (address and wanted in address)):
             score = 1.0
         else:
-            score = max(SequenceMatcher(None, wanted, name).ratio(), SequenceMatcher(None, wanted, address).ratio())
+            score = max(
+                SequenceMatcher(None, wanted, name).ratio(), SequenceMatcher(None, wanted, address).ratio(),
+                _by_words(wanted, name), _by_words(wanted, address),
+            )
         scored.append((score, site))
     good = [site for score, site in scored if score >= SAME_SITE]
     if len(good) == 1:
@@ -100,7 +105,16 @@ def match_site(hint: str, sites: list[Site]) -> Site | None:
     return exact[0] if len(exact) == 1 else None
 
 
+def _by_words(wanted: str, text: str) -> float:
+    """Each word of the hint against its best word of the name: "chilanzar" fits "Chilonzor City, block 3"."""
+    asked, words = wanted.split(), text.split()
+    if not asked or not words:
+        return 0.0
+    return sum(max(SequenceMatcher(None, word, other).ratio() for other in words) for word in asked) / len(asked)
+
+
 def _normal(text: str) -> str:
-    text = text.casefold().replace("ё", "е")
+    """One spelling: «Каримов» from a notebook meets "Bobur Karimov" in NAZAR."""
+    text = to_latin(text.casefold().replace("ё", "е"))
     text = re.sub(r"[^\w\s]", " ", text)
     return " ".join(text.split())

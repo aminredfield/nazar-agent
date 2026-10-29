@@ -3,8 +3,8 @@ from typing import Any
 from nazar_agent.evals.score import score_analysis, score_import
 from nazar_agent.evals.summary import summarize
 
-DEAD = {"e-timur": "Тимур Хасанов", "e-gul": "Гулчехра Ибрагимова", "e-mohira": "Мохира Юнусова", "e-feruza": "Феруза Каримова"}
-OTHERS = {"e-rustam": "Рустам Юлдашев", "e-dilshod": "Дилшод Мирзаев", "e-hurshid": "Хуршид Рахмонов", "e-zuhra": "Зухра Набиева", "e-kamola": "Камола Ташпулатова"}
+DEAD = {"e-timur": "Timur Hasanov", "e-gul": "Gulchehra Ibragimova", "e-mohira": "Mohira Yunusova", "e-feruza": "Feruza Karimova"}
+OTHERS = {"e-rustam": "Rustam Yuldashev", "e-dilshod": "Dilshod Mirzaev", "e-hurshid": "Hurshid Rahmonov", "e-zuhra": "Zuhra Nabieva", "e-kamola": "Kamola Tashpulatova"}
 
 
 def _events() -> list[dict[str, Any]]:
@@ -18,10 +18,10 @@ def _events() -> list[dict[str, Any]]:
 def _outcome(*cards: dict[str, Any], clean: bool = True) -> dict[str, Any]:
     steps = [
         {"name": "get_attendance_events", "output": {"events": _events()}},
-        {"name": "list_objects", "output": [{"id": "obj-yash", "name": "ЖК «Яшнабад», отделка", "radius_meters": 100.0}]},
+        {"name": "list_objects", "output": [{"id": "obj-yash", "name": "Yashnobod residential, finishing", "radius_meters": 100.0}]},
         {
             "name": "get_setup_check",
-            "output": {"findings": [{"id": "setup:mass_lateness", "employee_ids": ["e-zuhra", "e-kamola"], "employee_names": ["Зухра Набиева", "Камола Ташпулатова"]}]},
+            "output": {"findings": [{"id": "setup:mass_lateness", "employee_ids": ["e-zuhra", "e-kamola"], "employee_names": ["Zuhra Nabieva", "Kamola Tashpulatova"]}]},
         },
     ]
     return {
@@ -83,7 +83,7 @@ def test_separate_card_about_the_honest_foreman_is_an_accusation():
 
     result = score_analysis(_outcome(souls, honest), "dead_souls")
 
-    assert result["falsely_accused"] == ["Дилшод Мирзаев", "Хуршид Рахмонов"]
+    assert result["falsely_accused"] == ["Dilshod Mirzaev", "Hurshid Rahmonov"]
     assert result["passed"] is False
 
 
@@ -93,7 +93,7 @@ def test_low_confidence_mention_is_allowed_but_a_pay_cut_is_not():
 
     result = score_analysis(_outcome(mention, cut), "dead_souls")
 
-    assert result["falsely_accused"] == ["Дилшод Мирзаев"]
+    assert result["falsely_accused"] == ["Dilshod Mirzaev"]
 
 
 def test_confirming_a_dead_soul_is_not_a_false_accusation():
@@ -107,17 +107,17 @@ def test_confirming_a_dead_soul_is_not_a_false_accusation():
 
 
 def test_schedule_card_needs_the_fix_to_pass():
-    card = _card("medium", [[("setup_finding", "setup:mass_lateness")]], subject=("object", "obj-yash", "ЖК «Яшнабад», отделка"))
+    card = _card("medium", [[("setup_finding", "setup:mass_lateness")]], subject=("object", "obj-yash", "Yashnobod residential, finishing"))
     fixed = _card(
         "medium",
         [[("setup_finding", "setup:mass_lateness")]],
-        subject=("object", "obj-yash", "ЖК «Яшнабад», отделка"),
+        subject=("object", "obj-yash", "Yashnobod residential, finishing"),
         actions=[{"name": "change_schedule", "params": {"object_id": "obj-yash", "shift_start": "09:00"}}],
     )
     wrong_hours = _card(
         "medium",
         [[("setup_finding", "setup:mass_lateness")]],
-        subject=("object", "obj-yash", "ЖК «Яшнабад», отделка"),
+        subject=("object", "obj-yash", "Yashnobod residential, finishing"),
         actions=[{"name": "change_schedule", "params": {"object_id": "obj-yash", "shift_start": "10:00"}}],
     )
 
@@ -137,22 +137,22 @@ def test_lateness_card_about_the_crew_is_an_accusation():
     result = score_analysis(_outcome(card), "wrong_schedule")
 
     assert result["schedule_found"] is False
-    assert result["falsely_accused"] == ["Зухра Набиева", "Камола Ташпулатова"]
+    assert result["falsely_accused"] == ["Kamola Tashpulatova", "Zuhra Nabieva"]
 
 
 def test_import_flags_and_false_flags():
     rows = [
-        {"full_name": "Норматов Азамат", "issues": ["похож на действующего сотрудника «Азамат Норматов» — может быть дубль"]},
+        {"full_name": "Норматов Азамат", "issues": ["похож на действующего сотрудника «Azamat Normatov» — может быть дубль"]},
         {"full_name": "Юсупов Сардор", "issues": []},
         {"full_name": "Юсупов Сардор", "issues": ["встречается в списке дважды"]},
         {"full_name": "Эргашев", "issues": []},
         {"full_name": "Абдуллаев Ботир", "issues": ["объект «Сергели» не найден — выберите из списка"]},
     ]
-    expected = {"Азамат Норматов": "duplicate", "Сардор Юсупов": "twice", "Эргашев": "surname"}
+    expected = {"Azamat Normatov": "duplicate", "Сардор Юсупов": "twice", "Эргашев": "surname"}
 
     result = score_import(rows, expected)
 
-    assert result["caught"] == ["Азамат Норматов: duplicate", "Сардор Юсупов: twice"]
+    assert result["caught"] == ["Azamat Normatov: duplicate", "Сардор Юсупов: twice"]
     assert result["missed"] == ["Эргашев: surname"]
     assert len(result["false_flags"]) == 1
     assert result["passed"] is False
@@ -179,7 +179,7 @@ def test_a_card_about_setup_accuses_no_one():
 
 def test_asking_about_a_real_absence_is_not_an_accusation():
     outcome = _outcome(
-        _card("medium", [[("timesheet_day", "e-dilshod:2026-10-27")]], subject=("employee", "e-dilshod", "Дилшод Мирзаев"))
+        _card("medium", [[("timesheet_day", "e-dilshod:2026-10-27")]], subject=("employee", "e-dilshod", "Dilshod Mirzaev"))
     )
     outcome["analysis"]["run"]["steps"].append(
         {"name": "get_timesheet_summary", "output": {"unusual_days": [{"id": "e-dilshod:2026-10-27", "day_kind": "absent"}]}}
@@ -189,7 +189,7 @@ def test_asking_about_a_real_absence_is_not_an_accusation():
 
 
 def test_a_card_about_a_person_is_not_exempt_by_its_label():
-    card = _card("medium", [[("event", "ev-e-dilshod")]], subject=("employee", "e-dilshod", "Дилшод Мирзаев"))
+    card = _card("medium", [[("event", "ev-e-dilshod")]], subject=("employee", "e-dilshod", "Dilshod Mirzaev"))
     card["finding"]["concern"] = "setup"
 
-    assert score_analysis(_outcome(card), "dead_souls")["falsely_accused"] == ["Дилшод Мирзаев"]
+    assert score_analysis(_outcome(card), "dead_souls")["falsely_accused"] == ["Dilshod Mirzaev"]

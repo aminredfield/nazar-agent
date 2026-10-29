@@ -39,6 +39,7 @@ from nazar_agent.evals.cases import (
     WRONG_SCHEDULE_REAL_START,
     WRONG_SCHEDULE_SITE,
 )
+from nazar_agent.latin import to_latin
 
 ACCUSING = ("medium", "high")
 SCHEDULE_ACTIONS = ("change_schedule",)
@@ -268,4 +269,4 @@ def score_import(rows: list[dict[str, Any]], expected: dict[str, str]) -> dict[s
 
 
 def _same(first: str, second: str) -> bool:
-    return sorted(first.lower().split()) == sorted(second.lower().split())
+    return sorted(to_latin(first).split()) == sorted(to_latin(second).split())

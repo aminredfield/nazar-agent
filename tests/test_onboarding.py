@@ -98,6 +98,19 @@ def test_name_and_site_matching():
     assert match_site("Объект", SITES) is None
 
 
+def test_a_list_in_one_script_meets_nazar_in_the_other():
+    sites = [
+        Site("c", "Chilonzor City, block 3", "7 Arnasoy St, Chilonzor district, Tashkent"),
+        Site("s", "Sergeli warehouse", "42 Yangi Sergeli St, Sergeli district, Tashkent"),
+    ]
+
+    assert same_person("Норматов Азамат", "Azamat Normatov")
+    assert same_person("Хасанов Тимур", "Timur Khasanov")
+    assert match_site("Объект Чиланзар", sites).id == "c"  # a Russian spelling of the district
+    assert match_site("Сергели", sites).id == "s"
+    assert match_site("Site: Chilanzar", sites).id == "c"
+
+
 # ---- drafts and creating employees ----------------------------------------------
 
 @pytest.fixture

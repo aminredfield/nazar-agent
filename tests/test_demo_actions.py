@@ -51,7 +51,7 @@ async def proposed(store: ProposalStore, nazar: NazarClient, action: str, values
 
 async def test_an_adjusted_day_is_what_the_preview_said_and_undo_puts_it_back(demo):
     state, nazar, store = demo
-    azamat = person(state, "Азамат Норматов")
+    azamat = person(state, "Azamat Normatov")
     before = await day(nazar, azamat, "2026-10-26")
     proposal, preview = await proposed(store, nazar, "adjust_shift", {
         "employee_id": azamat, "work_date": "2026-10-26", "reason": "forgot to check out",
@@ -70,7 +70,7 @@ async def test_an_adjusted_day_is_what_the_preview_said_and_undo_puts_it_back(de
 
 async def test_a_dead_souls_day_is_not_paid_and_undo_pays_it_again(demo):
     state, nazar, store = demo
-    timur = person(state, "Тимур Хасанов")
+    timur = person(state, "Timur Hasanov")
     before = await day(nazar, timur, "2026-10-27")
     proposal, preview = await proposed(store, nazar, "void_shift", {
         "employee_id": timur, "work_date": "2026-10-27", "reason": "left ten days ago",
@@ -89,7 +89,7 @@ async def test_a_dead_souls_day_is_not_paid_and_undo_pays_it_again(demo):
 async def test_the_wrong_schedule_is_fixed_from_today_and_undo_restores_it(demo):
     state, nazar, store = demo
     site = next(item for item in state.world.sites.values() if item.key == "yashnobod")
-    zuhra = person(state, "Зухра Набиева")
+    zuhra = person(state, "Zuhra Nabieva")
     proposal, preview = await proposed(store, nazar, "change_schedule", {
         "object_id": site.id, "shift_start": "09:00", "shift_end": "19:00", "reason": "the crew works 09-19",
     })
@@ -109,7 +109,7 @@ async def test_the_wrong_schedule_is_fixed_from_today_and_undo_restores_it(demo)
 
 async def test_a_review_is_recorded_and_undo_restores_the_previous_one(demo):
     state, nazar, store = demo
-    timur = person(state, "Тимур Хасанов")
+    timur = person(state, "Timur Hasanov")
     event = next(item for item in reversed(state.world.events) if item.employee_id == timur)
     proposal, _ = await proposed(store, nazar, "review_event", {
         "event_id": event.id, "status": "insufficient_data", "comment": "a photo of a screen",

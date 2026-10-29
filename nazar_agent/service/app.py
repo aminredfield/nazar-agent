@@ -202,7 +202,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
     @app.get("/api/me")
     async def me(current: Caller = Depends(caller)) -> dict[str, Any]:
         if current.demo:
-            return {"mode": "demo", "full_name": "Демо Стройка", "company_name": "Mustahkam Qurilish", "role": "owner"}
+            return {"mode": "demo", "full_name": "Demo Owner", "company_name": "Mustahkam Qurilish", "role": "owner"}
         return _person_view(current.person) if current.person else {"mode": "service"}
 
     @app.post("/api/demo/reset")

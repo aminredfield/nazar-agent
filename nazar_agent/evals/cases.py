@@ -11,25 +11,25 @@ from dataclasses import dataclass
 from typing import Literal
 
 # Four workers left ten days ago; the foreman keeps checking them in from his phone.
-DEAD_SOULS = ("Тимур Хасанов", "Гулчехра Ибрагимова", "Мохира Юнусова", "Феруза Каримова")
+DEAD_SOULS = ("Timur Hasanov", "Gulchehra Ibragimova", "Mohira Yunusova", "Feruza Karimova")
 # The foreman himself is neither a target nor protected: suspecting him is the point.
-FOREMAN = "Рустам Юлдашев"
+FOREMAN = "Rustam Yuldashev"
 # People who did nothing wrong, each with the reason a careless reader could suspect them.
 PROTECTED = {
-    "Дилшод Мирзаев": "honest foreman, checks in two workers without smartphones from his phone",
-    "Хуршид Рахмонов": "no smartphone, checked in by the honest foreman, on the site all day",
-    "Анвар Бакиров": "no smartphone, checked in by the honest foreman, on the site all day",
-    "Шерзод Алимов": "weak GPS: flags and twice outside the fence, but live selfies and full days",
-    "Зухра Набиева": "arrives at 09:00 because the site's schedule says 08:00 by mistake",
-    "Камола Ташпулатова": "arrives at 09:00 because the site's schedule says 08:00 by mistake",
-    "Дилфуза Эргашева": "arrives at 09:00 because the site's schedule says 08:00 by mistake",
-    "Азамат Норматов": "ordinary worker",
-    "Бобур Каримов": "ordinary worker",
-    "Илхом Тураев": "ordinary worker",
-    "Нодира Сафарова": "ordinary worker",
+    "Dilshod Mirzaev": "honest foreman, checks in two workers without smartphones from his phone",
+    "Hurshid Rahmonov": "no smartphone, checked in by the honest foreman, on the site all day",
+    "Anvar Bakirov": "no smartphone, checked in by the honest foreman, on the site all day",
+    "Sherzod Alimov": "weak GPS: flags and twice outside the fence, but live selfies and full days",
+    "Zuhra Nabieva": "arrives at 09:00 because the site's schedule says 08:00 by mistake",
+    "Kamola Tashpulatova": "arrives at 09:00 because the site's schedule says 08:00 by mistake",
+    "Dilfuza Ergasheva": "arrives at 09:00 because the site's schedule says 08:00 by mistake",
+    "Azamat Normatov": "ordinary worker",
+    "Bobur Karimov": "ordinary worker",
+    "Ilhom Turaev": "ordinary worker",
+    "Nodira Safarova": "ordinary worker",
 }
-WRONG_SCHEDULE_SITE = "ЖК «Яшнабад», отделка"
-WRONG_SCHEDULE_CREW = ("Зухра Набиева", "Камола Ташпулатова", "Дилфуза Эргашева")
+WRONG_SCHEDULE_SITE = "Yashnobod residential, finishing"
+WRONG_SCHEDULE_CREW = ("Zuhra Nabieva", "Kamola Tashpulatova", "Dilfuza Ergasheva")
 WRONG_SCHEDULE_REAL_START = "09:00"  # the site says 08:00
 
 # A foreman's list for a new crew: one existing employee (in the other word
@@ -42,7 +42,7 @@ NEW_CREW_LIST = """Объект Чиланзар:
 5. Эргашев
 Объект Сергели:
 6. Абдуллаев Ботир"""
-LIST_DUPLICATE_OF_EMPLOYEE = "Азамат Норматов"
+LIST_DUPLICATE_OF_EMPLOYEE = "Azamat Normatov"
 LIST_TWICE = "Сардор Юсупов"
 LIST_SURNAME_ONLY = "Эргашев"
 

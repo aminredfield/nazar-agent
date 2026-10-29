@@ -21,6 +21,7 @@ from uuid import UUID
 from pydantic import Field
 
 from nazar_agent.engine import Tool, ToolParams
+from nazar_agent.latin import to_latin
 from nazar_agent.nazar import NazarClient
 from nazar_agent.tools.common import COMPANY_TZ, call_nazar
 from nazar_agent.tools.schedules import scan_events
@@ -47,12 +48,6 @@ STATUSES = {
 }
 _ORDER = {"not_arrived": 0, "on_site": 1, "left": 2, "not_started_yet": 3, "day_off": 4}
 
-_LATIN = str.maketrans({
-    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "yo", "ж": "j", "з": "z", "и": "i", "й": "y",
-    "к": "k", "л": "l", "м": "m", "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u", "ф": "f",
-    "х": "h", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "sh", "ъ": "", "ы": "i", "ь": "", "э": "e", "ю": "yu", "я": "ya",
-    "ў": "o", "қ": "q", "ғ": "g", "ҳ": "h",
-})
 
 
 class TodayParams(ToolParams):
@@ -358,8 +353,7 @@ def _word_match(asked: str, word: str) -> float:
 
 
 def _words(text: str) -> list[str]:
-    plain = re.sub(r"[ʻʼ'`’‘]", "", text.lower()).translate(_LATIN)
-    plain = plain.replace("kh", "h").replace("x", "h").replace("zh", "j")
+    plain = to_latin(text)
     # Uzbek forms of address and Russian case endings say nothing about who it is.
     return [word for word in re.findall(r"[a-z0-9]+", plain) if word not in {"aka", "opa"} and len(word) > 1]
 
