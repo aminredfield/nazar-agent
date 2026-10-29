@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from functools import lru_cache
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -15,6 +15,17 @@ from nazar_agent.llm import ChatCompletionsClient, LLMClient, MetaResponsesClien
 
 log = logging.getLogger(__name__)
 COMPANY_TZ = ZoneInfo("Asia/Tashkent")
+
+
+WORKING_MORNING = time(11, 30)
+
+
+def working_morning(real: datetime) -> datetime:
+    """11:30 of the latest weekday (Monday to Friday) on or before this local day."""
+    day = real.astimezone(COMPANY_TZ).date()
+    while day.isoweekday() > 5:
+        day -= timedelta(days=1)
+    return datetime.combine(day, WORKING_MORNING, tzinfo=COMPANY_TZ)
 
 
 class Settings(BaseSettings):
@@ -43,6 +54,10 @@ class Settings(BaseSettings):
     # The demo standing still at this moment, for the agent too: evals that
     # give the same answers every run, a video recorded at 11:30 on a weekday.
     demo_now: datetime | None = None
+    # "workday": the demo always shows the latest weekday at 11:30 Tashkent time,
+    # today's date or the Friday before — a judge in another time zone never
+    # finds a company asleep. "real": Tashkent's own clock.
+    demo_clock: Literal["real", "workday"] = "real"
     nazar_base_url: str = ""
     # The assistant key NAZAR shares with this service (AI_AGENT_KEY there):
     # only with it is the cabinet's pass exchanged for the person's session.
@@ -98,8 +113,18 @@ class Settings(BaseSettings):
         return self
 
     def now(self) -> datetime:
-        """The company's present moment: real time, or the demo's stopped clock."""
-        return (self.demo_now or datetime.now(COMPANY_TZ)).astimezone(COMPANY_TZ)
+        """The company's present moment: real time, the demo's stopped clock, or its working morning."""
+        if self.demo_now is not None:
+            return self.demo_now.astimezone(COMPANY_TZ)
+        real = datetime.now(COMPANY_TZ)
+        if self.demo_mode and self.demo_clock == "workday":
+            return working_morning(real)
+        return real
+
+    @property
+    def demo_clock_runs(self) -> bool:
+        """Whether the demo NAZAR follows this settings' clock rather than the real one."""
+        return self.demo_now is not None or (self.demo_mode and self.demo_clock == "workday")
 
     @property
     def allowed_chat_ids(self) -> frozenset[int]:

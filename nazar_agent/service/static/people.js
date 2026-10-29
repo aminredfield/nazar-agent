@@ -32,6 +32,7 @@ $("import-form").addEventListener("submit", async (event) => {
   const form = new FormData();
   if ($("import-text").value.trim()) form.append("text", $("import-text").value);
   if (importFile) form.append("file", importFile);
+  form.append("lang", LANG);
   $("import-read").disabled = true;
   $("import-status").className = "status";
   $("import-status").textContent = t("import_reading");

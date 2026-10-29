@@ -21,6 +21,8 @@ services:
       SKEPTIC_BASE_URL: ${SKEPTIC_BASE_URL:-}
       SKEPTIC_API_KEY: ${SKEPTIC_API_KEY:-}
       DEMO_MODE: "true"
+      # Always a working morning in Tashkent, whatever the hour where it is opened.
+      DEMO_CLOCK: ${DEMO_CLOCK:-workday}
       # Plain HTTP on this machine: the cookie must not ask for HTTPS.
       COOKIE_SECURE: "false"
     volumes:

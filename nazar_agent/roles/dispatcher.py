@@ -81,7 +81,9 @@ Uzbek (code picks Latin or Cyrillic letters from the message), en, ru. A
 Russian message with a few Uzbek words is ru.
 
 date_from and date_to — the local days the question is about, as
-YYYY-MM-DD, or "" for both when it names no period. "Now" and "today" are
+YYYY-MM-DD, or "" for both when it names no period. A question with no time
+word ("who really comes to the site?", "what should I check?") names no
+period: leave both empty, the analyst picks one. "Now" and "today" are
 today; "yesterday" is the day before; "last week" is Monday to Sunday of the
 previous week; "this week" is Monday to today; "on Monday" is the latest
 Monday before today; "this month" is its first day to today; "tomorrow" is
@@ -90,7 +92,8 @@ the day after today.
 people and sites — names exactly as written in the message.
 
 meant — the message as one full question on its own, in the message's
-language; the message itself when it already is one.
+language; the message itself when it already is one. Never add a period, a
+name or a site that neither the message nor the conversation gives.
 """
 
 

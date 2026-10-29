@@ -72,8 +72,7 @@ def demo_link(settings: Settings) -> NazarLink:
     # Imported here: the demo pulls in photo generation, which the real setup never needs.
     from nazar_agent.demo.server import DEMO_AGENT_KEY, DEMO_EMAIL, DEMO_PASSWORD, DemoNazar, create_app
 
-    stopped = settings.demo_now
-    clock = (lambda: stopped) if stopped is not None else None
+    clock = settings.now if settings.demo_clock_runs else None
     demo = DemoNazar.today(clock, agent_url=f"http://{settings.service_host}:{settings.service_port}")
     return NazarLink(
         base_url=DEMO_BASE_URL,

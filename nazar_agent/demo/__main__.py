@@ -33,6 +33,8 @@ def main() -> int:
     try:
         settings = Settings(
             demo_mode=True,
+            # A working morning whatever the hour where the demo is opened.
+            demo_clock=os.environ.get("DEMO_CLOCK", "workday"),
             telegram_bot_token=None,
             service_host=args.host,
             service_port=args.port,

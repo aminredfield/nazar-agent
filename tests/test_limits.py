@@ -13,11 +13,11 @@ def test_questions_per_session_and_a_shared_daily_budget(tmp_path):
 
     for _ in range(2):
         limits.add_cost("judge-1", limits.reserve("judge-1"), 0.03)
-    with pytest.raises(LimitReached, match="2 вопросов на один вход"):
+    with pytest.raises(LimitReached, match="allows 2 questions per visitor"):
         limits.reserve("judge-1")
     asked = limits.reserve("judge-2")  # another session still may ask
     limits.add_cost("judge-2", asked, 0.05)
-    with pytest.raises(LimitReached, match="Дневной лимит демо"):
+    with pytest.raises(LimitReached, match="budget for this public demo is spent"):
         limits.reserve("judge-3")  # 0.11 spent by everyone together
 
     day[0] = date(2026, 11, 3)
@@ -56,7 +56,7 @@ def test_the_window_stops_at_the_limit(tmp_path, monkeypatch):
         second = client.post("/api/import/read", data={"text": "Петров"})
 
     assert first.status_code == 200, first.text
-    assert second.status_code == 429 and "1 вопросов на один вход" in second.json()["detail"]
+    assert second.status_code == 429 and "allows 1 questions per visitor" in second.json()["detail"]
 
 
 def test_a_voice_message_is_checked_against_the_limits_but_not_counted(tmp_path):

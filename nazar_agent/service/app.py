@@ -222,7 +222,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         analyst = None if request.analyst == "auto" else request.analyst
         if current.assistant.busy:
             raise HTTPException(429, owner_message(AssistantBusy(), request.lang))
-        day = _reserve(http, current)
+        day = _reserve(http, current, lang=request.lang)
         cost = FAILED_QUESTION_COST_USD
         try:
             answer = await current.assistant.ask(
@@ -323,7 +323,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
     ) -> dict[str, str]:
         """The window's microphone: speech becomes the question's text, which the owner reads before sending."""
         content = await _read_upload(audio)
-        day = _reserve(http, current, question=False)
+        day = _reserve(http, current, question=False, lang=lang)
         _add_cost(http, current, day, VOICE_COST_ESTIMATE_USD)
         try:
             return {"text": await current.assistant.hear(content or b"", lang)}
@@ -372,10 +372,11 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         http: Request,
         text: str | None = Form(None),
         file: UploadFile | None = File(None),
+        lang: Literal["ru", "uz", "en"] = Form("en"),
         current: Caller = Depends(caller),
     ) -> dict[str, Any]:
         content = await _read_upload(file)
-        day = _reserve(http, current)
+        day = _reserve(http, current, lang=lang)
         _add_cost(http, current, day, IMPORT_COST_ESTIMATE_USD)
         try:
             rows, sites = await current.assistant.read_list(
@@ -490,7 +491,7 @@ def _fresh(assistant: Assistant, view: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _reserve(request: Request, current: Caller, *, question: bool = True) -> str:
+def _reserve(request: Request, current: Caller, *, question: bool = True, lang: str = "en") -> str:
     """Count the question before any model runs. A window opened from NAZAR and a demo browser are limited.
 
     ``question=False`` — a model call that is not a question (the microphone): checked against the limits, not counted.
@@ -500,7 +501,7 @@ def _reserve(request: Request, current: Caller, *, question: bool = True) -> str
     try:
         return request.app.state.limits.reserve(current.session_id, question=question)
     except LimitReached as exc:
-        raise HTTPException(429, str(exc)) from None
+        raise HTTPException(429, exc.said(lang)) from None
 
 
 def _add_cost(request: Request, current: Caller, day: str, cost_usd: float) -> None:

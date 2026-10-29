@@ -14,11 +14,10 @@ function store(key, value) {
   try { localStorage.setItem(key, value); } catch { /* private window: the choice lasts this page only */ }
 }
 
+// English first: the demo is opened by people from anywhere; RU and UZ are a click away.
 function firstLang() {
   const saved = stored("lang");
-  if (LANGS.includes(saved)) return saved;
-  const browser = (navigator.language || "ru").slice(0, 2);
-  return LANGS.includes(browser) ? browser : "ru";
+  return LANGS.includes(saved) ? saved : "en";
 }
 
 let LANG = firstLang();

@@ -32,7 +32,28 @@ CREATE TABLE IF NOT EXISTS usage (
 
 
 class LimitReached(Exception):
-    """A limit stops the question; the message is for the person in the window."""
+    """A limit stops the question; ``said(lang)`` is the message for the person in the window."""
+
+    def __init__(self, kind: str, limit: float) -> None:
+        super().__init__(MESSAGES[kind]["en"].format(limit=limit))
+        self.kind, self.limit = kind, limit
+
+    def said(self, lang: str) -> str:
+        return MESSAGES[self.kind].get(lang, MESSAGES[self.kind]["en"]).format(limit=self.limit)
+
+
+MESSAGES = {
+    "questions": {
+        "en": "This demo allows {limit} questions per visitor a day, and they are used up. Thank you for trying it!",
+        "ru": "В этом демо — {limit} вопросов на посетителя в день, они закончились. Спасибо, что попробовали!",
+        "uz": "Bu demoda bir kunda har bir tashrif buyuruvchiga {limit} ta savol, ular tugadi. Sinab ko'rganingiz uchun rahmat!",
+    },
+    "budget": {
+        "en": "Today's budget for this public demo is spent. It starts again at midnight Tashkent time (UTC+5).",
+        "ru": "Дневной бюджет публичного демо исчерпан. Он начнётся заново в полночь по Ташкенту (UTC+5).",
+        "uz": "Ommaviy demoning bugungi byudjeti tugadi. U Toshkent vaqti bilan yarim tunda (UTC+5) qayta boshlanadi.",
+    },
+}
 
 
 def _today() -> date:
@@ -77,12 +98,9 @@ class Limits:
             ).fetchone()
             (spent,) = connection.execute("SELECT COALESCE(SUM(cost_usd), 0) FROM usage WHERE day = ?", (day,)).fetchone()
             if self.questions_per_session and asked and asked[0] >= self.questions_per_session:
-                raise LimitReached(
-                    f"В демо — {self.questions_per_session} вопросов на один вход. "
-                    "Чтобы продолжить, откройте помощника из кабинета NAZAR ещё раз."
-                )
+                raise LimitReached("questions", self.questions_per_session)
             if self.budget_usd_per_day and spent >= self.budget_usd_per_day:
-                raise LimitReached("Дневной лимит демо исчерпан — он сбросится в полночь по Ташкенту.")
+                raise LimitReached("budget", self.budget_usd_per_day)
             connection.execute(
                 "INSERT INTO usage VALUES (?, ?, ?, 0) ON CONFLICT (day, session) DO UPDATE SET questions = questions + excluded.questions",
                 (day, _key(session_id), int(question)),

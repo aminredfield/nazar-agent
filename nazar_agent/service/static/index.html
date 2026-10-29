@@ -122,17 +122,17 @@
     </section>
   </section>
 
-  <section class="panel glass" id="usage-section">
-    <div class="row"><h2 data-i18n="usage_title"></h2><button type="button" id="refresh-usage" data-i18n="refresh"></button></div>
-    <p class="muted" data-i18n="usage_note"></p>
+  <details class="panel glass fold" id="usage-section">
+    <summary><h2 data-i18n="usage_title"></h2></summary>
+    <div class="row"><p class="muted" data-i18n="usage_note"></p><button type="button" id="refresh-usage" data-i18n="refresh"></button></div>
     <div id="usage" class="usage"></div>
-  </section>
+  </details>
 
-  <section class="panel glass" id="audit-section">
-    <div class="row"><h2 data-i18n="audit_title"></h2><button type="button" id="refresh-audit" data-i18n="refresh"></button></div>
-    <p class="muted" id="decisions"></p>
+  <details class="panel glass fold" id="audit-section">
+    <summary><h2 data-i18n="audit_title"></h2></summary>
+    <div class="row"><p class="muted" id="decisions"></p><button type="button" id="refresh-audit" data-i18n="refresh"></button></div>
     <ol id="audit" class="timeline"></ol>
-  </section>
+  </details>
 </main>
 
 <footer class="foot" data-i18n="footer"></footer>

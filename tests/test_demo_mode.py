@@ -144,3 +144,25 @@ def test_the_one_command_demo_says_what_is_missing(monkeypatch, capsys):
 
     assert main() == 2
     assert "MODEL_API_KEY" in capsys.readouterr().err
+
+
+def test_the_demo_clock_shows_a_working_morning_whatever_the_hour():
+    from datetime import datetime
+
+    from nazar_agent.config import COMPANY_TZ, working_morning
+
+    saturday_night = datetime(2026, 10, 31, 23, 50, tzinfo=COMPANY_TZ)
+    wednesday_dawn = datetime(2026, 10, 28, 2, 0, tzinfo=COMPANY_TZ)
+
+    assert working_morning(saturday_night) == datetime(2026, 10, 30, 11, 30, tzinfo=COMPANY_TZ)  # Friday
+    assert working_morning(wednesday_dawn) == datetime(2026, 10, 28, 11, 30, tzinfo=COMPANY_TZ)
+
+
+def test_the_workday_clock_drives_the_demo_nazar_too(tmp_path):
+    from nazar_agent.nazar.connect import connect
+
+    workday = settings(tmp_path, demo_mode=True, demo_clock="workday")
+    link = connect(workday)
+
+    assert workday.now().strftime("%H:%M") == "11:30" and workday.now().isoweekday() <= 5
+    assert link.demo.world.now == workday.now().astimezone(link.demo.world.now.tzinfo)

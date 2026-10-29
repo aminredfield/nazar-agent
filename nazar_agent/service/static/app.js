@@ -601,6 +601,7 @@ $("ask").addEventListener("submit", async (event) => {
   $("status").textContent = "";
   $("answer").replaceChildren();
   startRun($("question").value);
+  $("run").scrollIntoView({ behavior: "smooth", block: "start" }); // the team's work is the first thing to see
   try {
     const answer = await api("/api/ask", { question: $("question").value, analyst: chosenAnalyst(), lang: LANG });
     await pollProgress(); // a tick may have been in flight: one more for the last events

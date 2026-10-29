@@ -16,12 +16,14 @@ services:
       - .env
     environment:
       DEMO_MODE: "true"
+      # Judges open it from other time zones: always a working morning in Tashkent.
+      DEMO_CLOCK: workday
       # Never the production bot: one token answers in one place only.
       TELEGRAM_BOT_TOKEN: ""
       COOKIE_SECURE: "true"
       # Every visitor may ask this many questions; all together spend at most this per day.
-      DEMO_QUESTIONS_PER_SESSION: ${DEMO_QUESTIONS_PER_SESSION_PUBLIC:-8}
-      DEMO_BUDGET_USD_PER_DAY: ${DEMO_BUDGET_USD_PER_DAY_PUBLIC:-5}
+      DEMO_QUESTIONS_PER_SESSION: ${DEMO_QUESTIONS_PER_SESSION_PUBLIC:-50}
+      DEMO_BUDGET_USD_PER_DAY: ${DEMO_BUDGET_USD_PER_DAY_PUBLIC:-15}
       AGENT_DB_PATH: /data/nazar_agent.sqlite3
       SERVICE_HOST: 0.0.0.0
       SERVICE_PORT: "8100"

@@ -332,6 +332,12 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 
 /* ---- Panels: audit, import ------------------------------------------ */
 .panel { margin-top: 26px; padding: 16px 20px; }
+details.fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; color: var(--ink); }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::after { content: "▾"; color: var(--muted); font-size: 13px; }
+details.fold[open] > summary::after { content: "▴"; }
+details.fold[open] > summary { margin-bottom: 10px; }
+#run { scroll-margin-top: 80px; }
 .panel h2 { margin: 0 8px 0 0; font-size: 16px; }
 .timeline { list-style: none; margin: 8px 0 0; padding: 0; }
 .timeline li { position: relative; padding: 6px 0 6px 20px; font-size: 14px; border-left: 1px solid var(--line); margin-left: 5px; }
@@ -428,7 +434,7 @@ button.mic.recording { color: var(--bad); border-color: var(--bad); background: 
 }
 
 @media (max-width: 760px) {
-  .top { padding: 10px 16px; flex-wrap: wrap; }
+  .top { padding: 10px 16px; flex-wrap: wrap; position: static; }  /* a phone keeps its screen for the answer */
   .team-pill { order: 3; }
   .prefs { margin-left: auto; }
   .usage { overflow-x: auto; }
