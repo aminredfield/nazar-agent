@@ -309,6 +309,7 @@ def _named(row: dict[str, Any], names: dict[str, Any], sites: dict[str, Any]) ->
         "employee_id": row["employee_id"],
         "employee_name": names.get(row["employee_id"]),
         "object_name": (sites.get(row.get("object_id")) or {}).get("name"),
+        "day_kind": row.get("day_code"),
         "late_minutes": row.get("late_minutes"),
     }
 

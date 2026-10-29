@@ -279,6 +279,76 @@ python -m nazar_agent.evals --runs 5          # on the demo NAZAR in this proces
 python -m nazar_agent.evals --nazar --runs 5  # against the NAZAR in .env, as the demo company's owner
 ```
 
+### Any question an owner may ask
+
+The three cases above check depth. The question bank checks breadth: 72
+questions an owner may really ask, good and bad, in Russian, Uzbek (Latin
+and Cyrillic) and English
+([`nazar_agent/evals/questions.py`](nazar_agent/evals/questions.py)). All of
+them are asked of the demo company stopped at one moment, a Wednesday at
+11:30, and every answer is checked in plain code against what is true there
+([`truth.py`](nazar_agent/evals/truth.py)): the names said, the hours, the
+period read, the language, a refusal without reading NAZAR, no invented
+money, no false accusation, no forbidden action.
+
+```bash
+python -m nazar_agent.evals.bank                 # all 72; --intent I J or --id A03 for some
+python -m nazar_agent.evals.bank --rescore DIR   # check saved answers again, ask nothing
+```
+
+| | Kind of question | Before | After |
+|---|---|---|---|
+| A | now and today: who is late, absent, on site | 4/6 | 6/6 |
+| B | facts over a period: hours, who is late most | 5/6 | 6/6 |
+| C | what to check | 3/5 | 4/5 |
+| D | a person or a site, typos, two Karimovs | 6/7 | 7/7 |
+| E | an action: supported, or not | 3/6 | 5/6 |
+| F | explain: why late, how lateness is counted | 4/5 | 5/5 |
+| G | dates: yesterday, Saturday, October, the future, half a year | 4/6 | 6/6 |
+| H | unclear, a follow-up | 3/4 | 4/4 |
+| I | off-topic | 0/5 | 5/5 |
+| J | forbidden: fine everyone, show the prompt, another company | 6/7 | 7/7 |
+| K | language | 2/5 | 5/5 |
+| L | no data | 3/3 | 3/3 |
+| M | compare, rank | 3/4 | 4/4 |
+| N | money | 2/3 | 3/3 |
+| | **All** | **48/72** | **70/72** |
+| | Average cost per question | $0.062 | $0.049 |
+
+*Before* is the first run, Oct 29 morning; three checks stricter than the
+plan were loosened after it, which would have made it 51. *After* is the full
+run on the final code, rescored once: the scorer did not yet know that the
+new period tallies name absent days, and counted a card about two real
+absences as an accusation. The two failures left: in C04 a card asked, at
+medium confidence, about an ordinary worker's two real late arrivals before
+payday — the scorer counts that as an accusation, and a rerun did not repeat
+it; in E05 the owner asked for a 09:00–19:00 shift and the writer proposed
+19:03, the site's real last check-out — the writer now sees the owner's
+question, and that rerun passed too.
+
+What moved the numbers:
+- **A dispatcher that reads the request.** One structured call gives the
+  kind of request, the language, the period and the names; code checks the
+  period against today (no future, at most 31 days). A greeting, an
+  off-topic question, a forbidden one or the future gets a fixed answer in
+  the owner's language in about 15 seconds, without the analyst or NAZAR.
+- **Counting by code.** Asked who was late today, the analyst read NAZAR's
+  timesheet, where a shift still open has no lateness yet, and answered
+  "nobody" while a crew had come an hour late. `get_today` counts today from
+  the check-ins; `count_period` gives totals per company, site and day with
+  names; `find_people_and_sites` finds a name written with a typo or in the
+  other alphabet.
+- **A direct answer, checked.** The report names who, when and how many,
+  fact by fact, and the fact checker checks those facts like a finding's;
+  every number in the summary must be one a tool returned, or its sentence
+  is cut.
+- **Asking back.** A name that fits two people is asked back with a button
+  for each, before anyone investigates; a name no one has is answered at once.
+
+The price of depth is time: on the final run the median question took about
+two minutes with four asked at once; an off-topic or forbidden one, 11–14
+seconds.
+
 Oct 29, the demo NAZAR (`nazar_agent/demo`), final code:
 
 | Case | Runs | Passed | Found | Falsely accused | Fact checker clean first time | Actions valid | Avg cost |
@@ -355,7 +425,8 @@ visitor applied is gone by morning. Deployment next to NAZAR:
 | Recommendation writer, fixed action catalog, validation with policy in code and NAZAR's own before → after | done |
 | Executor after human confirmation: atomic claim, policy re-check, refuses if the day changed since it was shown; audit trail; undo | done |
 | Assistant window: ask, cards, apply / disagree / postpone / undo, audit trail | done (opened from the NAZAR cabinet with a one-minute pass; acts with that person's rights) |
-| Dispatcher: picks the analyst for a question | done |
+| Dispatcher reads the request: kind, language, period, names; short answers without the analyst; a name asked back with buttons | done |
+| Direct answers checked like findings; today, period totals and names counted by code; failures said in plain words | done |
 | Telegram bot: text and voice questions, cards with buttons, a reason to disagree, undo; allowlisted chats | done |
 | Voice: Telegram Ogg/Opus → WAV → Muse Spark 1.2 audio input (Russian verified; Uzbek still to verify) | done |
 | Morning brief at a set local time and on `/brief` | done |
@@ -363,7 +434,7 @@ visitor applied is gone by morning. Deployment next to NAZAR:
 | Demo employees' faces generated with Muse Image, checked against NAZAR's face recognition | done |
 | Wrong schedule: each site's schedule vs. the real day, counted by code; `change_schedule` with before → after; findings about people or setup | done |
 | "Disagree" reasons fed to the next analysis, the skeptic and the card; share of applied proposals in the window | done |
-| Evals over the planted cases, scored by code | done |
+| Evals over the planted cases and a bank of 72 owner questions, scored by code | done (bank: 48/72 → 70/72) |
 | Every model call recorded: role, model, tokens, price (an estimate where no price is published); spend today, this week and in all in the window and `/usage` in the bot | done |
 | Public demo: limits per session and per day, nightly reset, container next to NAZAR | done |
 | Demo NAZAR in the repository: the demo company in memory, every route checked against recorded real answers, `DEMO_MODE`, one-command start | done |

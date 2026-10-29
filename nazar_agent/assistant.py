@@ -195,7 +195,7 @@ class Assistant:
                 log.info("photo inspector: %d/%d tokens on %s", photos.input_tokens, photos.output_tokens, photos.model)
             team = Team(skeptic_llm, settings.skeptic_model, analyst_llm, settings.analyst_model)
             owner_said = {item.subject_id: about(feedback, item.subject_id) for item in feedback}
-            recommendations = await recommend(analysis, team, nazar, today, owner_said)
+            recommendations = await recommend(analysis, team, nazar, today, owner_said, question)
         finally:
             await analyst_llm.aclose()
             await skeptic_llm.aclose()

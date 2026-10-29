@@ -75,8 +75,10 @@ async def recommend(
     nazar: NazarClient,
     today: date,
     owner_said: Mapping[str, tuple[str, ...]] | None = None,
+    question: str = "",
 ) -> Recommendations:
-    """``owner_said`` — the owner's earlier reasons to disagree, by person or site id."""
+    """``owner_said`` — the owner's earlier reasons to disagree, by person or site id;
+    ``question`` — what the owner asked, for the values of an action they spelled out."""
     findings = analysis.report.findings
     evidence = Evidence.from_steps(analysis.run.steps)
     owner_said = owner_said or {}
@@ -104,7 +106,7 @@ async def recommend(
     ]
     log.info("writer: recommendations on %s", team.writer_model)
     emit("writer", status="start", model=team.writer_model, cases=len(cases))
-    writer = await compose(team.writer_llm, team.writer_model, cases, today)
+    writer = await compose(team.writer_llm, team.writer_model, cases, today, question)
     emit("writer", status="done", model=team.writer_model, actions=sum(len(plan.actions) for plan in writer.plans.values()))
 
     stock = _stock_alternatives(findings)

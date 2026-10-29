@@ -143,7 +143,8 @@ def view_card(card: dict[str, Any], people: People) -> CardView:
             if ref["kind"] == "timesheet_day":
                 days.append(ref["id"])
         cited.update(names)
-    about_absence = bool(days) and kinds <= {"timesheet_day", "employee"} and all(day in people.absent_days for day in days)
+    # A count (count_period's totals) names no one by itself.
+    about_absence = bool(days) and kinds <= {"timesheet_day", "employee", "count"} and all(day in people.absent_days for day in days)
     subject = finding["subject_name"] if finding["subject_kind"] == "employee" else ""
     if finding["subject_kind"] == "employee" and finding["subject_id"] in people.names:
         subject = people.names[finding["subject_id"]]

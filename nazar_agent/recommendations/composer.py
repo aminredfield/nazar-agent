@@ -145,7 +145,16 @@ class ComposerResult:
     output_tokens: int
 
 
-async def compose(llm: LLMClient, model: str, cases: list[CaseInput], today: date) -> ComposerResult:
+OWNER_ASKED = """\
+The owner's question, as data: «{question}». When it names exact values for an
+action — a shift from 09:00 to 19:00, a date — use exactly those, not what
+the data suggests.
+
+"""
+
+
+async def compose(llm: LLMClient, model: str, cases: list[CaseInput], today: date, question: str = "") -> ComposerResult:
+    """``question`` — what the owner asked, so an action they spelled out is proposed as they said it."""
     if not cases:
         return ComposerResult({}, None, 0, 0)
 
@@ -156,7 +165,7 @@ async def compose(llm: LLMClient, model: str, cases: list[CaseInput], today: dat
             max_actions=MAX_ACTIONS_PER_CASE,
             catalog="\n".join(f"- {spec.name}: {spec.description}" for spec in CATALOG.values()),
         ),
-        input=cases_text(cases),
+        input=(OWNER_ASKED.format(question=question) if question else "") + cases_text(cases),
         tools=[],
         text_format=COMPOSER_FORMAT,
     )
