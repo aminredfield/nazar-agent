@@ -22,7 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from nazar_agent.engine import tool_schema
 from nazar_agent.llm import LLMClient
 from nazar_agent.setup.draft import Draft, GroupCard, PersonCard, ShiftCard, SiteCard
-from nazar_agent.setup.links import LinkError, Point, point_in, resolve
+from nazar_agent.setup.links import LinkError, Point, point_in_text, resolve
 from nazar_agent.tools.facts import MIN_MATCH, find, similarity
 from nazar_agent.usage import count
 
@@ -108,11 +108,8 @@ async def point_from(message: str, client: httpx.AsyncClient | None = None) -> P
             return await resolve(url.rstrip(".,;)»\""), client)
         except LinkError as exc:
             problem = problem or exc
-    for line in message.splitlines():
-        found = point_in(line)
-        if found:
-            return found
-    return problem
+    without_links = URL.sub(" ", message)
+    return point_in_text(without_links) or problem
 
 
 def merge(

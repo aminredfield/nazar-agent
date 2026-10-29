@@ -51,7 +51,7 @@ class Outcome:
         return (self.setup or {}).get("draft") or {}
 
     def person(self, name: str) -> dict[str, Any]:
-        return next((item for item in self.draft.get("people", []) if name in (item["full_name"] or item["written"])), {})
+        return next((item for item in self.draft.get("people", []) if name in item["full_name"] or name in item["written"]), {})
 
 
 Check = Callable[[Outcome], str | None]
@@ -76,7 +76,7 @@ def routed(*kinds: str) -> tuple[str, Check]:
 
 
 def shift(start: str, end: str, days: list[int]) -> tuple[str, Check]:
-    return expect(f"shift {start}–{end} {days}", lambda out: (out.draft["shift"]["start"], out.draft["shift"]["end"], out.draft["shift"]["days"]) == (start, end, days),
+    return expect(f"shift {start}–{end} {days}", lambda out: (out.draft["shift"]["start"], out.draft["shift"]["end"], list(out.draft["shift"]["days"])) == (start, end, days),
                   lambda out: out.draft.get("shift"))
 
 

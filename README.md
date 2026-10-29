@@ -237,6 +237,72 @@ duplicate flagged; a photo without a face was refused in NAZAR's own words;
 NAZAR's seat limit was reported as is; with a face photo the employee was
 created and added to the site, the site's other assignments unchanged.
 
+## Setting a site up through the chat
+
+"We open the Olmazor site in Chilanzar, here is the point (a map link), shift
+8 to 5, six days, Rustam's crew: Rustam, Bobur Karimov and the new one, Jasur
+Toirov." Nothing is created at once. The team turns the request into cards
+the owner keeps, changes or skips, and a plan of changes in words:
+
+1. **Site** — a new one with its name, address and point (clicked on the map,
+   "I am here", a pasted Yandex/Google/2GIS link or two numbers), or one the
+   company has.
+2. **Shift** — hours and days, with the next dates on that schedule (NAZAR's
+   own preview for a site it has).
+3. **Group** — new or existing; on an existing site it gets its own shift.
+4. **People** — each name found in NAZAR by code; two close names are asked
+   back; a name NAZAR does not have waits for a face photo, as in the import.
+
+The model does one thing: one short structured call reads the fields out of
+the owner's words. Code does the rest ([`nazar_agent/setup/`](nazar_agent/setup)):
+
+- **The point** ([`links.py`](nazar_agent/setup/links.py)): Google writes
+  latitude first, Yandex and 2GIS longitude first; a pin wins over the map's
+  centre. A short link is opened redirect by redirect, only over HTTPS and
+  only to Google's and Yandex's map hosts — no address someone made up is
+  fetched.
+- **Clashes** ([`overlaps.py`](nazar_agent/setup/overlaps.py)): a person who
+  already works elsewhere at the same hours — their own shift there, their
+  group's, or the site's — is found before anything is created, night shifts
+  and Sunday-into-Monday included, with ways out that clash with nothing
+  ("move the shift to 18:00–03:00", "leave them out").
+- **What is missing** is asked, never guessed: a point, a shift, which of two
+  Karimovs.
+- **Each step is a sentence written by code** from the parameters NAZAR will
+  get, in Russian, Uzbek or English: «Создам объект «ЖК Олмазор», Чиланзар:
+  точка 41.28561, 69.20341, радиус 100 м; смена 08:00–17:00, пн–сб.»
+- **The next message changes the same draft**: "make it 9 to 18, not Bobur".
+- **Apply all** rebuilds the plan from what NAZAR says at that moment, runs
+  the steps in order with the rights of whoever presses it, writes each to
+  the audit trail and keeps what its undo needs; the first step that fails
+  stops it. **Undo all** takes the steps back, last first, once — and says
+  what it cannot undo. Moving someone off another site is not offered yet:
+  NAZAR has no clean undo for it.
+
+The demo NAZAR learned the routes this needs (`POST/DELETE /objects`, groups
+at a site, `/departments`, the schedule preview), recorded from a real NAZAR
+on a site and a group made for it and deleted again; the contract tests keep
+the demo honest.
+
+```bash
+python -m nazar_agent.evals.setup    # seven conversations on a fresh demo company each
+```
+
+| | Case | Checked by code |
+|---|---|---|
+| S01 | a new site from a Yandex link, a crew, a newcomer | the site, its point, the shift, the group; two found, one waits for a photo; six steps; both clashes found; applied → the demo holds it → undone → as before |
+| S02 | the same, then "make it 9 to 18, not Bobur" | the shift changed, Bobur left out, the site and point kept |
+| S03 | in English, a point as two numbers in a sentence | the point, the steps in English, a clash; applied and undone |
+| S04 | in Uzbek, a second-shift group on a site the company has | the existing site, a group with its own 14:00–22:00 shift; applied and undone |
+| S05 | a new site with no point and no shift | asks for both; nothing to apply |
+| S06 | "put Karimov on Sergeli" | the site found; which of the two Karimovs is asked |
+| S07 | "delete the Sergeli site" | refused as unsupported; no setup |
+| | **All** | **7/7, 38/38 checks, $0.008 for the whole run**; 20–80 s per message |
+
+The first run found a real gap: coordinates written inside a sentence were
+not read (only a message that was nothing but two numbers). Fixed, and the
+run above is the second.
+
 ## Meta models
 
 | Role | Model |
@@ -431,6 +497,7 @@ visitor applied is gone by morning. Deployment next to NAZAR:
 | The window in Russian, Uzbek or English, with NAZAR's own terms; light by default in NAZAR's colours, dark at a click; failures said in the window's language, which also answers a question with no clear language of its own | done |
 | Telegram bot: text and voice questions, cards with buttons, a reason to disagree, undo; allowlisted chats | done |
 | Voice: Telegram Ogg/Opus → WAV → Muse Spark 1.2 audio input (Russian verified; Uzbek still to verify) | done |
+| Setting a site up through the chat: cards (site with a map, "I am here" or a map link; shift; group; people), clashes counted by code, the plan of changes in words in three languages, Apply all / Undo all with the audit trail; the demo NAZAR answers the routes it needs | done (7/7 setup cases; a move to another site is not offered yet) |
 | A conversation, in the window and in a Telegram chat: "А вчера?" after "Кто сегодня опоздал?" is read with the turn before it — the dispatcher writes it out in full ("I took the question as: …"), the analyst gets that and the previous answer; earlier answers stay below, folded, their buttons live; "New conversation" starts over | done |
 | Voice and photos in the window: a microphone (the same transcription as the bot, the text put in the box to read before sending; no speech heard is said so, not typed in); one photo zone everywhere — drop, paste, choose, or take with the webcam or the phone's camera | done (Russian speech heard right; English from a synthetic voice comes back garbled — Muse Spark 1.2's limit, Muse Spark 1.3 takes no audio) |
 | Morning brief at a set local time and on `/brief` | done |

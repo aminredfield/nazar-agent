@@ -24,6 +24,8 @@ MAX_HOPS = 5
 TIMEOUT_SECONDS = 5.0
 NUMBER = r"-?\d{1,3}(?:\.\d+)?"
 PAIR = re.compile(rf"({NUMBER})\s*[,;\s]\s*({NUMBER})")
+# Two numbers inside a sentence ("…at 41.2268, 69.2190, shift…"): only with decimals, so "с 8, 17" is not a point.
+IN_TEXT = re.compile(r"(?<![\d.])(-?\d{1,2}\.\d{3,})\s*[,;]?\s*(-?\d{1,3}\.\d{3,})(?![\d.])")
 GOOGLE_PIN = re.compile(rf"!3d({NUMBER})!4d({NUMBER})")
 GOOGLE_VIEW = re.compile(rf"@({NUMBER}),({NUMBER})")
 GOOGLE_HOSTS = re.compile(r"^(?:www\.|maps\.)?google\.[a-z.]{2,6}$")
@@ -80,6 +82,12 @@ def point_in(text: str) -> Point | None:
     if TWO_GIS_HOSTS.match(host):
         return _pair(query.get("m", [""])[0].split("/")[0], latitude_first=False, source="2gis")
     return None
+
+
+def point_in_text(text: str) -> Point | None:
+    """Coordinates written inside a sentence, latitude first, as maps copy them."""
+    match = IN_TEXT.search(text)
+    return _point(match.group(1), match.group(2), "numbers") if match else None
 
 
 def is_map_link(text: str) -> bool:
