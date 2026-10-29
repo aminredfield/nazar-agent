@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="/static/app.css?v=10">
-<script src="/static/i18n.js?v=10"></script>
+<link rel="stylesheet" href="/static/app.css?v=11">
+<script src="/static/i18n.js?v=11"></script>
 </head>
 <body>
 <div class="backdrop" aria-hidden="true"></div>
@@ -64,6 +64,7 @@
           <button type="button" data-value="timesheet" aria-checked="false" role="radio" data-i18n="seg_timesheet"></button>
         </div>
         <label class="muted actor" id="actor-label"><span data-i18n="you"></span> <input type="text" id="actor" value="Владелец" maxlength="80"></label>
+        <button type="button" class="mic" id="mic" hidden data-i18n-title="mic" data-i18n-aria="mic">🎤</button>
         <button class="primary" id="send" type="submit"><span data-i18n="send"></span></button>
       </div>
       <div class="status" id="status"></div>
@@ -101,8 +102,9 @@
   <section id="tab-import" hidden>
     <form class="ask glass" id="import-form">
       <textarea id="import-text" maxlength="20000" data-i18n-placeholder="import_placeholder"></textarea>
+      <div id="import-zone"></div>
       <div class="row">
-        <label class="file"><span data-i18n="import_file"></span> <input type="file" id="import-file" accept="image/jpeg,image/png,image/webp,.xlsx,.csv,.txt"></label>
+        <span id="import-chosen"></span>
         <button class="primary" id="import-read" type="submit"><span data-i18n="import_read"></span></button>
       </div>
       <div class="status" id="import-status"></div>
@@ -132,6 +134,7 @@
 </main>
 
 <footer class="foot" data-i18n="footer"></footer>
-<script src="/static/app.js?v=10"></script>
+<script src="/static/media.js?v=11"></script>
+<script src="/static/app.js?v=11"></script>
 </body>
 </html>

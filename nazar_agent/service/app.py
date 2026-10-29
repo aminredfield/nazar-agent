@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -41,18 +42,21 @@ from nazar_agent.config import Settings, get_settings
 from nazar_agent.errors import owner_message
 from nazar_agent.feedback import agreement
 from nazar_agent.limits import LimitReached, Limits
-from nazar_agent.usage import Ledger, Meter, NazarUsageReport, metering
+from nazar_agent.usage import Ledger, NazarUsageReport
 from nazar_agent.nazar import NazarClient
 from nazar_agent.nazar.connect import NazarLink, connect
 from nazar_agent.telegram import Bot, TelegramApi
 from nazar_agent.telegram.schedule import parse_brief_time, run_daily
 from nazar_agent.views import audit_view, proposal_view
-from nazar_agent.voice import transcribe
+from nazar_agent.voice import VoiceError
 
 STATIC = Path(__file__).parent / "static"
+log = logging.getLogger(__name__)
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 # Reading a list is one short model call; its cost is not metered, so it counts as this.
 IMPORT_COST_ESTIMATE_USD = 0.01
+# Turning up to two minutes of speech into text: one short call, counted at this for the demo budget.
+VOICE_COST_ESTIMATE_USD = 0.005
 # A question that failed midway spent tokens nobody counted; for the demo budget it costs this.
 FAILED_QUESTION_COST_USD = 0.10
 # A demo browser's own session: the demo limits count questions per browser.
@@ -288,6 +292,25 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
                     proposals[entry.proposal_id] = None
         return [audit_view(entry, proposals[entry.proposal_id]) for entry in entries]
 
+    @app.post("/api/voice")
+    async def voice(
+        http: Request,
+        audio: UploadFile = File(...),
+        lang: Literal["ru", "uz", "en"] = Form("ru"),
+        current: Caller = Depends(caller),
+    ) -> dict[str, str]:
+        """The window's microphone: speech becomes the question's text, which the owner reads before sending."""
+        content = await _read_upload(audio)
+        day = _reserve(http, current, question=False)
+        _add_cost(http, current, day, VOICE_COST_ESTIMATE_USD)
+        try:
+            return {"text": await current.assistant.hear(content or b"", lang)}
+        except VoiceError as exc:
+            raise HTTPException(422, exc.said(lang)) from exc
+        except Exception as exc:  # the model failed: what happened and what to do, in the window's language
+            log.exception("voice failed")
+            raise HTTPException(503, owner_message(exc, lang)) from exc
+
     @app.post("/api/import/read")
     async def read_import(
         http: Request,
@@ -374,12 +397,15 @@ class Caller:
         return self.name or typed.strip() or "Владелец"
 
 
-def _reserve(request: Request, current: Caller) -> str:
-    """Count the question before any model runs. A window opened from NAZAR and a demo browser are limited."""
+def _reserve(request: Request, current: Caller, *, question: bool = True) -> str:
+    """Count the question before any model runs. A window opened from NAZAR and a demo browser are limited.
+
+    ``question=False`` — a model call that is not a question (the microphone): checked against the limits, not counted.
+    """
     if current.person is None and not current.demo:
         return ""
     try:
-        return request.app.state.limits.reserve(current.session_id)
+        return request.app.state.limits.reserve(current.session_id, question=question)
     except LimitReached as exc:
         raise HTTPException(429, str(exc)) from None
 
@@ -434,17 +460,7 @@ def _start_telegram(settings: Settings, assistant: Assistant) -> tuple[list[asyn
         return [], None
     api = TelegramApi(settings.telegram_bot_token.get_secret_value(), proxy=settings.telegram_proxy)
 
-    async def voice_to_text(audio: bytes) -> str:
-        llm = settings.analyst_llm()
-        meter = Meter()
-        try:
-            with metering(meter):
-                return await transcribe(llm, settings.voice_model, audio)
-        finally:
-            await llm.aclose()
-            await assistant.spent("voice", "(voice message)", meter)
-
-    bot = Bot(api, assistant, settings.allowed_chat_ids, voice_to_text)
+    bot = Bot(api, assistant, settings.allowed_chat_ids, assistant.hear)
     tasks = [asyncio.create_task(bot.run())]
     brief_at = parse_brief_time(settings.brief_time)
     if brief_at is not None:

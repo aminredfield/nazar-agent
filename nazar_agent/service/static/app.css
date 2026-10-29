@@ -197,7 +197,6 @@ button.primary::after {
 }
 button.primary:hover:not(:disabled)::after { animation: shine 1s ease; }
 button.primary:hover:not(:disabled) { box-shadow: 0 10px 30px rgba(124, 58, 237, 0.55); background: linear-gradient(135deg, var(--violet-deep), var(--violet-strong) 55%, var(--violet)); }
-#send { margin-left: auto; }
 
 .suggest { display: flex; flex-wrap: wrap; gap: 8px; }
 .suggest button { font-size: 13px; border-radius: 999px; padding: 5px 12px; color: var(--muted); }
@@ -351,6 +350,27 @@ ul.plain li { padding: 6px 0; border-bottom: 1px solid var(--line); }
 .issue { color: var(--warn); font-size: 13px; }
 .shoot { margin-top: 16px; padding: 22px; text-align: center; border-radius: var(--radius); border: 1px solid var(--line-strong); background: var(--panel); }
 .shoot .next { font-size: 24px; font-weight: 700; margin: 6px 0; }
+/* ---- Voice, photos, the camera ---------------------------------------- */
+button.mic { width: 42px; height: 42px; padding: 0; font-size: 18px; border-radius: 12px; }
+button.mic.recording { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); animation: pulse 1.2s ease-in-out infinite; }
+#send { margin-left: 0; }
+.mic { margin-left: auto; }
+.mic[hidden] + #send { margin-left: auto; }
+.zone { margin: 4px 0; padding: 14px; text-align: center; border: 1.5px dashed var(--line-strong); border-radius: 12px; background: var(--panel); transition: border-color .15s, background .15s; }
+.zone.over { border-color: var(--violet); background: var(--violet-soft); }
+.zone .zone-hint { color: var(--muted); font-size: 14px; }
+.zone .row { justify-content: center; margin-top: 8px; }
+.zone .zone-msg { margin-top: 6px; font-size: 13px; color: var(--bad); }
+.zone .zone-msg:empty { display: none; }
+.zone.compact { display: inline-block; margin: 0; padding: 3px 6px; border-radius: 10px; }
+.zone.compact .row { margin-top: 0; gap: 6px; }
+.zone.compact button { padding: 4px 10px; font-size: 13px; }
+.shoot .zone { margin: 14px auto; max-width: 420px; }
+#import-chosen .chip button { margin-left: 6px; padding: 0 6px; border: 0; background: transparent; }
+.camera-overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(12, 1, 24, 0.6); }
+.camera-box { display: grid; gap: 12px; width: 100%; max-width: 640px; padding: 14px; border-radius: var(--radius); background: var(--card-solid); border: 1px solid var(--line); }
+.camera-box video { width: 100%; max-height: 70vh; border-radius: 12px; background: #000; }
+.camera-box .row { justify-content: center; }
 .shoot label.camera { display: inline-block; margin: 14px 0; padding: 14px 28px; font-size: 18px; border-radius: 14px; cursor: pointer; font-weight: 600; color: #fff; background: linear-gradient(135deg, var(--violet-deep), var(--violet)); box-shadow: 0 8px 26px rgba(124, 58, 237, 0.4); }
 .shoot input[type=file] { display: none; }
 

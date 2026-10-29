@@ -446,6 +446,77 @@ for (const button of $("suggest").children) {
 }
 
 // Enter asks, Shift+Enter starts a new line.
+// ---- Voice ------------------------------------------------------------------
+// The microphone records in the browser; the agent turns it into text (the
+// same model as for the bot's voice messages) and puts it in the box, for the
+// owner to read and send.
+const MAX_VOICE_SECONDS = 120;
+const mic = { recorder: null, timer: null, started: 0 };
+
+function showMic(recording) {
+  $("mic").classList.toggle("recording", recording);
+  $("mic").textContent = recording ? "■" : "🎤";
+  $("mic").dataset.i18nTitle = recording ? "mic_stop" : "mic";
+  $("mic").title = t($("mic").dataset.i18nTitle);
+}
+
+function say(text, kind = "") {
+  $("status").className = `status ${kind}`;
+  $("status").textContent = text;
+}
+
+async function hear(blob, type) {
+  const form = new FormData();
+  form.append("audio", blob, type.includes("mp4") ? "voice.mp4" : type.includes("ogg") ? "voice.ogg" : "voice.webm");
+  form.append("lang", LANG);
+  say(t("mic_hearing"));
+  $("mic").disabled = true;
+  try {
+    const { text } = await upload("/api/voice", form);
+    const typed = $("question").value.trim();
+    $("question").value = typed ? `${typed} ${text}` : text;
+    $("question").focus();
+    say(t("mic_heard"));
+  } catch (error) {
+    say(error.message, "error");
+  } finally {
+    $("mic").disabled = false;
+  }
+}
+
+$("mic").addEventListener("click", async () => {
+  if (mic.recorder) { mic.recorder.stop(); return; }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    say(t("mic_denied"), "error");
+    return;
+  }
+  const recorder = new MediaRecorder(stream);
+  const chunks = [];
+  recorder.addEventListener("dataavailable", (event) => { if (event.data.size) chunks.push(event.data); });
+  recorder.addEventListener("stop", () => {
+    for (const track of stream.getTracks()) track.stop();
+    clearInterval(mic.timer);
+    mic.recorder = null;
+    showMic(false);
+    const type = recorder.mimeType || "audio/webm";
+    hear(new Blob(chunks, { type }), type);
+  });
+  Object.assign(mic, { recorder, started: performance.now() });
+  recorder.start();
+  showMic(true);
+  const tick = () => {
+    const elapsed = (performance.now() - mic.started) / 1000;
+    say(t("mic_recording", seconds(elapsed)));
+    if (elapsed >= MAX_VOICE_SECONDS && recorder.state === "recording") recorder.stop();
+  };
+  tick();
+  mic.timer = setInterval(tick, 200);
+});
+$("mic").hidden = !(window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
 $("question").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
     event.preventDefault();
@@ -530,11 +601,24 @@ async function upload(path, form) {
   return data;
 }
 
+// The list to read: a photo of a notebook, an Excel or CSV file, from the zone.
+let importFile = null;
+function chooseImportFile(file) {
+  importFile = file;
+  if (!file) { $("import-chosen").replaceChildren(); return; }
+  const drop = el("button", { type: "button", class: "small", "aria-label": t("remove") }, "✕");
+  drop.addEventListener("click", () => chooseImportFile(null));
+  $("import-chosen").replaceChildren(el("span", { class: "chip" }, t("zone_file", file.name), drop));
+}
+$("import-zone").append(photoZone({
+  accept: "image/jpeg,image/png,image/webp,.xlsx,.csv,.txt", hint: "import_file", onFile: chooseImportFile,
+}));
+
 $("import-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = new FormData();
   if ($("import-text").value.trim()) form.append("text", $("import-text").value);
-  if ($("import-file").files[0]) form.append("file", $("import-file").files[0]);
+  if (importFile) form.append("file", importFile);
   $("import-read").disabled = true;
   $("import-status").className = "status";
   $("import-status").textContent = t("import_reading");
@@ -600,11 +684,10 @@ async function loadWaiting() {
   try {
     waiting = await api("/api/import/drafts");
     $("waiting").replaceChildren(...waiting.map((draft) => {
-      const pick = el("input", { type: "file", accept: "image/*" });
-      pick.onchange = () => pick.files[0] && photograph(draft, pick.files[0], null);
+      const pick = photoZone({ compact: true, onFile: (file) => photograph(draft, file, null) });
       const remove = el("button", { type: "button" }, t("remove"));
       remove.onclick = async () => { await api(`/api/import/drafts/${draft.id}/discard`, { actor: $("actor").value }); loadWaiting(); loadAudit(); };
-      return el("li", {}, `${draft.full_name} · ${draft.site_name || t("no_site")} `, el("label", { class: "muted" }, t("photo_label"), pick), remove);
+      return el("li", { class: "row" }, `${draft.full_name} · ${draft.site_name || t("no_site")} `, pick, remove);
     }));
     if (!waiting.length) $("waiting").replaceChildren(el("li", { class: "muted" }, t("nobody_waiting")));
   } catch (error) {
@@ -639,20 +722,17 @@ function shootNext(skipped = new Set()) {
     $("shooting").replaceChildren(el("div", { class: "shoot" }, el("div", { class: "next" }, t("all_shot")), close));
     return;
   }
-  const camera = el("input", { type: "file", accept: "image/*", capture: "environment", id: "camera" });
   const status = el("div", { class: "status" });
+  const camera = photoZone({ onFile: async (file) => { if (await photograph(next, file, status)) shootNext(skipped); } });
   const skip = el("button", { type: "button" }, t("skip"));
   const stop = el("button", { type: "button" }, t("finish"));
-  camera.onchange = async () => {
-    if (camera.files[0] && await photograph(next, camera.files[0], status)) shootNext(skipped);
-  };
   skip.onclick = () => { skipped.add(next.id); shootNext(skipped); };
   stop.onclick = () => $("shooting").replaceChildren();
   $("shooting").replaceChildren(el("div", { class: "shoot" },
     el("div", { class: "muted" }, t("left", waiting.filter((draft) => !skipped.has(draft.id)).length)),
     el("div", { class: "next" }, t("next", next.full_name)),
     el("div", { class: "muted" }, next.site_name || t("no_site")),
-    el("label", { class: "camera", for: "camera" }, t("shoot")), camera,
+    camera,
     status, el("div", { class: "row", style: "justify-content:center" }, skip, stop)));
 }
 $("start-shooting").addEventListener("click", async () => { await loadWaiting(); shootNext(); });

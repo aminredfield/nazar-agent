@@ -57,3 +57,13 @@ def test_the_window_stops_at_the_limit(tmp_path, monkeypatch):
 
     assert first.status_code == 200, first.text
     assert second.status_code == 429 and "1 вопросов на один вход" in second.json()["detail"]
+
+
+def test_a_voice_message_is_checked_against_the_limits_but_not_counted(tmp_path):
+    limits = Limits(tmp_path / "usage.sqlite3", questions_per_session=1, budget_usd_per_day=0, today=lambda: date(2026, 11, 2))
+
+    limits.reserve("judge-1", question=False)
+    limits.reserve("judge-1", question=False)
+    limits.reserve("judge-1")  # the one question is still there
+    with pytest.raises(LimitReached):
+        limits.reserve("judge-1", question=False)  # nothing left to say it to

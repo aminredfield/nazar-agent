@@ -59,8 +59,11 @@ class Limits:
     def active(self) -> bool:
         return self.questions_per_session > 0 or self.budget_usd_per_day > 0
 
-    def reserve(self, session_id: str) -> str:
+    def reserve(self, session_id: str, *, question: bool = True) -> str:
         """Count one question for this session, or raise LimitReached; returns the day to add its cost to.
+
+        ``question=False`` checks the same limits but counts nothing: a voice
+        message turned into text is not a question yet.
 
         Check and count happen in one write transaction, so parallel requests
         cannot all slip under the limit.
@@ -81,8 +84,8 @@ class Limits:
             if self.budget_usd_per_day and spent >= self.budget_usd_per_day:
                 raise LimitReached("Дневной лимит демо исчерпан — он сбросится в полночь по Ташкенту.")
             connection.execute(
-                "INSERT INTO usage VALUES (?, ?, 1, 0) ON CONFLICT (day, session) DO UPDATE SET questions = questions + 1",
-                (day, _key(session_id)),
+                "INSERT INTO usage VALUES (?, ?, ?, 0) ON CONFLICT (day, session) DO UPDATE SET questions = questions + excluded.questions",
+                (day, _key(session_id), int(question)),
             )
         return day
 

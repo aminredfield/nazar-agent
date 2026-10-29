@@ -40,6 +40,7 @@ from nazar_agent.tools import PhotoInspector, analyst_tools
 from nazar_agent.tools.common import call_nazar
 from nazar_agent.usage import Ledger, Meter, NazarUsageReport, Source, metering
 from nazar_agent.views import answer_view
+from nazar_agent.voice import transcribe
 
 ANALYSTS = {"attendance": attendance_analyst, "timesheet": timesheet_analyst}
 MAX_VISITORS = 500  # demo browsers kept in memory; the oldest idle one goes first
@@ -130,6 +131,20 @@ class Assistant:
                     await self.spent(source, question, meter)
             self.progress.finish()
             return self.last
+
+    async def hear(self, audio: bytes, lang: str | None = None) -> str:
+        """A voice message — the bot's or the window's microphone — as text, in the language it was said in.
+
+        ``lang`` — the window's language, a hint for the model.
+        """
+        llm = self.settings.analyst_llm()
+        meter = Meter()
+        try:
+            with metering(meter):
+                return await transcribe(llm, self.settings.voice_model, audio, lang)
+        finally:
+            await llm.aclose()
+            await self.spent("voice", "(voice message)", meter)
 
     async def spent(self, source: Source, question: str, meter: Meter) -> None:
         """What a run spent: into the local ledger and, for the superadmin, into NAZAR."""

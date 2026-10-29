@@ -6,6 +6,7 @@ import wave
 from datetime import UTC, datetime, time
 
 import av
+import httpx
 import pytest
 
 from nazar_agent.telegram.schedule import parse_brief_time, seconds_until
@@ -87,3 +88,58 @@ def test_brief_waits_until_the_next_local_time(now_utc, expected_hours):
 def test_brief_time_setting():
     assert parse_brief_time("08:30") == time(8, 30)
     assert parse_brief_time("  ") is None
+
+
+@pytest.fixture
+def window(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from nazar_agent.config import Settings
+    from nazar_agent.service import create_app
+    from tests import factories
+
+    settings = Settings(
+        _env_file=None, model_api_key="k", nazar_base_url="http://nazar.test/api", nazar_email="a", nazar_password="b",
+        agent_db_path=str(tmp_path / "agent.sqlite3"),
+    )
+    route, _ = factories.nazar_routes()
+    heard: list[ScriptedLLM] = []
+
+    def llm(self):
+        heard.append(ScriptedLLM([turn(text=" Кто сегодня опоздал? ")]))
+        return heard[-1]
+
+    monkeypatch.setattr(Settings, "analyst_llm", llm)
+    with TestClient(create_app(settings, nazar_transport=httpx.MockTransport(route))) as client:
+        yield client, heard
+
+
+def test_the_windows_microphone_becomes_the_question_text(window):
+    client, heard = window
+
+    response = client.post(
+        "/api/voice", data={"lang": "en"}, files={"audio": ("voice.webm", ogg_opus(tone_wav(1.0)), "audio/webm")}
+    )
+
+    assert response.status_code == 200 and response.json() == {"text": "Кто сегодня опоздал?"}
+    assert "expect English first" in heard[0].requests[0]["instructions"]
+    sent = heard[0].requests[0]["input"][0]["content"][1]
+    assert sent["type"] == "input_audio" and sent["input_audio"]["format"] == "wav"
+    assert client.get("/api/usage").json()["by_role"][0]["role"] == "voice"
+
+
+def test_audio_the_window_cannot_read_is_said_in_its_language(window):
+    client, heard = window
+
+    response = client.post("/api/voice", data={"lang": "en"}, files={"audio": ("voice.webm", b"not audio", "audio/webm")})
+
+    assert response.status_code == 422 and response.json()["detail"] == "The voice message could not be read."
+    assert not heard[0].requests  # the model was not asked
+
+
+@pytest.mark.parametrize("said", ["Transcribe this voice message.", "No audio received to transcribe.", "   "])
+async def test_no_speech_is_not_put_in_the_box(said):
+    llm = ScriptedLLM([turn(text=said)])
+
+    with pytest.raises(VoiceError, match="Не расслышал"):
+        await transcribe(llm, "m", tone_wav(1.0))
