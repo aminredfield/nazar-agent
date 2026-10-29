@@ -48,7 +48,7 @@ TEXT: dict[Language, dict[str, str]] = {
         "review": "{who}{kind} {day}{site}: запишу итог разбора «{status}». Оплата не меняется.",
     },
     "en": {
-        "schedule": "Site{site}: shift {after}{before} from today{days}. NAZAR does not recount past days.",
+        "schedule": "Location{site}: shift {after}{before} from today{days}. NAZAR does not recount past days.",
         "schedule_before": " instead of {before}",
         "schedule_days": ", working days {after} instead of {before}",
         "adjust": "{who}{day}: count {spans}.",

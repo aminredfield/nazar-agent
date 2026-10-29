@@ -11,7 +11,7 @@ without the analyst (``nazar_agent.replies``).
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from typing import Any, Literal
 
@@ -146,11 +146,20 @@ class Request:
 
 
 FALLBACK = Request(intent="data", analyst=DEFAULT_ANALYST, lang="ru", period=None)
+WINDOW_LANG = """
+The owner's window is in {lang}. When the message's own language is unclear — only names, numbers, or
+words that are the same in several languages — lang is {lang}.
+"""
 
 
-async def parse(llm: LLMClient, model: str, question: str, today: date) -> Request:
-    """The request in a message; an investigation by the timesheet analyst if reading fails."""
-    instructions = INSTRUCTIONS.format(weekday=WEEKDAYS[today.weekday()], today=today.isoformat())
+async def parse(llm: LLMClient, model: str, question: str, today: date, window_lang: Lang = "ru") -> Request:
+    """The request in a message; an investigation by the timesheet analyst if reading fails.
+
+    ``window_lang`` — the owner's window: the answer's language when the message has no clear one.
+    """
+    instructions = INSTRUCTIONS.format(weekday=WEEKDAYS[today.weekday()], today=today.isoformat()) + WINDOW_LANG.format(
+        lang=window_lang
+    )
     turn = await llm.respond(model=model, instructions=instructions, input=question, tools=[], text_format=READING_FORMAT)
     count("dispatcher", model, turn.input_tokens, turn.output_tokens)
     try:
@@ -158,7 +167,7 @@ async def parse(llm: LLMClient, model: str, question: str, today: date) -> Reque
     except ValidationError:
         log.warning("the dispatcher's reading did not parse: %.200s", turn.text)
         emit("route", analyst=DEFAULT_ANALYST, text="")
-        return FALLBACK
+        return replace(FALLBACK, lang=window_lang)
     request = checked(reading, today, question)
     if request.short:
         emit("reply", intent=request.intent, text=reading.reason)

@@ -102,3 +102,12 @@ async def test_a_short_request_never_reaches_the_analyst_or_nazar(tmp_path, monk
 ])
 def test_uzbek_is_answered_in_the_letters_it_was_asked_in(lang, question, expected):
     assert checked(reading(lang=lang), TODAY, question).lang == expected
+
+
+async def test_the_window_language_is_told_and_kept_when_reading_fails():
+    llm = ScriptedLLM([turn(text="not json")])
+
+    request = await parse(llm, "m", "Rustam?", TODAY, "en")
+
+    assert request.lang == "en"
+    assert "The owner's window is in en" in llm.requests[0]["instructions"]

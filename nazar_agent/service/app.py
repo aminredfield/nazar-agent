@@ -63,6 +63,8 @@ _ERROR_STATUS = {"not_found": 404, "wrong_status": 409, "refused": 409, "stale":
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=500)
     analyst: Literal["auto", "attendance", "timesheet"] = "auto"
+    # The window's language: failures are said in it, and an answer when the question's own is unclear.
+    lang: Literal["ru", "uz", "en"] = "ru"
 
 
 class DecisionRequest(BaseModel):
@@ -203,17 +205,17 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
     async def ask(http: Request, request: AskRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
         analyst = None if request.analyst == "auto" else request.analyst
         if current.assistant.busy:
-            raise HTTPException(429, owner_message(AssistantBusy()))
+            raise HTTPException(429, owner_message(AssistantBusy(), request.lang))
         day = _reserve(http, current)
         cost = FAILED_QUESTION_COST_USD
         try:
-            answer = await current.assistant.ask(request.question, analyst, nazar=current.nazar)
+            answer = await current.assistant.ask(request.question, analyst, nazar=current.nazar, lang=request.lang)
             cost = answer.view["stats"]["cost_usd"]
         except AssistantBusy:
             cost = 0.0
-            raise HTTPException(429, owner_message(AssistantBusy())) from None
+            raise HTTPException(429, owner_message(AssistantBusy(), request.lang)) from None
         except Exception as exc:  # logged by the assistant; the owner reads what happened and what to do
-            raise HTTPException(503, owner_message(exc)) from exc
+            raise HTTPException(503, owner_message(exc, request.lang)) from exc
         finally:
             _add_cost(http, current, day, cost)
         return answer.view

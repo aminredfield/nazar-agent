@@ -8,7 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="/static/app.css?v=9">
+<link rel="stylesheet" href="/static/app.css?v=10">
+<script src="/static/i18n.js?v=10"></script>
 </head>
 <body>
 <div class="backdrop" aria-hidden="true"></div>
@@ -16,46 +17,54 @@
 <header class="top">
   <div class="brand">
     <img src="/static/logo.png" alt="" width="34" height="34">
-    <div><strong>NAZAR</strong> <span class="brand-sub">Помощник</span></div>
+    <div><strong>NAZAR</strong> <span class="brand-sub" data-i18n="brand_sub">Помощник</span></div>
   </div>
-  <div class="team-pill" id="team-pill"><span class="dot"></span><span id="team-status">Команда на месте</span></div>
+  <div class="team-pill" id="team-pill"><span class="dot"></span><span id="team-status" data-i18n="team_idle">Команда на месте</span></div>
   <div id="who" class="who"></div>
+  <div class="prefs">
+    <div class="seg lang" id="lang-seg" role="radiogroup" data-i18n-aria="language">
+      <button type="button" data-lang="ru" role="radio" aria-checked="false">RU</button>
+      <button type="button" data-lang="uz" role="radio" aria-checked="false">UZ</button>
+      <button type="button" data-lang="en" role="radio" aria-checked="false">EN</button>
+    </div>
+    <button type="button" class="theme" id="theme-toggle">☾</button>
+  </div>
 </header>
 
 <div id="sign-in-notice" class="notice" hidden></div>
 
 <main>
   <section class="hero">
-    <h1>Команда ИИ-агентов проверяет учёт. <span class="grad">Решаете вы.</span></h1>
-    <p class="lead">Аналитики читают данные NAZAR, инспектор смотрит фото отметок, скептик на другой модели ищет невиновные объяснения, а код сверяет каждый факт и каждое действие. Без вашего «Применить» в NAZAR ничего не меняется.</p>
+    <h1><span data-i18n="hero_title">Команда ИИ-агентов проверяет учёт.</span> <span class="grad" data-i18n="hero_grad">Решаете вы.</span></h1>
+    <p class="lead" data-i18n="hero_lead"></p>
     <div class="models">
-      <span class="chip"><i class="m-a"></i>Muse Spark 1.3 — аналитики</span>
-      <span class="chip"><i class="m-o"></i>Muse Spark Open — скептик и фото</span>
-      <span class="chip"><i class="m-c"></i>Код — факты, действия, расчёт</span>
+      <span class="chip"><i class="m-a"></i><span data-i18n="chip_analysts"></span></span>
+      <span class="chip"><i class="m-o"></i><span data-i18n="chip_open"></span></span>
+      <span class="chip"><i class="m-c"></i><span data-i18n="chip_code"></span></span>
     </div>
   </section>
 
   <nav class="tabs" role="tablist">
-    <button type="button" id="tab-ask-button" role="tab" aria-selected="true">Вопрос команде</button>
-    <button type="button" id="tab-import-button" role="tab" aria-selected="false">Импорт сотрудников</button>
+    <button type="button" id="tab-ask-button" role="tab" aria-selected="true" data-i18n="tab_ask"></button>
+    <button type="button" id="tab-import-button" role="tab" aria-selected="false" data-i18n="tab_import"></button>
   </nav>
 
   <section id="tab-ask">
     <form class="ask glass" id="ask">
-      <textarea id="question" maxlength="500" required placeholder="Спросите о своих объектах, например: что стоит проверить в отметках за последние две недели?"></textarea>
+      <textarea id="question" maxlength="500" required data-i18n-placeholder="question_placeholder"></textarea>
       <div class="suggest" id="suggest">
-        <button type="button" data-q="Что стоит проверить в отметках за последние две недели?" data-a="attendance">Отметки за две недели</button>
-        <button type="button" data-q="Что стоит проверить в табеле за последние две недели перед оплатой?" data-a="timesheet">Табель перед оплатой</button>
-        <button type="button" data-q="Кто сегодня не пришёл на объекты?" data-a="auto">Кто сегодня не пришёл</button>
+        <button type="button" data-i18n="s1" data-q="s1_q" data-a="attendance"></button>
+        <button type="button" data-i18n="s2" data-q="s2_q" data-a="timesheet"></button>
+        <button type="button" data-i18n="s3" data-q="s3_q" data-a="auto"></button>
       </div>
       <div class="row">
-        <div class="seg" id="analyst-seg" role="radiogroup" aria-label="Кто разбирает вопрос">
-          <button type="button" data-value="auto" aria-checked="true" role="radio">Выберет диспетчер</button>
-          <button type="button" data-value="attendance" aria-checked="false" role="radio">Отметки</button>
-          <button type="button" data-value="timesheet" aria-checked="false" role="radio">Табель</button>
+        <div class="seg" id="analyst-seg" role="radiogroup" data-i18n-aria="analyst_aria">
+          <button type="button" data-value="auto" aria-checked="true" role="radio" data-i18n="seg_auto"></button>
+          <button type="button" data-value="attendance" aria-checked="false" role="radio" data-i18n="seg_attendance"></button>
+          <button type="button" data-value="timesheet" aria-checked="false" role="radio" data-i18n="seg_timesheet"></button>
         </div>
-        <label class="muted actor" id="actor-label">Вы: <input type="text" id="actor" value="Владелец" maxlength="80"></label>
-        <button class="primary" id="send" type="submit"><span>Спросить команду</span></button>
+        <label class="muted actor" id="actor-label"><span data-i18n="you"></span> <input type="text" id="actor" value="Владелец" maxlength="80"></label>
+        <button class="primary" id="send" type="submit"><span data-i18n="send"></span></button>
       </div>
       <div class="status" id="status"></div>
     </form>
@@ -65,21 +74,21 @@
         <div class="run-head">
           <span class="orb" id="run-orb"></span>
           <div class="run-titles">
-            <b id="run-title">Команда работает</b>
+            <b id="run-title"></b>
             <span id="run-question" class="muted"></span>
           </div>
-          <span class="timer" id="run-timer">0,0 с</span>
+          <span class="timer" id="run-timer"></span>
         </div>
         <div class="scan" id="run-scan"></div>
         <div class="run-body">
           <ol class="roster" id="roster">
-            <li data-agent="dispatcher"><span class="node"></span><div><b>Диспетчер</b><small>Muse Spark 1.3</small></div></li>
-            <li data-agent="analyst"><span class="node"></span><div><b id="analyst-name">Аналитик</b><small>Muse Spark 1.3</small></div></li>
-            <li data-agent="photos"><span class="node"></span><div><b>Инспектор фото</b><small>Muse Spark Open</small></div></li>
-            <li data-agent="checker"><span class="node"></span><div><b>Проверщик фактов</b><small>код</small></div></li>
-            <li data-agent="skeptic"><span class="node"></span><div><b>Скептик</b><small>Muse Spark Open</small></div></li>
-            <li data-agent="writer"><span class="node"></span><div><b>Составитель</b><small>Muse Spark 1.3</small></div></li>
-            <li data-agent="validator"><span class="node"></span><div><b>Валидатор</b><small>код · NAZAR</small></div></li>
+            <li data-agent="dispatcher"><span class="node"></span><div><b data-i18n="dispatcher"></b><small>Muse Spark 1.3</small></div></li>
+            <li data-agent="analyst"><span class="node"></span><div><b id="analyst-name" data-i18n="analyst"></b><small>Muse Spark 1.3</small></div></li>
+            <li data-agent="photos"><span class="node"></span><div><b data-i18n="photo_inspector"></b><small>Muse Spark Open</small></div></li>
+            <li data-agent="checker"><span class="node"></span><div><b data-i18n="fact_checker"></b><small data-i18n="code"></small></div></li>
+            <li data-agent="skeptic"><span class="node"></span><div><b data-i18n="skeptic"></b><small>Muse Spark Open</small></div></li>
+            <li data-agent="writer"><span class="node"></span><div><b data-i18n="writer"></b><small>Muse Spark 1.3</small></div></li>
+            <li data-agent="validator"><span class="node"></span><div><b data-i18n="validator"></b><small data-i18n="code_nazar"></small></div></li>
           </ol>
           <ol class="feed" id="feed"></ol>
         </div>
@@ -91,38 +100,38 @@
 
   <section id="tab-import" hidden>
     <form class="ask glass" id="import-form">
-      <textarea id="import-text" maxlength="20000" placeholder="Вставьте список, например:&#10;Объект Чиланзар — Иванов Алишер, Каримова Дилноза&#10;Объект Юнусабад — Сидоров"></textarea>
+      <textarea id="import-text" maxlength="20000" data-i18n-placeholder="import_placeholder"></textarea>
       <div class="row">
-        <label class="file">Фото тетради, Excel или CSV <input type="file" id="import-file" accept="image/jpeg,image/png,image/webp,.xlsx,.csv,.txt"></label>
-        <button class="primary" id="import-read" type="submit"><span>Разобрать список</span></button>
+        <label class="file"><span data-i18n="import_file"></span> <input type="file" id="import-file" accept="image/jpeg,image/png,image/webp,.xlsx,.csv,.txt"></label>
+        <button class="primary" id="import-read" type="submit"><span data-i18n="import_read"></span></button>
       </div>
       <div class="status" id="import-status"></div>
     </form>
     <div id="import-review"></div>
     <section class="panel glass" id="waiting-section">
-      <div class="row"><h2>Ждут фото</h2>
-        <button type="button" id="start-shooting">Очередь съёмки</button>
-        <button type="button" id="refresh-waiting">Обновить</button></div>
-      <p class="muted">NAZAR создаёт сотрудника только с фото лица — по нему потом идёт отметка. Сопоставлять лица с именами ИИ не пытается: каждого снимает человек.</p>
+      <div class="row"><h2 data-i18n="waiting_title"></h2>
+        <button type="button" id="start-shooting" data-i18n="start_shooting"></button>
+        <button type="button" id="refresh-waiting" data-i18n="refresh"></button></div>
+      <p class="muted" data-i18n="waiting_note"></p>
       <div id="shooting"></div>
       <ul id="waiting" class="plain"></ul>
     </section>
   </section>
 
   <section class="panel glass" id="usage-section">
-    <div class="row"><h2>Расходы на модели</h2><button type="button" id="refresh-usage">Обновить</button></div>
-    <p class="muted">Каждый вызов модели записан: какая роль, какая модель, сколько токенов и по какой цене. Модель без известной цены считается по высокой оценке.</p>
+    <div class="row"><h2 data-i18n="usage_title"></h2><button type="button" id="refresh-usage" data-i18n="refresh"></button></div>
+    <p class="muted" data-i18n="usage_note"></p>
     <div id="usage" class="usage"></div>
   </section>
 
   <section class="panel glass" id="audit-section">
-    <div class="row"><h2>Журнал действий</h2><button type="button" id="refresh-audit">Обновить</button></div>
+    <div class="row"><h2 data-i18n="audit_title"></h2><button type="button" id="refresh-audit" data-i18n="refresh"></button></div>
     <p class="muted" id="decisions"></p>
     <ol id="audit" class="timeline"></ol>
   </section>
 </main>
 
-<footer class="foot">NAZAR Agent · Meta AI Developer Hackathon 2026 · ИИ предлагает, человек решает</footer>
-<script src="/static/app.js?v=9"></script>
+<footer class="foot" data-i18n="footer"></footer>
+<script src="/static/app.js?v=10"></script>
 </body>
 </html>

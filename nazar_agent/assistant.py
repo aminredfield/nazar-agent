@@ -26,7 +26,7 @@ from nazar_agent.actions import Executor, Proposal, ProposalStore
 from nazar_agent.clarify import Choice, Clarification, resolve
 from nazar_agent.config import Settings
 from nazar_agent.engine import RoleRun
-from nazar_agent.errors import owner_message
+from nazar_agent.errors import WindowLang, owner_message
 from nazar_agent.feedback import about, instructions_text, owner_feedback
 from nazar_agent.findings import Analysis, AnalystReport, analyze
 from nazar_agent.nazar import NazarClient
@@ -104,8 +104,15 @@ class Assistant:
         return Executor(self.store, self._acting(nazar))
 
     async def ask(
-        self, question: str, analyst: Analyst | None = None, *, nazar: NazarClient | None = None, source: Source = "ask"
+        self,
+        question: str,
+        analyst: Analyst | None = None,
+        *,
+        nazar: NazarClient | None = None,
+        source: Source = "ask",
+        lang: WindowLang = "ru",
     ) -> Answer:
+        """``lang`` — the window's language: failures are said in it, and the answer when the question's is unclear."""
         if self._lock.locked():
             raise AssistantBusy
         async with self._lock:
@@ -113,10 +120,10 @@ class Assistant:
             meter = Meter()
             with tracking(self.progress), metering(meter):
                 try:
-                    self.last = await self._answer(question, analyst, self._acting(nazar), meter)
+                    self.last = await self._answer(question, analyst, self._acting(nazar), meter, lang)
                 except Exception as exc:
                     log.exception("answering %r failed", question)
-                    self.progress.finish(owner_message(exc))
+                    self.progress.finish(owner_message(exc, lang))
                     raise
                 finally:
                     # Tokens spent on a failed question are spent all the same.
@@ -161,14 +168,16 @@ class Assistant:
             raise RuntimeError("No NAZAR identity to act with.")
         return acting
 
-    async def _answer(self, question: str, analyst: Analyst | None, nazar: NazarClient, meter: Meter) -> Answer:
+    async def _answer(
+        self, question: str, analyst: Analyst | None, nazar: NazarClient, meter: Meter, lang: WindowLang = "ru"
+    ) -> Answer:
         settings = self.settings
         analyst_llm = settings.analyst_llm()
         skeptic_llm = settings.skeptic_llm()
         now = settings.now()
         today = now.date()
         try:
-            request = await parse(analyst_llm, settings.analyst_model, question, today)
+            request = await parse(analyst_llm, settings.analyst_model, question, today, lang)
             if request.short:
                 log.info("the dispatcher answered a %s request itself", request.intent)
                 return short_answer(question, request, meter)

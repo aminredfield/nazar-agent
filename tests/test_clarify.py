@@ -128,3 +128,11 @@ def test_a_nazar_refusal_inside_a_tool_keeps_nazar_s_words():
         assert owner_message(exc) == "NAZAR отказал в запросе: Неверная дата"
 
 
+
+
+@pytest.mark.parametrize(("lang", "start"), [("ru", "NAZAR отказал"), ("uz", "NAZAR so'rovni rad etdi"), ("en", "NAZAR refused")])
+def test_a_failure_is_said_in_the_windows_language(lang, start):
+    said = owner_message(NazarApiError(422, "bad date"), lang)
+
+    assert said.startswith(start) and said.endswith("bad date")
+    assert owner_message(AssistantBusy(), lang) != owner_message(ValueError("boom"), lang)

@@ -1,0 +1,386 @@
+"use strict";
+// NAZAR Agent — the window's words in Russian, Uzbek (Latin) and English, and
+// its theme. Terms follow NAZAR's own dictionaries (frontend/src/i18n):
+// Obyekt / Location, Belgilar / Check-ins, Tabel / Timesheet, Smena / Shift.
+// Loaded in <head>, before the page is drawn, so the theme never flashes.
+
+const LANGS = ["ru", "uz", "en"];
+const LOCALES = { ru: "ru-RU", uz: "uz-Latn-UZ", en: "en-US" };
+
+function stored(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function store(key, value) {
+  try { localStorage.setItem(key, value); } catch { /* private window: the choice lasts this page only */ }
+}
+
+function firstLang() {
+  const saved = stored("lang");
+  if (LANGS.includes(saved)) return saved;
+  const browser = (navigator.language || "ru").slice(0, 2);
+  return LANGS.includes(browser) ? browser : "ru";
+}
+
+let LANG = firstLang();
+document.documentElement.lang = LANG;
+if (stored("theme") === "dark") document.documentElement.dataset.theme = "dark";
+
+// Russian has three plural forms; English two; Uzbek one.
+const ru3 = (n, one, few, many) => {
+  const tens = n % 100, ones = n % 10;
+  if (tens >= 11 && tens <= 14) return many;
+  if (ones === 1) return one;
+  return ones >= 2 && ones <= 4 ? few : many;
+};
+const en2 = (n, one, other) => (n === 1 ? one : other);
+
+const I18N = {
+  ru: {
+    CONFIDENCE: { high: "высокая", medium: "средняя", low: "низкая" },
+    VERDICT: { concern_supported: "повод есть", inconclusive: "не уверен", innocent_likely: "скорее всё в порядке" },
+    ACTIONS: {
+      review_event: "Записать итог разбора отметки", adjust_shift: "Исправить засчитанное время смены",
+      void_shift: "Не засчитывать день", change_schedule: "Изменить график объекта",
+    },
+    DAY_FIELDS: { worked_minutes: "Отработано, мин", paid_minutes: "К оплате, мин", late_minutes: "Опоздание, мин", early_leave_minutes: "Ранний уход, мин" },
+    SCHEDULE_FIELDS: { shift_start: "Начало смены", shift_end: "Конец смены", working_days: "Рабочие дни" },
+    WEEKDAYS: ["", "пн", "вт", "ср", "чт", "пт", "сб", "вс"],
+    EVENTS: {
+      proposed: "предложено агентом", executed: "выполнено в NAZAR", declined: "отклонено", refused: "не выполнено", failed: "ошибка", undone: "отменено",
+      draft_created: "добавлен, ждёт фото", employee_created: "создан в NAZAR", photo_rejected: "фото не подошло", draft_discarded: "убран из списка",
+    },
+    ANALYSTS: { attendance: "Аналитик отметок", timesheet: "Аналитик табеля" },
+    REPLIES: {
+      greeting: "приветствие", off_topic: "вопрос не по теме", unsupported: "этого агент не делает", secrets: "просят настройки или пароли",
+      other_company: "чужая компания", penalty: "наказание всем сразу", unclear: "вопрос непонятен", future: "это будущее", clarify: "нужно уточнить, о ком вопрос",
+    },
+    ROLES: {
+      dispatcher: "Диспетчер", attendance_analyst: "Аналитик отметок", timesheet_analyst: "Аналитик табеля", photos: "Инспектор фото",
+      skeptic: "Скептик", writer: "Составитель", voice: "Голос", import: "Разбор списков",
+    },
+    TOOLS: {
+      get_shared_phones: "Считаю телефоны, с которых отмечаются несколько человек",
+      get_attendance_events: "Читаю отметки",
+      list_objects: "Смотрю объекты и геозоны",
+      get_event_detail: "Открываю отметку целиком",
+      get_today: "Считаю сегодняшний день по отметкам",
+      count_period: "Считаю итоги за период по табелю",
+      find_people_and_sites: "Ищу человека или объект по имени",
+      inspect_check_in_photos: "Отдаю фото отметок инспектору",
+      get_timesheet_summary: "Читаю табель, посчитанный NAZAR",
+      get_timesheet_day: "Открываю день табеля",
+      get_setup_check: "Смотрю проверку настройки NAZAR",
+      compare_site_schedules: "Сравниваю график каждого объекта с реальным днём",
+    },
+    PHOTO_KIND: { live_selfie: "живое селфи", photo_of_screen: "фото экрана", photo_of_print: "фото распечатки", unclear: "неясно" },
+    text: {
+      title: "NAZAR · Помощник", brand_sub: "Помощник", team_idle: "Команда на месте", team_busy: "Команда разбирает вопрос",
+      theme_dark: "Тёмная тема", theme_light: "Светлая тема", language: "Язык",
+      hero_title: "Команда ИИ-агентов проверяет учёт.", hero_grad: "Решаете вы.",
+      hero_lead: "Аналитики читают данные NAZAR, инспектор смотрит фото отметок, скептик на другой модели ищет невиновные объяснения, а код сверяет каждый факт и каждое действие. Без вашего «Применить» в NAZAR ничего не меняется.",
+      chip_analysts: "Muse Spark 1.3 — аналитики", chip_open: "Muse Spark Open — скептик и фото", chip_code: "Код — факты, действия, расчёт",
+      tab_ask: "Вопрос команде", tab_import: "Импорт сотрудников",
+      question_placeholder: "Спросите о своих объектах, например: что стоит проверить в отметках за последние две недели?",
+      s1: "Отметки за две недели", s1_q: "Что стоит проверить в отметках за последние две недели?",
+      s2: "Табель перед оплатой", s2_q: "Что стоит проверить в табеле за последние две недели перед оплатой?",
+      s3: "Кто сегодня не пришёл", s3_q: "Кто сегодня не пришёл на объекты?",
+      analyst_aria: "Кто разбирает вопрос", seg_auto: "Выберет диспетчер", seg_attendance: "Отметки", seg_timesheet: "Табель",
+      you: "Вы:", send: "Спросить команду",
+      run_working: "Команда работает", analyst: "Аналитик", dispatcher: "Диспетчер", photo_inspector: "Инспектор фото",
+      fact_checker: "Проверщик фактов", code: "код", skeptic: "Скептик", writer: "Составитель", validator: "Валидатор", code_nazar: "код · NAZAR",
+      import_placeholder: "Вставьте список, например:\nОбъект Чиланзар — Иванов Алишер, Каримова Дилноза\nОбъект Юнусабад — Сидоров",
+      import_file: "Фото тетради, Excel или CSV", import_read: "Разобрать список",
+      waiting_title: "Ждут фото", start_shooting: "Очередь съёмки", refresh: "Обновить",
+      waiting_note: "NAZAR создаёт сотрудника только с фото лица — по нему потом идёт отметка. Сопоставлять лица с именами ИИ не пытается: каждого снимает человек.",
+      usage_title: "Расходы на модели",
+      usage_note: "Каждый вызов модели записан: какая роль, какая модель, сколько токенов и по какой цене. Модель без известной цены считается по высокой оценке.",
+      audit_title: "Журнал действий", footer: "NAZAR Agent · Meta AI Developer Hackathon 2026 · ИИ предлагает, человек решает",
+      error_status: "Ошибка {0}", seconds: "{0} с", done_in: "Готово за {0}", failed: "Не получилось", how_got: "Как команда пришла к ответу · {0}",
+      arg_day: "день {0}", arg_limit: "до {0}", arg_flagged: "только с флагами", arg_events: "отметок: {0}",
+      routed: "Диспетчер передал вопрос: {0}", replied: "Диспетчер ответил сам: {0}", starts: "{0} начинает расследование",
+      tool_failed: "не вышло: {0}", tool_found: "получено {0}", tool_done: "готово",
+      photos_start: (n) => `Инспектор фото смотрит ${n} ${ru3(n, "снимок", "снимка", "снимков")}`,
+      photos_done: "Инспектор описал фото",
+      same_background: (n) => `Одинаковый фон: ${n} ${ru3(n, "группа", "группы", "групп")} снимков`,
+      report_first: "Аналитик пишет отчёт: факты отдельно от гипотезы", report_retry: "Аналитик исправляет отчёт (попытка {0})",
+      checker_back: (n) => `Проверщик фактов вернул отчёт: ${n} ${ru3(n, "замечание", "замечания", "замечаний")}`,
+      checker_ok: (findings, facts) => `Проверщик фактов: ${findings} ${ru3(findings, "находка", "находки", "находок")}, ${facts} ${ru3(facts, "факт", "факта", "фактов")} — каждый есть в данных NAZAR`,
+      skeptic_start: "Скептик на другой модели ищет невиновные объяснения ({0})", skeptic_says: "скептик: {0}", no_opinion: "без мнения",
+      writer_start: "Составитель пишет рекомендации и выбирает действия из каталога", writer_done: "Предложено действий: {0}",
+      validated_ok: "прошло проверку", validated_no: "отклонено",
+      pays: "меняет оплату — было и станет считает NAZAR", no_pay: "не меняет оплату",
+      before: "Было", after: "Станет", reason_written: "В NAZAR будет записано: «{0}»", why: "Почему: {0} — {1}",
+      running_nazar: "Выполняю в NAZAR…", reason_placeholder: "Например: у них правда нет смартфонов", back: "Назад",
+      apply: "Применить", disagree: "Не согласен", later: "Отложить",
+      confirm_pay: "Это изменит данные в NAZAR.", confirm_yes: "Да, применить", why_q: "Почему? Команда учтёт это дальше.", send_reason: "Отправить",
+      postponed: "Отложено — предложение сохранено.", executed: "✓ Выполнено в NAZAR.", undo: "Отменить",
+      declined: "Отклонено — причина сохранена.", undone: "Отменено — NAZAR вернул как было.",
+      stale: "Данные изменились — спросите заново.", not_done: "Не выполнено.",
+      skeptic_silent: "не высказался", more: "Подробнее", confidence: "уверенность {0}", badge_analyst: "аналитик: ", badge_skeptic: "скептик: ",
+      sec_facts: "Что видно в данных", sec_hypothesis: "Возможное объяснение — это предположение", sec_alts: "Может быть и иначе",
+      sec_owner: "Раньше вы не согласились и объяснили", sec_check: "Как проверить", sec_why_action: "Почему предложено действие",
+      lead_think: "Что я думаю", lead_do: "Что сделаю, если согласитесь", lead_why: "Почему так думаем", sec_gaps: "Чего не видно в данных",
+      checker_trace: "Проверщик фактов: {0} замечаний исправлено, {1} удалено", nazar_calls: "{0} запросов к NAZAR",
+      tokens: "ток.", total: "Итого {0}", estimated_note: "* цена модели без опубликованного прайса — оценка по высокой ставке",
+      usage_off: "Учёт расходов выключен.", runs_tokens: "запусков: {0} · токенов {1} → {2}",
+      today: "Сегодня", week: "7 дней", all: "Всего", per_run: "В среднем за запуск: {0}",
+      th_role: "Роль", th_model: "Модель", th_calls: "Вызовов", th_tokens: "Токенов вход → выход", th_price: "Цена",
+      no_calls: "Вызовов моделей пока не было.", no_decisions: "Решений по предложениям пока нет.",
+      decisions: "Применено {0} из {1} решённых предложений ({2}%) · отменено после применения: {3} · ждут решения: {4}",
+      photo_rejected: "Фото не подошло: {0}", import_reading: "Агент читает список и сверяет его с сотрудниками и объектами NAZAR…",
+      no_site_option: "— без объекта —", in_list: "в списке: {0}", create_drafts: "Создать — будут ждать фото",
+      added: "Добавлено {0}. Теперь снимите каждого — «Очередь съёмки».", found_rows: "Найдено {0}.",
+      attention_rows: "Посмотрите подсвеченные строки ({0}) — остальное агент разложил сам.", all_sorted: "Всё разобрано, проверять нечего.",
+      th_name: "ФИО", th_site: "Объект", th_check: "Что проверить",
+      consent: "Согласия на биометрию подписаны (дата), если в компании это обязательно: ",
+      remove: "Убрать", no_site: "без объекта", photo_label: " фото: ", nobody_waiting: "Никто не ждёт фото.",
+      checking_photo: "Проверяю фото {0} и создаю в NAZAR…", created: "{0} — создан в NAZAR.",
+      close: "Закрыть", all_shot: "Все сняты.", skip: "Пропустить", finish: "Закончить", left: "Осталось: {0}", next: "Следующий: {0}", shoot: "📷 Снять",
+      demo: "Демо", reset_demo: "Сбросить демо", demo_title: "Демо-данные: вымышленная стройка, NAZAR не нужен",
+      reset_confirm: "Вернуть демо-стройку к утреннему состоянию? Все применённые изменения пропадут.",
+    },
+  },
+  uz: {
+    CONFIDENCE: { high: "yuqori", medium: "o'rta", low: "past" },
+    VERDICT: { concern_supported: "sabab bor", inconclusive: "aniq emas", innocent_likely: "ehtimol hammasi joyida" },
+    ACTIONS: {
+      review_event: "Belgi tekshiruvi natijasini yozish", adjust_shift: "Smenaning hisoblangan vaqtini tuzatish",
+      void_shift: "Kunni hisoblamaslik", change_schedule: "Obyekt jadvalini o'zgartirish",
+    },
+    DAY_FIELDS: { worked_minutes: "Ishlangan, daq", paid_minutes: "To'lovga, daq", late_minutes: "Kechikish, daq", early_leave_minutes: "Erta ketish, daq" },
+    SCHEDULE_FIELDS: { shift_start: "Smena boshlanishi", shift_end: "Smena tugashi", working_days: "Ish kunlari" },
+    WEEKDAYS: ["", "Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"],
+    EVENTS: {
+      proposed: "agent taklif qildi", executed: "NAZAR'da bajarildi", declined: "rad etildi", refused: "bajarilmadi", failed: "xato", undone: "bekor qilindi",
+      draft_created: "qo'shildi, surat kutmoqda", employee_created: "NAZAR'da yaratildi", photo_rejected: "surat mos kelmadi", draft_discarded: "ro'yxatdan olib tashlandi",
+    },
+    ANALYSTS: { attendance: "Belgilar tahlilchisi", timesheet: "Tabel tahlilchisi" },
+    REPLIES: {
+      greeting: "salomlashish", off_topic: "mavzudan tashqari", unsupported: "agent buni qilmaydi", secrets: "sozlamalar yoki parollar so'ralmoqda",
+      other_company: "boshqa kompaniya", penalty: "hammaga birdaniga jazo", unclear: "savol tushunarsiz", future: "bu kelajak", clarify: "kim haqida ekanini aniqlash kerak",
+    },
+    ROLES: {
+      dispatcher: "Dispetcher", attendance_analyst: "Belgilar tahlilchisi", timesheet_analyst: "Tabel tahlilchisi", photos: "Surat inspektori",
+      skeptic: "Skeptik", writer: "Tuzuvchi", voice: "Ovoz", import: "Ro'yxatlarni tahlil qilish",
+    },
+    TOOLS: {
+      get_shared_phones: "Bir nechta odam belgi qo'yadigan telefonlarni sanayapman",
+      get_attendance_events: "Belgilarni o'qiyapman",
+      list_objects: "Obyektlar va geozonalarni ko'ryapman",
+      get_event_detail: "Belgini to'liq ochyapman",
+      get_today: "Bugungi kunni belgilar bo'yicha sanayapman",
+      count_period: "Tabel bo'yicha davr yakunlarini sanayapman",
+      find_people_and_sites: "Odam yoki obyektni ism bo'yicha qidiryapman",
+      inspect_check_in_photos: "Belgi suratlarini inspektorga beryapman",
+      get_timesheet_summary: "NAZAR hisoblagan tabelni o'qiyapman",
+      get_timesheet_day: "Tabel kunini ochyapman",
+      get_setup_check: "NAZAR sozlamalar tekshiruvini ko'ryapman",
+      compare_site_schedules: "Har bir obyekt jadvalini haqiqiy kun bilan solishtiryapman",
+    },
+    PHOTO_KIND: { live_selfie: "jonli selfi", photo_of_screen: "ekran surati", photo_of_print: "bosma surati", unclear: "noaniq" },
+    text: {
+      title: "NAZAR · Yordamchi", brand_sub: "Yordamchi", team_idle: "Jamoa tayyor", team_busy: "Jamoa savolni ko'rib chiqmoqda",
+      theme_dark: "Qorong'i mavzu", theme_light: "Yorug' mavzu", language: "Til",
+      hero_title: "SI agentlari jamoasi hisobni tekshiradi.", hero_grad: "Qarorni siz qabul qilasiz.",
+      hero_lead: "Tahlilchilar NAZAR ma'lumotlarini o'qiydi, inspektor belgi suratlarini ko'radi, boshqa modeldagi skeptik aybsiz izohlarni qidiradi, kod esa har bir fakt va har bir amalni tekshiradi. Siz «Qo'llash»ni bosmaguningizcha NAZAR'da hech narsa o'zgarmaydi.",
+      chip_analysts: "Muse Spark 1.3 — tahlilchilar", chip_open: "Muse Spark Open — skeptik va suratlar", chip_code: "Kod — faktlar, amallar, hisob",
+      tab_ask: "Jamoaga savol", tab_import: "Xodimlarni import qilish",
+      question_placeholder: "Obyektlaringiz haqida so'rang, masalan: oxirgi ikki haftadagi belgilarda nimani tekshirish kerak?",
+      s1: "Ikki haftalik belgilar", s1_q: "Oxirgi ikki haftadagi belgilarda nimani tekshirish kerak?",
+      s2: "To'lovdan oldin tabel", s2_q: "To'lovdan oldin oxirgi ikki haftalik tabelda nimani tekshirish kerak?",
+      s3: "Bugun kim kelmadi", s3_q: "Bugun obyektlarga kim kelmadi?",
+      analyst_aria: "Savolni kim ko'rib chiqadi", seg_auto: "Dispetcher tanlaydi", seg_attendance: "Belgilar", seg_timesheet: "Tabel",
+      you: "Siz:", send: "Jamoadan so'rash",
+      run_working: "Jamoa ishlamoqda", analyst: "Tahlilchi", dispatcher: "Dispetcher", photo_inspector: "Surat inspektori",
+      fact_checker: "Fakt tekshiruvchi", code: "kod", skeptic: "Skeptik", writer: "Tuzuvchi", validator: "Validator", code_nazar: "kod · NAZAR",
+      import_placeholder: "Ro'yxatni qo'ying, masalan:\nChilonzor obyekti — Ivanov Alisher, Karimova Dilnoza\nYunusobod obyekti — Sidorov",
+      import_file: "Daftar surati, Excel yoki CSV", import_read: "Ro'yxatni tahlil qilish",
+      waiting_title: "Surat kutmoqda", start_shooting: "Suratga olish navbati", refresh: "Yangilash",
+      waiting_note: "NAZAR xodimni faqat yuz surati bilan yaratadi — keyin belgi shu surat bo'yicha qo'yiladi. SI yuzlarni ismlarga moslashtirishga urinmaydi: har birini odam suratga oladi.",
+      usage_title: "Modellarga xarajat",
+      usage_note: "Har bir model chaqiruvi yozib boriladi: qaysi rol, qaysi model, nechta token va qanday narxda. Narxi noma'lum model yuqori baho bilan hisoblanadi.",
+      audit_title: "Amallar jurnali", footer: "NAZAR Agent · Meta AI Developer Hackathon 2026 · SI taklif qiladi, inson qaror qiladi",
+      error_status: "Xato {0}", seconds: "{0} s", done_in: "{0} da tayyor", failed: "Bo'lmadi", how_got: "Jamoa javobga qanday keldi · {0}",
+      arg_day: "{0} kun", arg_limit: "{0} tagacha", arg_flagged: "faqat shubhalilar", arg_events: "belgilar: {0}",
+      routed: "Dispetcher savolni topshirdi: {0}", replied: "Dispetcher o'zi javob berdi: {0}", starts: "{0} tekshiruvni boshlaydi",
+      tool_failed: "bo'lmadi: {0}", tool_found: "{0} ta olindi", tool_done: "tayyor",
+      photos_start: (n) => `Surat inspektori ${n} ta suratni ko'rmoqda`,
+      photos_done: "Inspektor suratlarni tasvirladi",
+      same_background: (n) => `Bir xil fon: ${n} ta surat guruhi`,
+      report_first: "Tahlilchi hisobot yozmoqda: faktlar gipotezadan alohida", report_retry: "Tahlilchi hisobotni tuzatmoqda ({0}-urinish)",
+      checker_back: (n) => `Fakt tekshiruvchi hisobotni qaytardi: ${n} ta izoh`,
+      checker_ok: (findings, facts) => `Fakt tekshiruvchi: ${findings} ta topilma, ${facts} ta fakt — har biri NAZAR ma'lumotlarida bor`,
+      skeptic_start: "Boshqa modeldagi skeptik aybsiz izohlarni qidirmoqda ({0})", skeptic_says: "skeptik: {0}", no_opinion: "fikrsiz",
+      writer_start: "Tuzuvchi tavsiyalar yozmoqda va katalogdan amallar tanlamoqda", writer_done: "Taklif qilingan amallar: {0}",
+      validated_ok: "tekshiruvdan o'tdi", validated_no: "rad etildi",
+      pays: "to'lovni o'zgartiradi — oldin va keyin NAZAR hisoblaydi", no_pay: "to'lovni o'zgartirmaydi",
+      before: "Oldin", after: "Keyin", reason_written: "NAZAR'ga yoziladi: «{0}»", why: "Nega: {0} — {1}",
+      running_nazar: "NAZAR'da bajarilmoqda…", reason_placeholder: "Masalan: ularda haqiqatan smartfon yo'q", back: "Orqaga",
+      apply: "Qo'llash", disagree: "Rozi emasman", later: "Keyinroq",
+      confirm_pay: "Bu NAZAR'dagi ma'lumotlarni o'zgartiradi.", confirm_yes: "Ha, qo'llash", why_q: "Nega? Jamoa buni keyin hisobga oladi.", send_reason: "Yuborish",
+      postponed: "Keyinga qoldirildi — taklif saqlandi.", executed: "✓ NAZAR'da bajarildi.", undo: "Bekor qilish",
+      declined: "Rad etildi — sabab saqlandi.", undone: "Bekor qilindi — NAZAR avvalgi holatga qaytdi.",
+      stale: "Ma'lumotlar o'zgardi — qaytadan so'rang.", not_done: "Bajarilmadi.",
+      skeptic_silent: "fikr bildirmadi", more: "Batafsil", confidence: "ishonch: {0}", badge_analyst: "tahlilchi: ", badge_skeptic: "skeptik: ",
+      sec_facts: "Ma'lumotlarda nima ko'rinadi", sec_hypothesis: "Mumkin bo'lgan izoh — bu taxmin", sec_alts: "Boshqacha bo'lishi ham mumkin",
+      sec_owner: "Avval siz rozi bo'lmay, tushuntirgansiz", sec_check: "Qanday tekshirish", sec_why_action: "Nega bu amal taklif qilindi",
+      lead_think: "Men nima deb o'ylayman", lead_do: "Rozi bo'lsangiz, nima qilaman", lead_why: "Nega shunday deb o'ylaymiz", sec_gaps: "Ma'lumotlarda nima ko'rinmaydi",
+      checker_trace: "Fakt tekshiruvchi: {0} ta izoh tuzatildi, {1} ta olib tashlandi", nazar_calls: "NAZAR'ga {0} ta so'rov",
+      tokens: "tok.", total: "Jami {0}", estimated_note: "* narxi e'lon qilinmagan model — yuqori stavka bo'yicha baho",
+      usage_off: "Xarajatlar hisobi o'chirilgan.", runs_tokens: "ishga tushirishlar: {0} · tokenlar {1} → {2}",
+      today: "Bugun", week: "7 kun", all: "Jami", per_run: "Bir ishga tushirishga o'rtacha: {0}",
+      th_role: "Rol", th_model: "Model", th_calls: "Chaqiruvlar", th_tokens: "Tokenlar kirish → chiqish", th_price: "Narx",
+      no_calls: "Hali model chaqiruvlari bo'lmagan.", no_decisions: "Takliflar bo'yicha hali qaror yo'q.",
+      decisions: "Hal qilingan {1} ta taklifdan {0} tasi qo'llandi ({2}%) · qo'llangandan keyin bekor qilindi: {3} · qaror kutmoqda: {4}",
+      photo_rejected: "Surat mos kelmadi: {0}", import_reading: "Agent ro'yxatni o'qiyapti va uni NAZAR xodimlari va obyektlari bilan solishtiryapti…",
+      no_site_option: "— obyektsiz —", in_list: "ro'yxatda: {0}", create_drafts: "Yaratish — surat kutadi",
+      added: "{0} ta qo'shildi. Endi har birini suratga oling — «Suratga olish navbati».", found_rows: "{0} ta topildi.",
+      attention_rows: "Ajratilgan qatorlarni ko'ring ({0}) — qolganini agent o'zi joylashtirdi.", all_sorted: "Hammasi tahlil qilindi, tekshiradigan narsa yo'q.",
+      th_name: "F.I.Sh.", th_site: "Obyekt", th_check: "Nimani tekshirish",
+      consent: "Biometrik rozilik imzolangan (sana), agar kompaniyada bu majburiy bo'lsa: ",
+      remove: "Olib tashlash", no_site: "obyektsiz", photo_label: " surat: ", nobody_waiting: "Hech kim surat kutmayapti.",
+      checking_photo: "{0} suratini tekshirib, NAZAR'da yaratyapman…", created: "{0} — NAZAR'da yaratildi.",
+      close: "Yopish", all_shot: "Hammasi suratga olindi.", skip: "O'tkazib yuborish", finish: "Tugatish", left: "Qoldi: {0}", next: "Keyingisi: {0}", shoot: "📷 Suratga olish",
+      demo: "Demo", reset_demo: "Demoni tiklash", demo_title: "Demo ma'lumotlar: o'ylab topilgan qurilish, NAZAR kerak emas",
+      reset_confirm: "Demo qurilishni ertalabki holatga qaytarasizmi? Qo'llangan barcha o'zgarishlar yo'qoladi.",
+    },
+  },
+  en: {
+    CONFIDENCE: { high: "high", medium: "medium", low: "low" },
+    VERDICT: { concern_supported: "a reason to check", inconclusive: "not sure", innocent_likely: "likely fine" },
+    ACTIONS: {
+      review_event: "Record the check-in review", adjust_shift: "Correct the counted shift time",
+      void_shift: "Do not count the day", change_schedule: "Change the location's schedule",
+    },
+    DAY_FIELDS: { worked_minutes: "Worked, min", paid_minutes: "Paid, min", late_minutes: "Late arrival, min", early_leave_minutes: "Early leave, min" },
+    SCHEDULE_FIELDS: { shift_start: "Shift start", shift_end: "Shift end", working_days: "Working days" },
+    WEEKDAYS: ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    EVENTS: {
+      proposed: "proposed by the agent", executed: "done in NAZAR", declined: "declined", refused: "not done", failed: "error", undone: "undone",
+      draft_created: "added, waiting for a photo", employee_created: "created in NAZAR", photo_rejected: "the photo did not fit", draft_discarded: "removed from the list",
+    },
+    ANALYSTS: { attendance: "Check-in analyst", timesheet: "Timesheet analyst" },
+    REPLIES: {
+      greeting: "a greeting", off_topic: "off-topic", unsupported: "the agent does not do this", secrets: "asks for settings or passwords",
+      other_company: "another company", penalty: "a penalty for everyone at once", unclear: "the question is unclear", future: "this is the future", clarify: "who is meant must be asked",
+    },
+    ROLES: {
+      dispatcher: "Dispatcher", attendance_analyst: "Check-in analyst", timesheet_analyst: "Timesheet analyst", photos: "Photo inspector",
+      skeptic: "Skeptic", writer: "Writer", voice: "Voice", import: "List reading",
+    },
+    TOOLS: {
+      get_shared_phones: "Counting phones several people check in from",
+      get_attendance_events: "Reading check-ins",
+      list_objects: "Looking at locations and geofences",
+      get_event_detail: "Opening a check-in in full",
+      get_today: "Counting today from the check-ins",
+      count_period: "Counting period totals from the timesheet",
+      find_people_and_sites: "Looking up a person or a location by name",
+      inspect_check_in_photos: "Handing check-in photos to the inspector",
+      get_timesheet_summary: "Reading the timesheet NAZAR computed",
+      get_timesheet_day: "Opening a timesheet day",
+      get_setup_check: "Looking at NAZAR's setup check",
+      compare_site_schedules: "Comparing each location's schedule with the real day",
+    },
+    PHOTO_KIND: { live_selfie: "live selfie", photo_of_screen: "photo of a screen", photo_of_print: "photo of a printout", unclear: "unclear" },
+    text: {
+      title: "NAZAR · Assistant", brand_sub: "Assistant", team_idle: "The team is ready", team_busy: "The team is on the question",
+      theme_dark: "Dark theme", theme_light: "Light theme", language: "Language",
+      hero_title: "A team of AI agents checks the records.", hero_grad: "You decide.",
+      hero_lead: "Analysts read NAZAR's data, an inspector looks at check-in photos, a skeptic on another model looks for innocent explanations, and code checks every fact and every action. Nothing changes in NAZAR until you press “Apply”.",
+      chip_analysts: "Muse Spark 1.3 — analysts", chip_open: "Muse Spark Open — skeptic and photos", chip_code: "Code — facts, actions, sums",
+      tab_ask: "Ask the team", tab_import: "Import employees",
+      question_placeholder: "Ask about your locations, for example: what should I check in the check-ins of the last two weeks?",
+      s1: "Check-ins, two weeks", s1_q: "What should I check in the check-ins of the last two weeks?",
+      s2: "Timesheet before payday", s2_q: "What should I check in the timesheet of the last two weeks before paying?",
+      s3: "Who is absent today", s3_q: "Who did not come to the locations today?",
+      analyst_aria: "Who takes the question", seg_auto: "The dispatcher decides", seg_attendance: "Check-ins", seg_timesheet: "Timesheet",
+      you: "You:", send: "Ask the team",
+      run_working: "The team is working", analyst: "Analyst", dispatcher: "Dispatcher", photo_inspector: "Photo inspector",
+      fact_checker: "Fact checker", code: "code", skeptic: "Skeptic", writer: "Writer", validator: "Validator", code_nazar: "code · NAZAR",
+      import_placeholder: "Paste a list, for example:\nChilanzar — Alisher Ivanov, Dilnoza Karimova\nYunusabad — Sidorov",
+      import_file: "A photo of a notebook, Excel or CSV", import_read: "Read the list",
+      waiting_title: "Waiting for a photo", start_shooting: "Photo queue", refresh: "Refresh",
+      waiting_note: "NAZAR creates an employee only with a face photo — check-ins are matched against it. The AI does not try to match faces to names: a person photographs everyone.",
+      usage_title: "Spend on models",
+      usage_note: "Every model call is recorded: which role, which model, how many tokens and at what price. A model without a known price is counted at a high estimate.",
+      audit_title: "Action log", footer: "NAZAR Agent · Meta AI Developer Hackathon 2026 · AI proposes, a person decides",
+      error_status: "Error {0}", seconds: "{0} s", done_in: "Done in {0}", failed: "It did not work", how_got: "How the team got to the answer · {0}",
+      arg_day: "day {0}", arg_limit: "up to {0}", arg_flagged: "flagged only", arg_events: "check-ins: {0}",
+      routed: "The dispatcher passed the question to: {0}", replied: "The dispatcher answered itself: {0}", starts: "{0} starts investigating",
+      tool_failed: "failed: {0}", tool_found: "got {0}", tool_done: "done",
+      photos_start: (n) => `The photo inspector looks at ${n} ${en2(n, "photo", "photos")}`,
+      photos_done: "The inspector described the photos",
+      same_background: (n) => `Same background: ${n} ${en2(n, "group", "groups")} of photos`,
+      report_first: "The analyst writes the report: facts apart from the guess", report_retry: "The analyst corrects the report (attempt {0})",
+      checker_back: (n) => `The fact checker sent the report back: ${n} ${en2(n, "issue", "issues")}`,
+      checker_ok: (findings, facts) => `Fact checker: ${findings} ${en2(findings, "finding", "findings")}, ${facts} ${en2(facts, "fact", "facts")} — each one is in NAZAR's data`,
+      skeptic_start: "The skeptic on another model looks for innocent explanations ({0})", skeptic_says: "skeptic: {0}", no_opinion: "no opinion",
+      writer_start: "The writer drafts recommendations and picks actions from the catalog", writer_done: "Actions proposed: {0}",
+      validated_ok: "passed the check", validated_no: "rejected",
+      pays: "changes pay — NAZAR computes before and after", no_pay: "does not change pay",
+      before: "Before", after: "After", reason_written: "NAZAR will record: “{0}”", why: "Why: {0} — {1}",
+      running_nazar: "Doing it in NAZAR…", reason_placeholder: "For example: they really have no smartphones", back: "Back",
+      apply: "Apply", disagree: "Disagree", later: "Later",
+      confirm_pay: "This will change data in NAZAR.", confirm_yes: "Yes, apply", why_q: "Why? The team will take it into account.", send_reason: "Send",
+      postponed: "Postponed — the proposal is kept.", executed: "✓ Done in NAZAR.", undo: "Undo",
+      declined: "Declined — the reason is kept.", undone: "Undone — NAZAR is back as it was.",
+      stale: "The data changed — ask again.", not_done: "Not done.",
+      skeptic_silent: "no opinion", more: "Details", confidence: "confidence: {0}", badge_analyst: "analyst: ", badge_skeptic: "skeptic: ",
+      sec_facts: "What the data shows", sec_hypothesis: "A possible explanation — a guess", sec_alts: "It may be otherwise",
+      sec_owner: "Earlier you disagreed and explained", sec_check: "How to check", sec_why_action: "Why this action",
+      lead_think: "What I think", lead_do: "What I will do if you agree", lead_why: "Why we think so", sec_gaps: "What the data does not show",
+      checker_trace: "Fact checker: {0} issues fixed, {1} removed", nazar_calls: "{0} requests to NAZAR",
+      tokens: "tok.", total: "Total {0}", estimated_note: "* a model without a published price — estimated at a high rate",
+      usage_off: "Spend tracking is off.", runs_tokens: "runs: {0} · tokens {1} → {2}",
+      today: "Today", week: "7 days", all: "All time", per_run: "Average per run: {0}",
+      th_role: "Role", th_model: "Model", th_calls: "Calls", th_tokens: "Tokens in → out", th_price: "Price",
+      no_calls: "No model calls yet.", no_decisions: "No decisions on proposals yet.",
+      decisions: "Applied {0} of {1} decided proposals ({2}%) · undone after applying: {3} · waiting: {4}",
+      photo_rejected: "The photo did not fit: {0}", import_reading: "The agent reads the list and matches it with NAZAR's employees and locations…",
+      no_site_option: "— no location —", in_list: "in the list: {0}", create_drafts: "Create — they will wait for a photo",
+      added: "Added {0}. Now photograph each one — “Photo queue”.", found_rows: "Found {0}.",
+      attention_rows: "Look at the highlighted rows ({0}) — the agent sorted the rest itself.", all_sorted: "All sorted, nothing to check.",
+      th_name: "Full name", th_site: "Location", th_check: "What to check",
+      consent: "Biometric consents signed (date), if your company requires it: ",
+      remove: "Remove", no_site: "no location", photo_label: " photo: ", nobody_waiting: "No one is waiting for a photo.",
+      checking_photo: "Checking the photo of {0} and creating them in NAZAR…", created: "{0} — created in NAZAR.",
+      close: "Close", all_shot: "Everyone is photographed.", skip: "Skip", finish: "Finish", left: "Left: {0}", next: "Next: {0}", shoot: "📷 Take a photo",
+      demo: "Demo", reset_demo: "Reset the demo", demo_title: "Demo data: a made-up construction company, no NAZAR needed",
+      reset_confirm: "Bring the demo company back to this morning? Every change applied will be lost.",
+    },
+  },
+};
+
+const L = () => I18N[LANG];
+
+// A phrase in the window's language: "{0}" is the first argument; a function takes them all.
+function t(key, ...args) {
+  const value = L().text[key] ?? I18N.ru.text[key] ?? key;
+  if (typeof value === "function") return value(...args);
+  return value.replace(/\{(\d)\}/g, (_, index) => String(args[Number(index)]));
+}
+
+// The page's own words: data-i18n (text), data-i18n-placeholder, data-i18n-title, data-i18n-aria.
+function translatePage() {
+  document.documentElement.lang = LANG;
+  document.title = t("title");
+  for (const node of document.querySelectorAll("[data-i18n]")) node.textContent = t(node.dataset.i18n);
+  for (const node of document.querySelectorAll("[data-i18n-placeholder]")) node.placeholder = t(node.dataset.i18nPlaceholder);
+  for (const node of document.querySelectorAll("[data-i18n-title]")) node.title = t(node.dataset.i18nTitle);
+  for (const node of document.querySelectorAll("[data-i18n-aria]")) node.setAttribute("aria-label", t(node.dataset.i18nAria));
+}
+
+function setLang(lang) {
+  if (!LANGS.includes(lang)) return;
+  LANG = lang;
+  store("lang", lang);
+  translatePage();
+}
+
+function toggleTheme() {
+  const dark = document.documentElement.dataset.theme !== "dark";
+  if (dark) document.documentElement.dataset.theme = "dark"; else delete document.documentElement.dataset.theme;
+  store("theme", dark ? "dark" : "light");
+  return dark;
+}
