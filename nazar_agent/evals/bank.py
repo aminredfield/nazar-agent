@@ -69,6 +69,8 @@ async def ask_one(question: Question, settings: Settings, link: NazarLink, store
         "summary": run.summary, "tools": [name for name, _ in run.tools], "cards": len(run.cards),
         "actions": [action["name"] for action in run.actions], "error": run.error,
         "cost_usd": cost, "seconds": round(time.monotonic() - started), "view": view,
+        # Enough to check the answer again without asking again: --rescore.
+        "run": {"tools": run.tools, "outcome": run.outcome},
     }
 
 
@@ -76,7 +78,7 @@ def owner_text(view: dict[str, Any]) -> str:
     """Everything the owner reads in the answer."""
     parts = [view["summary"], *view.get("data_gaps", []), *view.get("notes", [])]
     for card in view["cards"]:
-        parts += [card["title"], card.get("hypothesis") or "", *card.get("alternatives", []), *card.get("check_steps", [])]
+        parts += [card["title"], card["subject"]["name"] or "", card.get("hypothesis") or "", *card.get("alternatives", []), *card.get("check_steps", [])]
         parts += [fact["text"] for fact in card["facts"]]
     return "\n".join(part for part in parts if part)
 
@@ -123,13 +125,38 @@ async def main_async(questions: list[Question], parallel: int, folder: Path) -> 
     return list(await asyncio.gather(*(guarded(question) for question in questions)))
 
 
+def rescore(folder: Path) -> list[dict[str, Any]]:
+    """The saved answers of a run, checked again with the checks as they are now."""
+    truth = Truth(connect(bank_settings(folder)).demo.world)  # type: ignore[union-attr]
+    by_id = {question.id: question for question in BANK}
+    results = []
+    for path in sorted(folder.glob("[A-N][0-9][0-9].json")):
+        saved = json.loads(path.read_text(encoding="utf-8"))
+        question, view, stored = by_id[saved["id"]], saved.get("view"), saved.get("run") or {}
+        run = Run(error=saved.get("error") or ("not saved" if view is None else None))
+        if view is not None:
+            run = Run(summary=view["summary"], text=owner_text(view), tools=[tuple(item) for item in stored.get("tools", [])],
+                      cards=view["cards"], outcome=stored.get("outcome"))
+        failed = {check.label: why for check in question.checks if (why := check(run, truth)) is not None}
+        results.append({**saved, "passed": not failed, "failed": failed, "checks": len(question.checks)})
+    return results
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="nazar_agent.evals.bank", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--intent", nargs="+", choices=sorted(INTENTS), help="only these kinds of question")
     parser.add_argument("--id", nargs="+", help="only these questions")
     parser.add_argument("--parallel", type=int, default=4)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    parser.add_argument("--rescore", type=Path, help="check the answers saved in this folder again; ask nothing")
     args = parser.parse_args()
+    if args.rescore:
+        results = rescore(args.rescore)
+        for result in results:
+            print(line(result))
+        print()
+        print(table(results))
+        return 0
 
     questions = [
         question for question in BANK

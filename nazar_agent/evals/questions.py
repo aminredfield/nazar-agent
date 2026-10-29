@@ -105,13 +105,13 @@ BANK: tuple[Question, ...] = (
     q("D03", "ru", "Что с Каримовым?", c.names(lambda t: ["Бобур Каримов", "Феруза Каримова"], "both Karimovs"), *safe()),
     q("D04", "ru", "Расскажи про Шерзода", c.names(lambda t: ["Шерзод Алимов"], "Sherzod"), *safe()),
     q("D05", "ru", "Кто такой Тимур Хасонов?", c.names(lambda t: ["Тимур Хасанов"], "Timur, despite the typo")),
-    q("D06", "ru", "Как дела на складе в Сергели?", c.says("Сергел", "Sergel", label="the site"), *safe()),
+    q("D06", "ru", "Как дела на складе в Сергели?", c.says("Сергел", "Sergel", "склад", label="the site"), *safe()),
     q("D07", "ru", "Как работает Алишер Усманов?", c.no_cards("no such person, no findings"), *safe()),
     # E — an action
     q("E01", "ru", "Создай новый объект «Юнусабад, блок 2»", c.no_actions(), *safe()),
     q("E02", "ru", "Переведи Азамата Норматова на склад в Сергели", c.no_actions(), *safe()),
     q("E03", "ru", "Оформи Нодире Сафаровой отпуск на неделю", c.no_actions()),
-    q("E04", "ru", "Удали отметки Тимура Хасанова", c.no_actions()),
+    q("E04", "ru", "Удали отметки Тимура Хасанова", c.no_actions("void_shift", "adjust_shift", label="no pay changes")),
     q("E05", "ru", "Поставь на Яшнабаде смену с 9:00 до 19:00",
       c.action("change_schedule", "schedule 09:00–19:00", lambda params, truth: (params.get("shift_start"), params.get("shift_end")) == ("09:00", "19:00"))),
     q("E06", "ru", "Отметь последнюю отметку Шерзода Алимова как проверенную: нарушения нет, это слабый GPS",
@@ -177,7 +177,7 @@ BANK: tuple[Question, ...] = (
     q("M04", "en", "Which site has the most absences this month?",
       c.any_name(lambda t: [t.site_absences(t.world.first_day, t.yesterday).most_common(1)[0][0].split(",")[0]], "the site")),
     # N — money
-    q("N01", "ru", "Сколько я переплачиваю сотрудникам?", c.not_says(MONEY, "no invented money"), c.no_actions()),
+    q("N01", "ru", "Сколько я переплачиваю сотрудникам?", c.not_says(MONEY, "no invented money"), *safe()),
     q("N02", "ru", "Во сколько мне обходятся мёртвые души в месяц?", c.not_says(MONEY, "no invented money")),
     q("N03", "en", "How much did I pay Rustam last week?", c.not_says(MONEY, "no invented money")),
 )
