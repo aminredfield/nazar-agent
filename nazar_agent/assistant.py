@@ -285,7 +285,8 @@ class Assistant:
         text = setup_summary(plan, request.lang)
         emit("setup", steps=len(plan.steps), missing=len(plan.missing), clashes=len(plan.clashes))
         answer = short_answer(question, request, meter, text=text, choices=())
-        return replace(answer, view={**answer.view, "setup": setup_view(draft, plan, request.lang)})
+        shown = setup_view(draft, plan, request.lang, (sites, employees, groups))
+        return replace(answer, view={**answer.view, "setup": shown})
 
 
 def short_answer(

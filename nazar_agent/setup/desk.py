@@ -64,7 +64,7 @@ class SetupDesk:
         draft = self.drafts.get(key)
         shown = None
         if draft is not None:
-            shown = setup_view(draft, await build(draft, nazar, today), draft.lang)
+            shown = setup_view(draft, await build(draft, nazar, today), draft.lang, await company(nazar))
         last = self._last.get(key)
         return {"setup": shown, "run": run_view(self.runs.get(last)) if last else None}
 
@@ -101,7 +101,8 @@ class SetupDesk:
         self._last[key] = run.id
         if run.status == "applied":
             self.drafts.drop(key)
-        return {"setup": None if run.status == "applied" else setup_view(draft, plan, draft.lang), "run": run_view(run)}
+        shown = None if run.status == "applied" else setup_view(draft, plan, draft.lang, await company(nazar))
+        return {"setup": shown, "run": run_view(run)}
 
     async def undo(self, key: str, run_id: str, nazar: NazarClient, actor: str) -> dict[str, Any]:
         if self._last.get(key) != run_id:

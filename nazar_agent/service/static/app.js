@@ -373,7 +373,8 @@ function choiceButton(choice) {
   return button;
 }
 
-function answerNodes(data) {
+// `live` — the latest answer: a setup in it can still be changed and applied.
+function answerNodes(data, live = false) {
   const removed = data.removed_by_fact_checker.map((item) => `${item.fact || item.finding}: ${item.reasons.join("; ")}`);
   const rounds = data.fact_checker_rounds.flat();
   const actions = data.cards.flatMap((card) => card.actions.map((action) => actionBlock(action, card)));
@@ -383,6 +384,7 @@ function answerNodes(data) {
     el("p", { class: "summary" }, data.summary),
     (data.answer || []).length ? el("ul", { class: "answer-facts" }, data.answer.map((fact) => el("li", {}, fact.text))) : null,
     (data.choices || []).length ? el("div", { class: "suggest choices" }, data.choices.map(choiceButton)) : null,
+    data.setup ? setupSection(data.setup, live) : null,
     actions.length ? el("h3", { class: "lead" }, t("lead_do")) : null,
     actions,
     data.cards.length ? el("h3", { class: "lead" }, t("lead_why")) : null,
@@ -411,7 +413,7 @@ const meantLine = (meant) => (meant ? [el("p", { class: "muted meant" }, t("mean
 
 function renderAnswer(data) {
   shownAnswer = data;
-  $("answer").replaceChildren(...meantLine(data.meant), ...answerNodes(data));
+  $("answer").replaceChildren(...meantLine(data.meant), ...answerNodes(data, true));
 }
 
 function renderHistory() {

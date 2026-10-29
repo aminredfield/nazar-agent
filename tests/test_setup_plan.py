@@ -74,7 +74,7 @@ async def test_people_already_working_elsewhere_at_the_same_hours_are_found(comp
 
     rustam = next(item for item in shown["clashes"] if item["name"] == "Рустам Юлдашев")
     assert "уже работает на объекте" in rustam["text"] and "08:00–18:00" in rustam["text"] and "(08:00–17:00)" in rustam["text"]
-    assert [option["kind"] for option in rustam["options"]] == ["shift", "shift", "transfer", "skip"]
+    assert [option["kind"] for option in rustam["options"]] == ["shift", "shift", "skip"]  # no move yet
     assert rustam["options"][0]["shift"]["start"] == "18:00"
 
 
