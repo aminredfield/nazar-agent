@@ -125,7 +125,14 @@ def answer_header(view: dict[str, Any]) -> str:
     gaps = view.get("data_gaps", []) + view.get("notes", [])
     if gaps:
         lines += ["", "<i>Чего не видно в данных:</i>"] + [f"• {escape(text)}" for text in gaps]
-    if not view["cards"]:
+    setup = view.get("setup")
+    if setup:
+        # Setting up is applied in the window: the bot shows the plan, the window has the map and the cards.
+        lines += [""] + [f"{index}. {escape(step['text'])}" for index, step in enumerate(setup["steps"], start=1)]
+        lines += [f"⚠ {escape(item['text'])}" for item in setup["clashes"]]
+        lines += [f"? {escape(item['text'])}" for item in setup["missing"]]
+        lines += ["", "<i>Применить план можно в окне помощника — там карта и карточки шагов.</i>"]
+    elif not view["cards"]:
         lines += ["", "Проверять нечего."]
     return _fit("\n".join(lines))
 

@@ -44,21 +44,23 @@ OPENING: dict[str, dict[Lang, str]] = {
     "unsupported": {
         "ru": (
             "Этого я сделать не могу — это делается в кабинете NAZAR. Я предлагаю только такие действия: пометить отметку "
-            "как проверенную, поправить или аннулировать смену, поменять график объекта, и каждое вы подтверждаете сами."
+            "как проверенную, поправить или аннулировать смену, поменять график объекта, открыть объект с группой и "
+            "людьми — и каждое вы подтверждаете сами."
         ),
         "uz": (
             "Buni men qila olmayman — bu NAZAR kabinetida qilinadi. Men faqat shunday amallarni taklif qilaman: belgini "
-            "tekshirilgan deb belgilash, smenani tuzatish yoki bekor qilish, obyekt jadvalini o'zgartirish — har birini "
-            "o'zingiz tasdiqlaysiz."
+            "tekshirilgan deb belgilash, smenani tuzatish yoki bekor qilish, obyekt jadvalini o'zgartirish, guruh va "
+            "odamlar bilan yangi obyekt ochish — har birini o'zingiz tasdiqlaysiz."
         ),
         "uz-cyrl": (
             "Буни мен қила олмайман — бу NAZAR кабинетида қилинади. Мен фақат шундай амалларни таклиф қиламан: белгини "
-            "текширилган деб белгилаш, сменани тузатиш ёки бекор қилиш, объект жадвалини ўзгартириш — ҳар бирини "
-            "ўзингиз тасдиқлайсиз."
+            "текширилган деб белгилаш, сменани тузатиш ёки бекор қилиш, объект жадвалини ўзгартириш, гуруҳ ва "
+            "одамлар билан янги объект очиш — ҳар бирини ўзингиз тасдиқлайсиз."
         ),
         "en": (
             "I can't do that — it is done in the NAZAR dashboard. The only actions I propose are marking a check-in as "
-            "reviewed, correcting or voiding a shift and changing a site's schedule, and you confirm each one yourself."
+            "reviewed, correcting or voiding a shift, changing a site's schedule, opening a site with a group and its "
+            "people — and you confirm each one yourself."
         ),
     },
     "secrets": {

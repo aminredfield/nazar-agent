@@ -38,6 +38,11 @@ from nazar_agent.recommendations import Recommendations, Team, recommend
 from nazar_agent.replies import clarification, reply, suggestions
 from nazar_agent.roles import attendance_analyst, timesheet_analyst
 from nazar_agent.roles.dispatcher import LANGUAGES, Analyst, Request, parse
+from nazar_agent.setup.draft import Draft, Drafts
+from nazar_agent.setup.plan import build as build_plan
+from nazar_agent.setup.reading import SETUP_OPEN, merge, point_from, read_setup
+from nazar_agent.setup.view import setup_view
+from nazar_agent.setup.view import summary as setup_summary
 from nazar_agent.tools import PhotoInspector, analyst_tools
 from nazar_agent.tools.common import call_nazar
 from nazar_agent.usage import Ledger, Meter, NazarUsageReport, Source, metering
@@ -92,6 +97,7 @@ class Assistant:
         self.drafts = DraftStore(store.path, store)
         self.last: Answer | None = None
         self.dialogs = Dialogs()
+        self.setups = Drafts()  # the setup being made in each conversation (nazar_agent.setup)
         # The question being answered, or the last one: the window follows it live.
         self.progress: Progress | None = None
         self._lock = asyncio.Lock()
@@ -105,6 +111,7 @@ class Assistant:
         self.last = None
         self.progress = None
         self.dialogs.clear()
+        self.setups.clear()
 
     def executor(self, nazar: NazarClient | None = None) -> Executor:
         return Executor(self.store, self._acting(nazar))
@@ -130,7 +137,7 @@ class Assistant:
             with tracking(self.progress), metering(meter):
                 try:
                     earlier = self.dialogs.turns(conversation) if conversation is not None else ()
-                    self.last = await self._answer(question, analyst, self._acting(nazar), meter, lang, earlier)
+                    self.last = await self._answer(question, analyst, self._acting(nazar), meter, lang, earlier, conversation)
                 except Exception as exc:
                     log.exception("answering %r failed", question)
                     self.progress.finish(owner_message(exc, lang))
@@ -202,6 +209,7 @@ class Assistant:
         meter: Meter,
         lang: WindowLang = "ru",
         earlier: tuple[Turn, ...] = (),
+        conversation: str | None = None,
     ) -> Answer:
         settings = self.settings
         analyst_llm = settings.analyst_llm()
@@ -209,7 +217,11 @@ class Assistant:
         now = settings.now()
         today = now.date()
         try:
-            request = await parse(analyst_llm, settings.analyst_model, question, today, lang, brief(earlier))
+            draft = self.setups.get(conversation) if conversation is not None else None
+            told = brief(earlier) + (SETUP_OPEN if draft else "")
+            request = await parse(analyst_llm, settings.analyst_model, question, today, lang, told)
+            if request.intent == "setup":
+                return await self._setup(question, request, nazar, meter, draft, conversation)
             if request.short:
                 log.info("the dispatcher answered a %s request itself", request.intent)
                 return short_answer(question, request, meter)
@@ -249,6 +261,33 @@ class Assistant:
         view = answer_view(analysis, recommendations, proposals, meter.by_role())
         shown = {**view, "analyst": chosen, "choices": [], "meant": request.meant}
         return Answer(question, chosen, analysis, recommendations, proposals, shown, request)
+
+
+    async def _setup(
+        self, question: str, request: Request, nazar: NazarClient, meter: Meter, draft: Draft | None, conversation: str | None
+    ) -> Answer:
+        """A setup request: the draft of this conversation changed, and its plan — nothing is written to NAZAR."""
+        settings = self.settings
+        today = settings.now().date()
+        draft = draft or Draft.new(request.lang)
+        sites, employees, groups = await asyncio.gather(
+            call_nazar(nazar.get("/objects", {"include_inactive": False})),
+            call_nazar(nazar.get("/employees")),
+            call_nazar(nazar.get("/departments")),
+        )
+        llm = settings.analyst_llm()
+        try:
+            reading = await read_setup(llm, settings.analyst_model, question, draft, sites, today)
+        finally:
+            await llm.aclose()
+        draft = merge(draft, reading, await point_from(question), employees=employees, sites=sites, groups=groups)
+        if conversation is not None:
+            self.setups.put(conversation, draft)
+        plan = await build_plan(draft, nazar, today)
+        text = setup_summary(plan, request.lang)
+        emit("setup", steps=len(plan.steps), missing=len(plan.missing), clashes=len(plan.clashes))
+        answer = short_answer(question, request, meter, text=text, choices=())
+        return replace(answer, view={**answer.view, "setup": setup_view(draft, plan, request.lang)})
 
 
 def short_answer(

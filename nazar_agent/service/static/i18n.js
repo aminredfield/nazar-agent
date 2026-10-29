@@ -52,11 +52,11 @@ const I18N = {
     ANALYSTS: { attendance: "Аналитик отметок", timesheet: "Аналитик табеля" },
     REPLIES: {
       greeting: "приветствие", off_topic: "вопрос не по теме", unsupported: "этого агент не делает", secrets: "просят настройки или пароли",
-      other_company: "чужая компания", penalty: "наказание всем сразу", unclear: "вопрос непонятен", future: "это будущее", clarify: "нужно уточнить, о ком вопрос",
+      other_company: "чужая компания", penalty: "наказание всем сразу", unclear: "вопрос непонятен", future: "это будущее", clarify: "нужно уточнить, о ком вопрос", setup: "настройка: объект, смена, группа, люди",
     },
     ROLES: {
       dispatcher: "Диспетчер", attendance_analyst: "Аналитик отметок", timesheet_analyst: "Аналитик табеля", photos: "Инспектор фото",
-      skeptic: "Скептик", writer: "Составитель", voice: "Голос", import: "Разбор списков",
+      skeptic: "Скептик", writer: "Составитель", voice: "Голос", import: "Разбор списков", setup: "Разбор настройки",
     },
     TOOLS: {
       get_shared_phones: "Считаю телефоны, с которых отмечаются несколько человек",
@@ -166,11 +166,11 @@ const I18N = {
     ANALYSTS: { attendance: "Belgilar tahlilchisi", timesheet: "Tabel tahlilchisi" },
     REPLIES: {
       greeting: "salomlashish", off_topic: "mavzudan tashqari", unsupported: "agent buni qilmaydi", secrets: "sozlamalar yoki parollar so'ralmoqda",
-      other_company: "boshqa kompaniya", penalty: "hammaga birdaniga jazo", unclear: "savol tushunarsiz", future: "bu kelajak", clarify: "kim haqida ekanini aniqlash kerak",
+      other_company: "boshqa kompaniya", penalty: "hammaga birdaniga jazo", unclear: "savol tushunarsiz", future: "bu kelajak", clarify: "kim haqida ekanini aniqlash kerak", setup: "sozlash: obyekt, smena, guruh, odamlar",
     },
     ROLES: {
       dispatcher: "Dispetcher", attendance_analyst: "Belgilar tahlilchisi", timesheet_analyst: "Tabel tahlilchisi", photos: "Surat inspektori",
-      skeptic: "Skeptik", writer: "Tuzuvchi", voice: "Ovoz", import: "Ro'yxatlarni tahlil qilish",
+      skeptic: "Skeptik", writer: "Tuzuvchi", voice: "Ovoz", import: "Ro'yxatlarni tahlil qilish", setup: "Sozlashni tahlil qilish",
     },
     TOOLS: {
       get_shared_phones: "Bir nechta odam belgi qo'yadigan telefonlarni sanayapman",
@@ -280,11 +280,11 @@ const I18N = {
     ANALYSTS: { attendance: "Check-in analyst", timesheet: "Timesheet analyst" },
     REPLIES: {
       greeting: "a greeting", off_topic: "off-topic", unsupported: "the agent does not do this", secrets: "asks for settings or passwords",
-      other_company: "another company", penalty: "a penalty for everyone at once", unclear: "the question is unclear", future: "this is the future", clarify: "who is meant must be asked",
+      other_company: "another company", penalty: "a penalty for everyone at once", unclear: "the question is unclear", future: "this is the future", clarify: "who is meant must be asked", setup: "setting up: location, shift, group, people",
     },
     ROLES: {
       dispatcher: "Dispatcher", attendance_analyst: "Check-in analyst", timesheet_analyst: "Timesheet analyst", photos: "Photo inspector",
-      skeptic: "Skeptic", writer: "Writer", voice: "Voice", import: "List reading",
+      skeptic: "Skeptic", writer: "Writer", voice: "Voice", import: "List reading", setup: "Setup reading",
     },
     TOOLS: {
       get_shared_phones: "Counting phones several people check in from",
