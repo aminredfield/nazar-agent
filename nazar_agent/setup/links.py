@@ -25,7 +25,8 @@ TIMEOUT_SECONDS = 5.0
 NUMBER = r"-?\d{1,3}(?:\.\d+)?"
 PAIR = re.compile(rf"({NUMBER})\s*[,;\s]\s*({NUMBER})")
 # Two numbers inside a sentence ("…at 41.2268, 69.2190, shift…"): only with decimals, so "с 8, 17" is not a point.
-IN_TEXT = re.compile(r"(?<![\d.])(-?\d{1,2}\.\d{3,})\s*[,;]?\s*(-?\d{1,3}\.\d{3,})(?![\d.])")
+# A full stop after the second number ends the sentence; only one followed by a digit continues a number.
+IN_TEXT = re.compile(r"(?<![\d.])(-?\d{1,2}\.\d{3,})\s*[,;]?\s*(-?\d{1,3}\.\d{3,})(?!\d|\.\d)")
 GOOGLE_PIN = re.compile(rf"!3d({NUMBER})!4d({NUMBER})")
 GOOGLE_VIEW = re.compile(rf"@({NUMBER}),({NUMBER})")
 GOOGLE_HOSTS = re.compile(r"^(?:www\.|maps\.)?google\.[a-z.]{2,6}$")
