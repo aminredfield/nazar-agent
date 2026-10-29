@@ -145,6 +145,8 @@ const I18N = {
       zone_choose: "Выбрать файл", zone_camera: "Камера", camera_take: "Снять", camera_cancel: "Отмена",
       camera_denied: "Нет доступа к камере — разрешите её в браузере или выберите файл.",
       zone_file: "Файл: {0}", zone_wrong: "Такой файл не подходит.",
+      new_dialog: "Новый разговор", dialog_reset: "Начат новый разговор — следующий вопрос будет прочитан сам по себе.",
+      meant: "Понял вопрос так: {0}", history: "Раньше в этом разговоре",
     },
   },
   uz: {
@@ -257,6 +259,8 @@ const I18N = {
       zone_choose: "Fayl tanlash", zone_camera: "Kamera", camera_take: "Suratga olish", camera_cancel: "Bekor qilish",
       camera_denied: "Kameraga ruxsat yo'q — brauzerda ruxsat bering yoki fayl tanlang.",
       zone_file: "Fayl: {0}", zone_wrong: "Bu fayl mos emas.",
+      new_dialog: "Yangi suhbat", dialog_reset: "Yangi suhbat boshlandi — keyingi savol alohida o'qiladi.",
+      meant: "Savolni shunday tushundim: {0}", history: "Shu suhbatda avvalroq",
     },
   },
   en: {
@@ -369,6 +373,8 @@ const I18N = {
       zone_choose: "Choose a file", zone_camera: "Camera", camera_take: "Take", camera_cancel: "Cancel",
       camera_denied: "No access to the camera — allow it in the browser or choose a file.",
       zone_file: "File: {0}", zone_wrong: "This file does not fit.",
+      new_dialog: "New conversation", dialog_reset: "A new conversation — the next question is read on its own.",
+      meant: "I took the question as: {0}", history: "Earlier in this conversation",
     },
   },
 };

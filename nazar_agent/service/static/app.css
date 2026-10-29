@@ -350,6 +350,14 @@ ul.plain li { padding: 6px 0; border-bottom: 1px solid var(--line); }
 .issue { color: var(--warn); font-size: 13px; }
 .shoot { margin-top: 16px; padding: 22px; text-align: center; border-radius: var(--radius); border: 1px solid var(--line-strong); background: var(--panel); }
 .shoot .next { font-size: 24px; font-weight: 700; margin: 6px 0; }
+/* ---- The conversation --------------------------------------------------- */
+.meant { margin: 22px 0 -14px; }
+.history { margin-top: 10px; }
+details.turn { margin: 10px 0; padding: 12px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); box-shadow: var(--card-shadow); }
+details.turn > summary { font-size: 15px; font-weight: 600; color: var(--ink); }
+details.turn[open] > summary { margin-bottom: 4px; }
+button.ghost { background: transparent; }
+
 /* ---- Voice, photos, the camera ---------------------------------------- */
 button.mic { width: 42px; height: 42px; padding: 0; font-size: 18px; border-radius: 12px; }
 button.mic.recording { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); animation: pulse 1.2s ease-in-out infinite; }

@@ -20,7 +20,7 @@ TODAY = date(2026, 10, 28)  # a Wednesday
 
 
 def reading(**values) -> Reading:
-    base = {"intent": "data", "analyst": "timesheet", "lang": "ru", "date_from": "", "date_to": "", "people": [], "sites": [], "reason": "r"}
+    base = {"intent": "data", "analyst": "timesheet", "lang": "ru", "date_from": "", "date_to": "", "people": [], "sites": [], "meant": "", "reason": "r"}
     return Reading(**{**base, **values})
 
 

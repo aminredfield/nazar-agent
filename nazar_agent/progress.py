@@ -15,6 +15,7 @@ reviewers report without being handed anything; outside a tracked run,
 from __future__ import annotations
 
 import time
+import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -28,6 +29,8 @@ _current: ContextVar[Progress | None] = ContextVar("nazar_agent_progress", defau
 
 class Progress:
     def __init__(self, question: str) -> None:
+        # Which run the events belong to: the window must not read the previous one's as the next one's.
+        self.id = uuid.uuid4().hex[:12]
         self.question = question
         self.started = time.monotonic()
         self.events: list[dict[str, Any]] = []

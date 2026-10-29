@@ -149,7 +149,9 @@ class Bot:
 
         typing = asyncio.create_task(self._keep_typing(chat_ids))
         try:
-            answer = await self.assistant.ask(question, analyst, source="telegram")
+            # A chat is a conversation: "а Рустам?" continues the question before it.
+            conversation = f"telegram:{chat_ids[0]}" if len(chat_ids) == 1 else None
+            answer = await self.assistant.ask(question, analyst, source="telegram", conversation=conversation)
         except AssistantBusy:
             return
         except Exception as exc:  # logged by the assistant

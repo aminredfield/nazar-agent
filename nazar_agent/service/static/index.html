@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="/static/app.css?v=11">
-<script src="/static/i18n.js?v=11"></script>
+<link rel="stylesheet" href="/static/app.css?v=12">
+<script src="/static/i18n.js?v=12"></script>
 </head>
 <body>
 <div class="backdrop" aria-hidden="true"></div>
@@ -64,6 +64,7 @@
           <button type="button" data-value="timesheet" aria-checked="false" role="radio" data-i18n="seg_timesheet"></button>
         </div>
         <label class="muted actor" id="actor-label"><span data-i18n="you"></span> <input type="text" id="actor" value="Владелец" maxlength="80"></label>
+        <button type="button" class="ghost" id="new-dialog" hidden data-i18n="new_dialog"></button>
         <button type="button" class="mic" id="mic" hidden data-i18n-title="mic" data-i18n-aria="mic">🎤</button>
         <button class="primary" id="send" type="submit"><span data-i18n="send"></span></button>
       </div>
@@ -97,6 +98,7 @@
     </section>
 
     <div id="answer"></div>
+    <section id="history" class="history"></section>
   </section>
 
   <section id="tab-import" hidden>
@@ -134,7 +136,8 @@
 </main>
 
 <footer class="foot" data-i18n="footer"></footer>
-<script src="/static/media.js?v=11"></script>
-<script src="/static/app.js?v=11"></script>
+<script src="/static/media.js?v=12"></script>
+<script src="/static/app.js?v=12"></script>
+<script src="/static/people.js?v=12"></script>
 </body>
 </html>

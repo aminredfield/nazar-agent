@@ -431,6 +431,7 @@ visitor applied is gone by morning. Deployment next to NAZAR:
 | The window in Russian, Uzbek or English, with NAZAR's own terms; light by default in NAZAR's colours, dark at a click; failures said in the window's language, which also answers a question with no clear language of its own | done |
 | Telegram bot: text and voice questions, cards with buttons, a reason to disagree, undo; allowlisted chats | done |
 | Voice: Telegram Ogg/Opus → WAV → Muse Spark 1.2 audio input (Russian verified; Uzbek still to verify) | done |
+| A conversation, in the window and in a Telegram chat: "А вчера?" after "Кто сегодня опоздал?" is read with the turn before it — the dispatcher writes it out in full ("I took the question as: …"), the analyst gets that and the previous answer; earlier answers stay below, folded, their buttons live; "New conversation" starts over | done |
 | Voice and photos in the window: a microphone (the same transcription as the bot, the text put in the box to read before sending; no speech heard is said so, not typed in); one photo zone everywhere — drop, paste, choose, or take with the webcam or the phone's camera | done (Russian speech heard right; English from a synthetic voice comes back garbled — Muse Spark 1.2's limit, Muse Spark 1.3 takes no audio) |
 | Morning brief at a set local time and on `/brief` | done |
 | Importing a list of employees: photo of a notebook / Excel / CSV / text → checked table → waiting for a photo → shooting queue → employee in NAZAR | done |

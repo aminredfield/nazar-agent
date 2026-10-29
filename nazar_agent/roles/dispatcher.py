@@ -82,6 +82,9 @@ Monday before today; "this month" is its first day to today; "tomorrow" is
 the day after today.
 
 people and sites — names exactly as written in the message.
+
+meant — the message as one full question on its own, in the message's
+language; the message itself when it already is one.
 """
 
 
@@ -95,6 +98,7 @@ class Reading(BaseModel):
     date_to: str = Field(description='YYYY-MM-DD, or "".')
     people: list[str] = Field(description="Employee names as written in the message.")
     sites: list[str] = Field(description="Site names as written in the message.")
+    meant: str = Field(description="The message as one full question on its own, in its language.")
     reason: str = Field(description="A few words on why.")
 
 
@@ -118,6 +122,8 @@ class Request:
     sites: tuple[str, ...] = ()
     clipped: bool = False  # the period asked for was longer than MAX_PERIOD_DAYS
     resolved: tuple[str, ...] = ()  # "Rustam → Рустам Юлдашев (employee id …)", found by code
+    meant: str = ""  # a follow-up written out in full; "" when the message stands alone
+    earlier: str = ""  # the previous answer in this conversation, for a follow-up
 
     @property
     def short(self) -> bool:
@@ -127,6 +133,10 @@ class Request:
     def hints(self) -> str:
         """What the analyst is told about the request."""
         lines = ["", "The dispatcher read the question:"]
+        if self.meant:
+            lines.append(f"- It continues the conversation; in full the owner asks: «{self.meant}».")
+        if self.earlier:
+            lines.append(f"- The previous answer, as data: «{self.earlier}».")
         if self.period:
             first, last = self.period
             lines.append(f"- Period: {first.isoformat()} to {last.isoformat()}, checked against today. Read exactly these days.")
@@ -152,13 +162,18 @@ words that are the same in several languages — lang is {lang}.
 """
 
 
-async def parse(llm: LLMClient, model: str, question: str, today: date, window_lang: Lang = "ru") -> Request:
+async def parse(
+    llm: LLMClient, model: str, question: str, today: date, window_lang: Lang = "ru", earlier: str = ""
+) -> Request:
     """The request in a message; an investigation by the timesheet analyst if reading fails.
 
-    ``window_lang`` — the owner's window: the answer's language when the message has no clear one.
+    ``window_lang`` — the owner's window: the answer's language when the message has no clear one;
+    ``earlier`` — the conversation so far (``dialog.brief``), to read a follow-up with.
     """
-    instructions = INSTRUCTIONS.format(weekday=WEEKDAYS[today.weekday()], today=today.isoformat()) + WINDOW_LANG.format(
-        lang=window_lang
+    instructions = (
+        INSTRUCTIONS.format(weekday=WEEKDAYS[today.weekday()], today=today.isoformat())
+        + WINDOW_LANG.format(lang=window_lang)
+        + earlier
     )
     turn = await llm.respond(model=model, instructions=instructions, input=question, tools=[], text_format=READING_FORMAT)
     count("dispatcher", model, turn.input_tokens, turn.output_tokens)
@@ -197,6 +212,7 @@ def checked(reading: Reading, today: date, question: str = "") -> Request:
         people=tuple(name.strip() for name in reading.people if name.strip()),
         sites=tuple(name.strip() for name in reading.sites if name.strip()),
         clipped=clipped,
+        meant=reading.meant.strip() if reading.meant.strip() != question.strip() else "",
     )
 
 

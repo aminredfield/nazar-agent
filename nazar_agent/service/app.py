@@ -213,7 +213,9 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         day = _reserve(http, current)
         cost = FAILED_QUESTION_COST_USD
         try:
-            answer = await current.assistant.ask(request.question, analyst, nazar=current.nazar, lang=request.lang)
+            answer = await current.assistant.ask(
+                request.question, analyst, nazar=current.nazar, lang=request.lang, conversation=current.session_id
+            )
             cost = answer.view["stats"]["cost_usd"]
         except AssistantBusy:
             cost = 0.0
@@ -229,8 +231,8 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         """What the team is doing on the current question, from event ``after`` on."""
         run = current.assistant.progress
         if run is None:
-            return {"question": None, "running": False, "events": []}
-        return {"question": run.question, "running": not run.finished, "events": run.since(after)}
+            return {"run": None, "question": None, "running": False, "events": []}
+        return {"run": run.id, "question": run.question, "running": not run.finished, "events": run.since(after)}
 
     @app.get("/api/last")
     async def last(current: Caller = Depends(caller)) -> dict[str, Any] | None:
@@ -238,14 +240,22 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         assistant = current.assistant
         if assistant.last is None:
             return None
-        view = assistant.last.view
-        return {
-            **view,
-            "cards": [
-                {**card, "actions": [proposal_view(assistant.store.get(action["proposal_id"])) for action in card["actions"]]}
-                for card in view["cards"]
-            ],
-        }
+        return _fresh(assistant, assistant.last.view)
+
+    @app.get("/api/dialog")
+    async def dialog(current: Caller = Depends(caller)) -> list[dict[str, Any]]:
+        """This window's conversation, oldest first: each question and its answer, proposals as they are now."""
+        assistant = current.assistant
+        return [
+            {"question": turn.question, "meant": turn.meant, "answer": _fresh(assistant, turn.view)}
+            for turn in assistant.dialogs.turns(current.session_id)
+        ]
+
+    @app.post("/api/dialog/reset")
+    async def new_dialog(current: Caller = Depends(caller)) -> dict[str, bool]:
+        """A new conversation: the next question is read on its own."""
+        current.assistant.dialogs.reset(current.session_id)
+        return {"ok": True}
 
     @app.post("/api/proposals/{proposal_id}/confirm")
     async def confirm(proposal_id: str, request: DecisionRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
@@ -395,6 +405,17 @@ class Caller:
     def actor_for(self, typed: str) -> str:
         """Who decided: from the NAZAR session, never from the window — a typed name is used only locally."""
         return self.name or typed.strip() or "Владелец"
+
+
+def _fresh(assistant: Assistant, view: dict[str, Any]) -> dict[str, Any]:
+    """An answer shown again: each proposal with its status as it is now."""
+    return {
+        **view,
+        "cards": [
+            {**card, "actions": [proposal_view(assistant.store.get(action["proposal_id"])) for action in card["actions"]]}
+            for card in view["cards"]
+        ],
+    }
 
 
 def _reserve(request: Request, current: Caller, *, question: bool = True) -> str:

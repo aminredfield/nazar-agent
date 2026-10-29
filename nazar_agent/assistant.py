@@ -10,7 +10,8 @@ write to the same audit trail.
 The dispatcher answers a greeting, something off-topic or forbidden, or the
 future itself, with a fixed short text: no analyst, no NAZAR reads. A name
 that fits several people, or no one, is asked back with buttons
-(``nazar_agent.clarify``).
+(``nazar_agent.clarify``). A follow-up is read with the conversation before
+it (``nazar_agent.dialog``).
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from typing import Any
 from nazar_agent.actions import Executor, Proposal, ProposalStore
 from nazar_agent.clarify import Choice, Clarification, resolve
 from nazar_agent.config import Settings
+from nazar_agent.dialog import Dialogs, Turn, brief, previous_answer
 from nazar_agent.engine import RoleRun
 from nazar_agent.errors import WindowLang, owner_message
 from nazar_agent.feedback import about, instructions_text, owner_feedback
@@ -59,6 +61,7 @@ class Answer:
     recommendations: Recommendations
     proposals: list[list[Proposal]]  # per card, in card order
     view: dict[str, Any]
+    request: Request | None = None  # how the dispatcher read the question
 
 
 class Assistant:
@@ -88,6 +91,7 @@ class Assistant:
         self.reporter = reporter
         self.drafts = DraftStore(store.path, store)
         self.last: Answer | None = None
+        self.dialogs = Dialogs()
         # The question being answered, or the last one: the window follows it live.
         self.progress: Progress | None = None
         self._lock = asyncio.Lock()
@@ -97,9 +101,10 @@ class Assistant:
         return self._lock.locked()
 
     def forget(self) -> None:
-        """Drop the last answer and its live feed, e.g. after the demo company was reset."""
+        """Drop the last answer, its live feed and the conversations, e.g. after the demo company was reset."""
         self.last = None
         self.progress = None
+        self.dialogs.clear()
 
     def executor(self, nazar: NazarClient | None = None) -> Executor:
         return Executor(self.store, self._acting(nazar))
@@ -112,8 +117,11 @@ class Assistant:
         nazar: NazarClient | None = None,
         source: Source = "ask",
         lang: WindowLang = "ru",
+        conversation: str | None = None,
     ) -> Answer:
-        """``lang`` — the window's language: failures are said in it, and the answer when the question's is unclear."""
+        """``lang`` — the window's language: failures are said in it, and the answer when the question's is unclear;
+        ``conversation`` — whose conversation this continues (a window session, a Telegram chat); None: no memory.
+        """
         if self._lock.locked():
             raise AssistantBusy
         async with self._lock:
@@ -121,7 +129,8 @@ class Assistant:
             meter = Meter()
             with tracking(self.progress), metering(meter):
                 try:
-                    self.last = await self._answer(question, analyst, self._acting(nazar), meter, lang)
+                    earlier = self.dialogs.turns(conversation) if conversation is not None else ()
+                    self.last = await self._answer(question, analyst, self._acting(nazar), meter, lang, earlier)
                 except Exception as exc:
                     log.exception("answering %r failed", question)
                     self.progress.finish(owner_message(exc, lang))
@@ -130,6 +139,8 @@ class Assistant:
                     # Tokens spent on a failed question are spent all the same.
                     await self.spent(source, question, meter)
             self.progress.finish()
+            if conversation is not None:
+                self.dialogs.add(conversation, _turn(self.last))
             return self.last
 
     async def hear(self, audio: bytes, lang: str | None = None) -> str:
@@ -184,7 +195,13 @@ class Assistant:
         return acting
 
     async def _answer(
-        self, question: str, analyst: Analyst | None, nazar: NazarClient, meter: Meter, lang: WindowLang = "ru"
+        self,
+        question: str,
+        analyst: Analyst | None,
+        nazar: NazarClient,
+        meter: Meter,
+        lang: WindowLang = "ru",
+        earlier: tuple[Turn, ...] = (),
     ) -> Answer:
         settings = self.settings
         analyst_llm = settings.analyst_llm()
@@ -192,11 +209,16 @@ class Assistant:
         now = settings.now()
         today = now.date()
         try:
-            request = await parse(analyst_llm, settings.analyst_model, question, today, lang)
+            request = await parse(analyst_llm, settings.analyst_model, question, today, lang, brief(earlier))
             if request.short:
                 log.info("the dispatcher answered a %s request itself", request.intent)
                 return short_answer(question, request, meter)
-            found = await resolve(request, question, nazar)
+            if request.meant:
+                # A follow-up: the team answers it in full, knowing what it said before.
+                log.info("a follow-up, read as %r", request.meant)
+                request = replace(request, earlier=previous_answer(earlier))
+            asked = request.meant or question
+            found = await resolve(request, asked, nazar)
             if isinstance(found, Clarification):
                 text = clarification(found, request.lang)
                 emit("reply", intent="clarify", text=text)
@@ -214,18 +236,19 @@ class Assistant:
             role = ANALYSTS[chosen](
                 model=settings.analyst_model, tools=tools, today=today, feedback=instructions_text(feedback), request=request.hints()
             )
-            analysis = await analyze(role, analyst_llm, question, language=LANGUAGES[request.lang])
+            analysis = await analyze(role, analyst_llm, asked, language=LANGUAGES[request.lang])
             if photos.input_tokens:
                 log.info("photo inspector: %d/%d tokens on %s", photos.input_tokens, photos.output_tokens, photos.model)
             team = Team(skeptic_llm, settings.skeptic_model, analyst_llm, settings.analyst_model)
             owner_said = {item.subject_id: about(feedback, item.subject_id) for item in feedback}
-            recommendations = await recommend(analysis, team, nazar, today, owner_said, question)
+            recommendations = await recommend(analysis, team, nazar, today, owner_said, asked)
         finally:
             await analyst_llm.aclose()
             await skeptic_llm.aclose()
         proposals = Executor(self.store, nazar).propose(recommendations.cards, question, request.lang)
         view = answer_view(analysis, recommendations, proposals, meter.by_role())
-        return Answer(question, chosen, analysis, recommendations, proposals, {**view, "analyst": chosen, "choices": []})
+        shown = {**view, "analyst": chosen, "choices": [], "meant": request.meant}
+        return Answer(question, chosen, analysis, recommendations, proposals, shown, request)
 
 
 def short_answer(
@@ -241,8 +264,24 @@ def short_answer(
     )
     recommendations = Recommendations(cards=(), notes=(), usage=())
     view = answer_view(analysis, recommendations, [], meter.by_role())
-    shown = {**view, "analyst": request.analyst, "reply": request.intent, "choices": [asdict(choice) for choice in choices]}
-    return Answer(question, request.analyst, analysis, recommendations, [], shown)
+    shown = {
+        **view, "analyst": request.analyst, "reply": request.intent, "choices": [asdict(choice) for choice in choices],
+        "meant": request.meant,
+    }
+    return Answer(question, request.analyst, analysis, recommendations, [], shown, request)
+
+
+def _turn(answer: Answer) -> Turn:
+    request = answer.request
+    return Turn(
+        question=answer.question,
+        meant=request.meant if request else "",
+        period=request.period if request else None,
+        people=request.people if request else (),
+        sites=request.sites if request else (),
+        summary=answer.analysis.report.summary,
+        view=answer.view,
+    )
 
 
 class Assistants:

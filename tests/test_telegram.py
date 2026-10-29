@@ -52,11 +52,13 @@ class FakeAssistant:
         self.cards = cards
         self.busy = False
         self.questions: list[str] = []
+        self.conversations: list[str | None] = []
 
     def executor(self, nazar=None):
         return Executor(self.store, nazar or self._nazar)
 
-    async def ask(self, question, analyst=None, *, nazar=None, source="ask"):
+    async def ask(self, question, analyst=None, *, nazar=None, source="ask", conversation=None):
+        self.conversations.append(conversation)
         if self.busy:
             raise AssistantBusy
         self.questions.append(question)
@@ -136,6 +138,7 @@ async def test_question_gets_summary_cards_with_buttons_and_footer(setup):
     assert "Опоздание: 74 → <b>6</b> мин" in texts[2]
     assert api.sent[2][2][0][0]["callback_data"] == f"a:{proposal.id}"
     assert "исправлено 1" in texts[3]
+    assert assistant.conversations == [f"telegram:{OWNER}"]  # the chat is the conversation
 
 
 async def test_voice_is_transcribed_shown_and_answered(setup):
