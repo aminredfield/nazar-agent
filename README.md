@@ -38,8 +38,11 @@ The window opens as the owner of the demo company. Ask, for example:
 | «Что стоит проверить в табеле перед оплатой?» | the finishing crew at Yashnobod is "late" every day: they work 09:00–19:00, the site says 08:00–18:00 | blames the schedule, not the people; proposes `change_schedule` with before → after |
 | the same two questions | a worker with weak GPS (flags, twice outside the fence, but live selfies and full days); an honest foreman checking in two workers without smartphones | accuses neither |
 | «Импорт сотрудников» tab, paste a list with a repeat and a surname only | — | flags the repeat, the surname-only line and the person who is already employed |
+| «Кто сегодня опоздал?», then «А вчера?» | a conversation | reads the second as "who was late yesterday" and says so above the answer |
+| «Открываем объект ЖК Олмазор на Чиланзаре, точка 41.2856, 69.2034. Смена с 8 до 5, шестидневка. Бригада Рустама: Рустам и новенький Жасур Тоиров» | Rustam already works 08:00–18:00 on another site | cards for the site (on a map), the shift, the group and the people; finds the clash; the plan of changes in words; **Apply all**, then **Undo all** |
+| the same in English or Uzbek; 🎤 to say it | — | answers in the language asked; RU · UZ · EN and a light/dark switch at the top |
 
-Press **Apply** on a card: the demo NAZAR changes, and **Undo** puts it back.
+Press **Apply** on a card (or **Apply all** on a setup plan): the demo NAZAR changes, and **Undo** puts it back.
 **Сбросить демо** (top right) returns the company to this morning. Today's
 check-ins appear as their time comes in Tashkent; the company starts over
 every day.
@@ -80,7 +83,7 @@ a cheater; the agents write "worth checking" and "not confirmed".
 
 | Existed before Oct 26 | Built during the hackathon (this repository) |
 |---|---|
-| NAZAR: check-in by face + geofence + anti-spoofing, schedules, timesheet calculation, admin API, demo company seeding — closed source | Everything in this repository: agent engine, roles, tools over the NAZAR API, recommendations, executor, audit, assistant UI, Telegram bot, list import, evals |
+| NAZAR: check-in by face + geofence + anti-spoofing, schedules, timesheet calculation, admin API, demo company seeding — closed source | Everything in this repository: agent engine, roles, tools over the NAZAR API, recommendations, executor, audit, assistant UI, Telegram bot, list import, setting a site up through the chat, the demo NAZAR, evals |
 | | Small changes in NAZAR, all behind a per-company AI switch: the switch itself, the menu entry, sign-in with a one-minute pass, the device key of a check-in, the bot's sign-in with the assistant key, the AI spend per company in the superadmin; the construction demo company and new faces for both demo companies — published as diffs in [`nazar-changes/`](nazar-changes/). Everything else the agents do goes through NAZAR's existing API |
 
 The git history of this repository starts on Oct 27, 2026.
@@ -88,11 +91,13 @@ The git history of this repository starts on Oct 27, 2026.
 ## Architecture
 
 ```
-Input: Telegram (text, voice), assistant window, schedule (morning brief)
+Input: Telegram (text, voice), assistant window (text, voice, photos), schedule (morning brief)
    │
    ▼
-Dispatcher ─────────── understands the request, picks the analysts
-   │
+Dispatcher ─────────── reads the request: its kind, language, period, names; a follow-up with the turn before it
+   │                     a greeting, off-topic or forbidden: a short answer, no analyst
+   ├─► Setup reading ─── "open a site, put a crew there": the fields only; code finds names, the point,
+   │                     clashes, writes the plan (see "Setting a site up through the chat")
    ├─► Attendance analyst ─ check-ins, anti-fraud flags, shared phones (counted by code)
    │      └─► Photo inspector (Muse Spark Open) ─ live selfie or a photo of a screen, background
    └─► Timesheet analyst ── timesheet, absences, each site's schedule vs. the real day (counted by code)
