@@ -4,13 +4,14 @@
 // waiting for a photo, and the shooting queue walks along the brigade.
 // Uses app.js (el, api, upload, loadAudit), media.js (photoZone) and i18n.js (t).
 
-function showTab(name) {
+// ``load: false`` — the caller loads the tab itself.
+function showTab(name, { load = true } = {}) {
   for (const tab of ["ask", "import", "company"]) {
     $(`tab-${tab}`).hidden = tab !== name;
     $(`tab-${tab}-button`).setAttribute("aria-selected", String(tab === name));
   }
-  if (name === "import") loadWaiting();
-  if (name === "company") loadCompany();
+  if (name === "import" && load) loadWaiting();
+  if (name === "company" && load) loadCompany();
 }
 $("tab-ask-button").addEventListener("click", () => showTab("ask"));
 $("tab-import-button").addEventListener("click", () => showTab("import"));

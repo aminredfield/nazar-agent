@@ -10,17 +10,20 @@
 (() => {
   let companySeen = null; // key → what it looked like the last time the tab was shown
 
-  async function loadCompany() {
+  // ``toChange``: bring the first marked change into view (from "See it in Company").
+  async function loadCompany(toChange = false) {
     try {
       const data = await api("/api/company");
       const now = signatures(data);
       renderCompany(data, companySeen || now);
       companySeen = now;
+      const first = toChange === true ? $("company").querySelector(".mark-changed, .mark-new") : null;
+      (first || (toChange === true ? $("tab-company") : null))?.scrollIntoView({ block: "center" });
     } catch (error) {
       $("company").replaceChildren(el("p", { class: "error" }, error.message));
     }
   }
-  $("refresh-company").addEventListener("click", loadCompany);
+  $("refresh-company").addEventListener("click", () => loadCompany());
 
   // The company as the window opened, so the first look after an "Apply" already marks it.
   async function companyBaseline() {
@@ -39,7 +42,10 @@
   // Next to a done action: where to see what it changed.
   function seeCompany() {
     const go = el("button", { type: "button", class: "ghost" }, t("see_company"));
-    go.addEventListener("click", () => { showTab("company"); window.scrollTo({ top: $("tab-company").offsetTop - 80 }); });
+    go.addEventListener("click", () => {
+      showTab("company", { load: false });
+      loadCompany(true);
+    });
     return go;
   }
 
