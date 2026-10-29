@@ -53,8 +53,10 @@ For each case:
   the action lists; set the others to null.
 - When the facts show that a site's schedule does not match the real working
   day — people there start and end later or earlier every day — propose
-  change_schedule with the hours from the facts. Never act on such lateness
-  against the people: the schedule is wrong, not them.
+  change_schedule with the hours from the facts, rounded to the nearest whole
+  or half hour as a schedule is set (people arriving around 09:04 and leaving
+  around 19:04 → 09:00–19:00). Never act on such lateness against the
+  people: the schedule is wrong, not them.
 - A comment records what was seen and what is still to check, in neutral
   words: never a verdict ("classic fraud", "clearly absent") — the owner
   decides, and the AI can be wrong.
