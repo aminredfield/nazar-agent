@@ -176,3 +176,24 @@ def test_the_bot_shows_the_plan_and_sends_the_owner_to_the_window():
     text = answer_header(view)
 
     assert "1. Создам группу «&lt;b&gt;»." in text and "? Где объект?" in text and "в окне помощника" in text
+
+
+async def test_new_hours_for_a_site_the_company_has_keep_its_days(company):
+    nazar, data, demo = company
+    yashnobod = next(site for site in demo.world.sites.values() if site.key == "yashnobod")
+    draft = merge(Draft.new("ru"), asked(existing_site=yashnobod.name, shift_start="09:00", shift_end="19:00"), None, **data)
+
+    plan = await build(draft, nazar, NOW.date())
+
+    assert [step.kind for step in plan.steps] == ["site_schedule"]
+    assert plan.steps[0].params["working_days"] == [1, 2, 3, 4, 5, 6] and plan.ready
+
+
+async def test_a_plan_with_nothing_to_do_asks_what_to_set_up(company):
+    nazar, data, demo = company
+    yashnobod = next(site for site in demo.world.sites.values() if site.key == "yashnobod")
+    draft = merge(Draft.new("ru"), asked(existing_site=yashnobod.name), None, **data)
+
+    plan = await build(draft, nazar, NOW.date())
+
+    assert plan.steps == () and [kind for kind, _ in plan.missing] == ["nothing"]

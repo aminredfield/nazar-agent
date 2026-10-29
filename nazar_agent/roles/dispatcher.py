@@ -51,7 +51,9 @@ intent:
 - setup — setting the company up: open a new site, put a group or people
   to work on a site, set a group's shift there, make a group, add people to
   it, move someone to another site; and changing such a plan being made
-  ("make the shift from 9", "not Bobur").
+  ("make the shift from 9", "not Bobur"). Changing the hours of a site the
+  company already has ("set Yashnobod to 9–19") is data: an action the
+  analyst checks against the real day.
 - greeting — hello, thanks, who are you, what can you do.
 - off_topic — not about the company's people and work time: weather, poems,
   recipes, general knowledge, taxes and law, other software.

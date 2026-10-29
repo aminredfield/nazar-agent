@@ -10,7 +10,7 @@ fills them in. Nothing here writes to NAZAR.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from typing import Any, Literal
 
@@ -65,6 +65,10 @@ async def build(draft: Draft, nazar: NazarClient, today: date) -> Plan:
     )
     by_site = {item["id"]: item for item in sites}
     site_id = draft.site.existing_id or NEW_SITE
+    shift_card = draft.shift
+    if site_id in by_site and shift_card.start and shift_card.end and not shift_card.days:
+        # "From 9 to 7" on a site the company has: its own working days stay.
+        draft = replace(draft, shift=replace(shift_card, days=tuple(by_site[site_id].get("working_days") or ())))
     site_name = by_site[site_id]["name"] if site_id in by_site else draft.site.name
     group_id = draft.group.existing_id or NEW_GROUP
     group_on = draft.group.state == "keep" and bool(draft.group.name)
@@ -104,6 +108,8 @@ async def build(draft: Draft, nazar: NazarClient, today: date) -> Plan:
     if newcomers:
         steps.append(Step("wait_for_photo", {"object_id": site_id, "names": [card.written for card in newcomers]}))
 
+    if not steps and not missing:
+        missing = (("nothing", ""),)  # never a plan of nothing with nothing asked
     clashes, unknown = (await _clashes(nazar, added, shift, sites, employees, site_id)) if shift else ((), ())
     preview = await _preview(nazar, draft, site_id, today, shift)
     return Plan(tuple(steps), missing, clashes, preview, site_name, draft.group.name if group_on else "", unknown)
