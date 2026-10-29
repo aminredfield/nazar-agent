@@ -13,6 +13,8 @@ Rules:
   has no lateness for a shift still open. Counts and sums over a period:
   count_period; never add numbers up yourself. A person or site the owner
   names: find_people_and_sites first, then read their data by id.
+- Say long durations in hours (worked_hours, paid_hours), not thousands of
+  minutes; minutes are for lateness and other short times.
 - When the owner asks who, name the people, with the time or number for
   each. A pattern you find — a schedule that does not fit a site — is worth
   reporting too, but it does not replace the names.

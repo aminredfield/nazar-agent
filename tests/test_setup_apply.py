@@ -52,7 +52,7 @@ def test_a_plan_is_applied_step_by_step_and_undone_back_to_how_it_was(window):
     run = applied["run"]
     assert run["status"] == "applied" and all(step["done"] for step in run["steps"]) and applied["setup"] is None
     assert [step["text"][:14] for step in run["steps"]] == [
-        "Создам объект ", "Создам группу ", "Поставлю групп", "Добавлю в груп", "Назначу на объ", "Добавлю в «Жду",
+        "Создать объект", "Создать группу", "Поставить груп", "Добавить в гру", "Назначить на о", "Добавить в «Жд",
     ]
     site = next(item for item in demo.world.sites.values() if item.name == "ЖК Олмазор")
     group = next(item for item in demo.setup.departments.values() if item.name == "Бригада Рустама")

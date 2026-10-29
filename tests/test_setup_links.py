@@ -118,3 +118,14 @@ def test_coordinates_inside_a_sentence_are_found_and_hours_are_not():
     assert point_in_text("Объект на Чиланзаре, точка 41.2856, 69.2034. Смена с 8 до 5").rounded() == (41.2856, 69.2034)
     assert point_in_text("смена с 8, 17 человек, 2.5 часа") is None
     assert point_in_text("41.2856, 69.2034.5") is None  # not a point: the second number goes on
+
+
+def test_degrees_minutes_seconds_as_google_copies_them():
+    from nazar_agent.setup.links import point_in_text
+
+    def near(point, digits):
+        return round(point.latitude, digits), round(point.longitude, digits)
+
+    assert near(point_in_text('Open a site at 41°17\'08.2"N 69°12\'12.2"E, shift 8 to 5'), 4) == (41.2856, 69.2034)
+    assert near(point_in('41°17\'08.2"N 69°12\'12.2"E'), 4) == (41.2856, 69.2034)
+    assert near(point_in("33°51′54″S 151°12′35″E"), 3) == (-33.865, 151.21)  # south, and the other quote marks

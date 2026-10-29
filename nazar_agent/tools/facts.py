@@ -281,7 +281,7 @@ def tally(
     return view
 
 
-def _totals(rows: list[dict[str, Any]]) -> dict[str, int]:
+def _totals(rows: list[dict[str, Any]]) -> dict[str, Any]:
     def total(field: str) -> int:
         return sum(row.get(field) or 0 for row in rows)
 
@@ -289,6 +289,9 @@ def _totals(rows: list[dict[str, Any]]) -> dict[str, int]:
         "people": len({row["employee_id"] for row in rows if row.get("day_code") != "day_off" or row.get("worked_minutes")}),
         "worked_minutes": total("worked_minutes"),
         "paid_minutes": total("paid_minutes"),
+        # Hours to say to a person: "2,836 hours" reads, "170,203 minutes" does not.
+        "worked_hours": round(total("worked_minutes") / 60, 1),
+        "paid_hours": round(total("paid_minutes") / 60, 1),
         "late_days": sum(1 for row in rows if (row.get("late_minutes") or 0) > 0),
         "late_minutes": total("late_minutes"),
         "absent_days": sum(1 for row in rows if row.get("day_code") == "absent"),

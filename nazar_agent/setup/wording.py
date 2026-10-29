@@ -2,7 +2,8 @@
 
 Like the actions' sentences (``recommendations.wording``): built from the
 very parameters that will be sent to NAZAR, so a step cannot say one thing
-and do another. Russian, Uzbek and English.
+and do another. Russian, Uzbek and English; each step reads the same in the
+plan and in the list of what was done ("Create…", not "I will create…").
 """
 
 from __future__ import annotations
@@ -16,15 +17,15 @@ from nazar_agent.setup.plan import PersonClash, Plan, Step
 EVERY_DAY = {"ru": "каждый день", "uz": "har kuni", "en": "every day"}
 TEXT: dict[Language, dict[str, str]] = {
     "ru": {
-        "create_site": "Создам объект «{name}», {address}: точка {lat}, {lng}, радиус {radius} м; смена {start}–{end}, {days}.",
-        "site_schedule": "Поставлю объекту «{site}» смену {start}–{end}, {days}, с сегодняшнего дня.",
-        "create_group": "Создам группу «{name}».",
-        "group_on_site": "Поставлю группу «{group}» на объект «{site}» — по графику объекта.",
-        "group_on_site_custom": "Поставлю группу «{group}» на объект «{site}» со своей сменой {start}–{end}, {days}.",
-        "add_to_group": "Добавлю в группу «{group}»: {names}.",
-        "assign": "Назначу на объект «{site}» с {date}: {names}.",
-        "transfer": "Переведу {name} с объекта «{from_site}» на «{site}» с {date}. Отменить перевод можно только в NAZAR вручную.",
-        "wait_for_photo": "Добавлю в «Ждут фото»: {names} — NAZAR создаст каждого после фото лица.",
+        "create_site": "Создать объект «{name}»{where}: точка {lat}, {lng}, радиус {radius} м; смена {start}–{end}, {days}.",
+        "site_schedule": "Поставить объекту «{site}» смену {start}–{end}, {days}, с сегодняшнего дня.",
+        "create_group": "Создать группу «{name}».",
+        "group_on_site": "Поставить группу «{group}» на объект «{site}» — по графику объекта.",
+        "group_on_site_custom": "Поставить группу «{group}» на объект «{site}» со своей сменой {start}–{end}, {days}.",
+        "add_to_group": "Добавить в группу «{group}»: {names}.",
+        "assign": "Назначить на объект «{site}» с {date}: {names}.",
+        "transfer": "Перевести {name} с объекта «{from_site}» на «{site}» с {date}. Отменить перевод можно только в NAZAR вручную.",
+        "wait_for_photo": "Добавить в «Ждут фото»: {names} — NAZAR создаст каждого после фото лица.",
         "missing_site_name": "Как назвать объект?",
         "missing_point": "Где объект? Поставьте точку на карте, вставьте ссылку Яндекс или Google Карт или нажмите «Я здесь».",
         "missing_shift": "Какая смена на объекте: с какого до какого часа и в какие дни?",
@@ -40,15 +41,15 @@ TEXT: dict[Language, dict[str, str]] = {
         "summary_missing": "Готовлю план. Чтобы его применить, ответьте на вопросы ниже.",
     },
     "uz": {
-        "create_site": "«{name}» obyektini yarataman, {address}: nuqta {lat}, {lng}, radius {radius} m; smena {start}–{end}, {days}.",
-        "site_schedule": "«{site}» obyektiga bugundan boshlab {start}–{end}, {days} smenasini qo'yaman.",
-        "create_group": "«{name}» guruhini yarataman.",
-        "group_on_site": "«{group}» guruhini «{site}» obyektiga qo'yaman — obyekt jadvali bo'yicha.",
-        "group_on_site_custom": "«{group}» guruhini «{site}» obyektiga o'z smenasi bilan qo'yaman: {start}–{end}, {days}.",
-        "add_to_group": "«{group}» guruhiga qo'shaman: {names}.",
-        "assign": "{date} dan «{site}» obyektiga tayinlayman: {names}.",
-        "transfer": "{name}ni {date} dan «{from_site}» obyektidan «{site}» ga o'tkazaman. O'tkazishni faqat NAZAR'da qo'lda bekor qilish mumkin.",
-        "wait_for_photo": "«Surat kutmoqda» ga qo'shaman: {names} — NAZAR har birini yuz suratidan keyin yaratadi.",
+        "create_site": "«{name}» obyektini yaratish{where}: nuqta {lat}, {lng}, radius {radius} m; smena {start}–{end}, {days}.",
+        "site_schedule": "«{site}» obyektiga bugundan boshlab {start}–{end}, {days} smenasini qo'yish.",
+        "create_group": "«{name}» guruhini yaratish.",
+        "group_on_site": "«{group}» guruhini «{site}» obyektiga qo'yish — obyekt jadvali bo'yicha.",
+        "group_on_site_custom": "«{group}» guruhini «{site}» obyektiga o'z smenasi bilan qo'yish: {start}–{end}, {days}.",
+        "add_to_group": "«{group}» guruhiga qo'shish: {names}.",
+        "assign": "{date} dan «{site}» obyektiga tayinlash: {names}.",
+        "transfer": "{name}ni {date} dan «{from_site}» obyektidan «{site}» ga o'tkazish. O'tkazishni faqat NAZAR'da qo'lda bekor qilish mumkin.",
+        "wait_for_photo": "«Surat kutmoqda» ga qo'shish: {names} — NAZAR har birini yuz suratidan keyin yaratadi.",
         "missing_site_name": "Obyekt qanday nomlansin?",
         "missing_point": "Obyekt qayerda? Xaritada nuqta qo'ying, Yandex yoki Google xarita havolasini qo'ying yoki «Men shu yerdaman» ni bosing.",
         "missing_shift": "Obyektda smena qanday: soat nechadan nechagacha va qaysi kunlari?",
@@ -64,7 +65,7 @@ TEXT: dict[Language, dict[str, str]] = {
         "summary_missing": "Reja tayyorlanmoqda. Uni qo'llash uchun quyidagi savollarga javob bering.",
     },
     "en": {
-        "create_site": "Create the location “{name}”, {address}: point {lat}, {lng}, radius {radius} m; shift {start}–{end}, {days}.",
+        "create_site": "Create the location “{name}”{where}: point {lat}, {lng}, radius {radius} m; shift {start}–{end}, {days}.",
         "site_schedule": "Set the location “{site}” to a {start}–{end} shift, {days}, from today.",
         "create_group": "Create the group “{name}”.",
         "group_on_site": "Put the group “{group}” on the location “{site}”, on the location's schedule.",
@@ -101,8 +102,11 @@ def step_text(step: Step, plan: Plan, lang: str) -> str:
     if "shift_start" in params:
         shared |= {"start": params["shift_start"], "end": params["shift_end"], "days": days_text(params["working_days"], lang_)}
     if step.kind == "create_site":
+        address = (params.get("address") or "").strip()
+        # NAZAR needs an address; without one the plan sends the name, and saying it twice says nothing.
+        where = "" if not address or address.casefold() == params["name"].strip().casefold() else f", {address}"
         return words["create_site"].format(
-            **shared, name=params["name"], address=params["address"], lat=f"{params['latitude']:.5f}",
+            **shared, name=params["name"], where=where, lat=f"{params['latitude']:.5f}",
             lng=f"{params['longitude']:.5f}", radius=params["radius_meters"],
         )
     if step.kind == "create_group":

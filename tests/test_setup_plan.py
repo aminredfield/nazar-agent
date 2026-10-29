@@ -56,10 +56,10 @@ async def test_a_new_site_with_a_crew_becomes_a_ready_plan_in_words(company):
     assert [step.kind for step in plan.steps] == ["create_site", "create_group", "group_on_site", "add_to_group", "assign"]
     assert plan.ready and shown["missing"] == []
     assert shown["steps"][0]["text"] == (
-        "Создам объект «ЖК Олмазор», Ташкент, Чиланзар: точка 41.28561, 69.20341, радиус 100 м; смена 08:00–17:00, пн–сб."
+        "Создать объект «ЖК Олмазор», Ташкент, Чиланзар: точка 41.28561, 69.20341, радиус 100 м; смена 08:00–17:00, пн–сб."
     )
-    assert shown["steps"][3]["text"] == "Добавлю в группу «Бригада Рустама»: Rustam Yuldashev, Bobur Karimov."
-    assert shown["steps"][4]["text"] == "Назначу на объект «ЖК Олмазор» с 28.10: Rustam Yuldashev, Bobur Karimov."
+    assert shown["steps"][3]["text"] == "Добавить в группу «Бригада Рустама»: Rustam Yuldashev, Bobur Karimov."
+    assert shown["steps"][4]["text"] == "Назначить на объект «ЖК Олмазор» с 28.10: Rustam Yuldashev, Bobur Karimov."
     assert [day["working"] for day in shown["preview"]] == [True, True, True, True, False, True, True]  # from Wednesday
     assert summary(plan, "ru").startswith("Подготовил план: шагов — 5")
     assert not any(site.name == "ЖК Олмазор" for site in demo.world.sites.values())  # nothing written yet
@@ -118,7 +118,7 @@ async def test_a_group_on_an_existing_site_gets_its_own_shift_and_nazars_preview
 
     assert [step.kind for step in plan.steps] == ["create_group", "group_on_site"]
     assert plan.steps[1].params["schedule_mode"] == "custom" and plan.steps[1].params["object_id"] == yashnabad.id
-    assert shown["steps"][1]["text"].endswith("o'z smenasi bilan qo'yaman: 14:00–22:00, Du–Ju.")
+    assert shown["steps"][1]["text"].endswith("o'z smenasi bilan qo'yish: 14:00–22:00, Du–Ju.")
     assert shown["preview"][0] == {"date": "2026-10-28", "working": True, "from": "14:00", "to": "22:00"}
 
 
@@ -170,12 +170,12 @@ def test_the_bot_shows_the_plan_and_sends_the_owner_to_the_window():
     from nazar_agent.telegram.render import answer_header
 
     view = {"summary": "Подготовил план", "cards": [], "setup": {
-        "steps": [{"kind": "create_group", "text": "Создам группу «<b>»."}], "clashes": [], "missing": [{"text": "Где объект?"}],
+        "steps": [{"kind": "create_group", "text": "Создать группу «<b>»."}], "clashes": [], "missing": [{"text": "Где объект?"}],
     }}
 
     text = answer_header(view)
 
-    assert "1. Создам группу «&lt;b&gt;»." in text and "? Где объект?" in text and "в окне помощника" in text
+    assert "1. Создать группу «&lt;b&gt;»." in text and "? Где объект?" in text and "в окне помощника" in text
 
 
 async def test_new_hours_for_a_site_the_company_has_keep_its_days(company):
@@ -197,3 +197,20 @@ async def test_a_plan_with_nothing_to_do_asks_what_to_set_up(company):
     plan = await build(draft, nazar, NOW.date())
 
     assert plan.steps == () and [kind for kind, _ in plan.missing] == ["nothing"]
+
+
+def test_a_site_without_an_address_is_named_once():
+    from nazar_agent.setup.plan import Plan, Step
+    from nazar_agent.setup.wording import step_text
+
+    params = {
+        "name": "Downtown office", "address": "Downtown office", "latitude": 41.3111, "longitude": 69.2797,
+        "radius_meters": 100, "shift_start": "09:00", "shift_end": "18:00", "working_days": [1, 2, 3, 4, 5],
+    }
+    plan = Plan(steps=(), missing=(), clashes=(), preview=(), site_name="Downtown office", group_name="")
+
+    said = step_text(Step("create_site", params), plan, "en")
+    with_address = step_text(Step("create_site", {**params, "address": "1 Amir Temur St"}), plan, "en")
+
+    assert said.startswith("Create the location “Downtown office”: point 41.31110, 69.27970")
+    assert with_address.startswith("Create the location “Downtown office”, 1 Amir Temur St: point")

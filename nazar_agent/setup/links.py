@@ -27,6 +27,9 @@ PAIR = re.compile(rf"({NUMBER})\s*[,;\s]\s*({NUMBER})")
 # Two numbers inside a sentence ("…at 41.2268, 69.2190, shift…"): only with decimals, so "с 8, 17" is not a point.
 # A full stop after the second number ends the sentence; only one followed by a digit continues a number.
 IN_TEXT = re.compile(r"(?<![\d.])(-?\d{1,2}\.\d{3,})\s*[,;]?\s*(-?\d{1,3}\.\d{3,})(?!\d|\.\d)")
+# Degrees, minutes, seconds, as Google copies a point: 41°17'08.2"N 69°12'12.2"E.
+_DMS = r"(\d{1,3})°\s*(\d{1,2})['′’]\s*(\d{1,2}(?:\.\d+)?)(?:\"|″|”|'')?\s*([NSnsEWew])"
+DMS = re.compile(rf"{_DMS}[\s,;]*{_DMS}")
 GOOGLE_PIN = re.compile(rf"!3d({NUMBER})!4d({NUMBER})")
 GOOGLE_VIEW = re.compile(rf"@({NUMBER}),({NUMBER})")
 GOOGLE_HOSTS = re.compile(r"^(?:www\.|maps\.)?google\.[a-z.]{2,6}$")
@@ -58,6 +61,9 @@ def point_in(text: str) -> Point | None:
     """The point in a full map link or in two numbers, or None. No network."""
     text = text.strip()
     if not text.lower().startswith(("http://", "https://")):
+        degrees = DMS.fullmatch(text)
+        if degrees:
+            return _degrees(degrees)
         match = PAIR.fullmatch(text)
         return _point(match.group(1), match.group(2), "numbers") if match else None
     parts = urlsplit(text)
@@ -87,6 +93,9 @@ def point_in(text: str) -> Point | None:
 
 def point_in_text(text: str) -> Point | None:
     """Coordinates written inside a sentence, latitude first, as maps copy them."""
+    degrees = DMS.search(text)
+    if degrees:
+        return _degrees(degrees)
     match = IN_TEXT.search(text)
     return _point(match.group(1), match.group(2), "numbers") if match else None
 
@@ -159,6 +168,19 @@ def _pair(value: str, *, latitude_first: bool, source: str) -> Point | None:
         return None
     first, second = match.group(1), match.group(2)
     return _point(first, second, source) if latitude_first else _point(second, first, source)
+
+
+def _degrees(match: re.Match[str]) -> Point | None:
+    """Two degrees-minutes-seconds values, latitude (N/S) and longitude (E/W) in either order."""
+    values = {}
+    for start in (1, 5):
+        whole, minutes, seconds, side = match.group(start, start + 1, start + 2, start + 3)
+        value = int(whole) + int(minutes) / 60 + float(seconds) / 3600
+        side = side.upper()
+        values["lat" if side in "NS" else "lng"] = -value if side in "SW" else value
+    if set(values) != {"lat", "lng"}:
+        return None
+    return _point(str(values["lat"]), str(values["lng"]), "numbers")
 
 
 def _point(latitude: str, longitude: str, source: str) -> Point | None:
