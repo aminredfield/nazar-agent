@@ -252,7 +252,7 @@ function runBlock(run) {
     el("h3", { class: "lead" }, t(`setup_run_${run.status}`)),
     el("ol", { class: "plan" }, run.steps.map((step) => el("li", { class: step.undone ? "undone" : step.done ? "done" : "" }, step.text))),
     run.error ? el("p", { class: "issue" }, run.error) : null,
-    run.status === "undone" ? null : el("div", { class: "row" }, undo));
+    run.status === "undone" ? null : el("div", { class: "row" }, undo, seeCompany()));
 }
 
 // ---- The point: the map, "I am here", a pasted link ------------------------------

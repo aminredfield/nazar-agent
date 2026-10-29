@@ -748,9 +748,11 @@ $("theme-toggle").addEventListener("click", () => { toggleTheme(); showPrefs(); 
 translatePage();
 showPrefs();
 
-signIn().then(async (ready) => {
+// Once every script of the page has run: the start uses setup.js and company.js too,
+// and an answer from the network can come before a later script has loaded.
+document.addEventListener("DOMContentLoaded", () => signIn().then(async (ready) => {
   if (!ready) return;
   loadAudit();
   companyBaseline();
   if (!(await followRunning())) loadDialog();
-});
+}));

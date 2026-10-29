@@ -13,8 +13,8 @@ The repository carries a demo NAZAR: a construction company with three sites,
 16 people and three weeks of check-ins, built in memory with the traps the
 agents are tested on. Only a [Meta Model API](https://dev.meta.ai) key is needed.
 
-Online, nothing to install: **https://demo-agent.nazarhr.uz** (a few questions
-per browser, a daily budget for everyone).
+Online, nothing to install: **https://demo-agent.nazarhr.uz** (50 questions
+per browser a day, a shared daily budget; the key is ours).
 
 ```bash
 git clone https://github.com/aminredfield/nazar-agent.git && cd nazar-agent
@@ -30,22 +30,40 @@ pip install .
 python -m nazar_agent.demo                       # → http://127.0.0.1:8100
 ```
 
-The window opens as the owner of the demo company. Ask, for example:
+The window opens in English as the owner of the demo company — Mustahkam
+Qurilish, a builder in Tashkent: three sites, 16 workers, a crew per site and
+three weeks of face-ID check-ins with problems planted in them. The demo is
+always on a working morning (11:30 of the latest weekday in Tashkent), so it
+is never asleep in another time zone.
 
-| Ask | What is planted | What a good answer does |
+**Try these** at the top asks each example in one click and says what should
+happen:
+
+| Example | What is planted | What a good answer does |
 |---|---|---|
-| «Кто на самом деле ходит на объект Чиланзар?» / "Who really comes to the Chilonzor site?" | four workers left ten days ago; the foreman checks them in from his phone with photos of their photo on a screen | names the four, cites the shared phone and the photos; proposes to mark the check-ins for review |
-| «Что стоит проверить в табеле перед оплатой?» | the finishing crew at Yashnobod is "late" every day: they work 09:00–19:00, the site says 08:00–18:00 | blames the schedule, not the people; proposes `change_schedule` with before → after |
+| "Who really comes to the Chilonzor site?" | four workers left ten days ago; the foreman checks them in from his phone with photos of their photo on a screen | names the four, cites the shared phone and the photos; proposes to mark the check-ins for review |
+| "What should I check in the timesheet before payday?" | the finishing crew at Yashnobod is "late" every day: they work 09:00–19:00, the site says 08:00–18:00 | blames the schedule, not the people; proposes `change_schedule` with before → after |
 | the same two questions | a worker with weak GPS (flags, twice outside the fence, but live selfies and full days); an honest foreman checking in two workers without smartphones | accuses neither |
-| «Импорт сотрудников» tab, paste a list with a repeat and a surname only | — | flags the repeat, the surname-only line and the person who is already employed |
-| «Кто сегодня опоздал?», then «А вчера?» | a conversation | reads the second as "who was late yesterday" and says so above the answer |
-| «Открываем объект ЖК Олмазор на Чиланзаре, точка 41.2856, 69.2034. Смена с 8 до 5, шестидневка. Бригада Рустама: Рустам и новенький Жасур Тоиров» | Rustam already works 08:00–18:00 on another site | cards for the site (on a map), the shift, the group and the people; finds the clash; the plan of changes in words; **Apply all**, then **Undo all** |
-| the same in English or Uzbek; 🎤 to say it | — | answers in the language asked; RU · UZ · EN and a light/dark switch at the top |
+| "Who is late or absent today?", then "And yesterday?" | a conversation | reads the second as "who was late yesterday" and says so above the answer |
+| "We're opening a new site, Olmazor City, at 41.2856, 69.2034. Shift 8 to 5, six days a week. Rustam's crew: Rustam, Bobur Karimov and a new guy, Jasur Toirov." | Rustam and Bobur already work 08:00–18:00 on another site | cards for the site (on a map), the shift, the group and the people; finds the clash; the plan of changes in words; **Apply all**, then **Undo all** |
+| a Google Maps link, or a point as Google copies it (41°17'08.2"N 69°12'12.2"E) | — | takes the point and shows it on the map |
+| "Kecha kim ishga kelmadi?" | Uzbek | answers in the language asked; RU · UZ · EN and a light/dark switch at the top |
+| "Fine everyone who was late this week" | a request it must not do | refuses: a penalty is a person's decision, case by case |
 
-Press **Apply** on a card (or **Apply all** on a setup plan): the demo NAZAR changes, and **Undo** puts it back.
-**Сбросить демо** (top right) returns the company to this morning. Today's
-check-ins appear as their time comes in Tashkent; the company starts over
-every day.
+**Add employees** has samples to try without your own files: a photo of a
+handwritten notebook, a CSV, an Excel sheet, and lists to paste (one with
+mistakes, one in Cyrillic). Each has something to catch — an employee already
+in NAZAR written the other way round, a name written twice, a single word, a
+site written loosely — and the review marks it in the window's language. A
+sample face fills the photo queue.
+
+**Company** shows the demo company as NAZAR keeps it: sites with their shifts
+and people, groups, everyone's status today, a week of the timesheet and
+today's check-ins. Press **Apply** on a card (or **Apply all** on a setup plan)
+and the tab marks what changed — a site's new shift, a new site and group,
+people put on it, a check-in's review; **Undo** puts it back. **Reset the
+demo** (top right) returns the company to this morning; it also starts over
+every night.
 
 The demo NAZAR answers with the same fields as the real one — every route the
 agent calls is checked against a recorded real answer
@@ -227,8 +245,9 @@ A new site starts with a list the foreman already has — often a photo of a
 notebook. Muse Spark reads it (vision for a photo; an Excel or CSV becomes
 text) and only reports what is written, marking what it could not read.
 Code then checks every row against NAZAR and highlights only what needs a
-decision: illegible, only a surname, looks like an existing employee, twice
-in the list, site not found. The person fixes those rows and confirms.
+decision: illegible, one word only, looks like an existing employee, twice
+in the list, site not found — in Latin or Cyrillic letters alike, since
+owners write names both ways ("Норматов Азамат" finds "Azamat Normatov"). The person fixes those rows and confirms.
 
 NAZAR creates an employee only with a face photo, and a model must not try to
 match faces to names. So confirmed people wait for a photo; the foreman walks
@@ -274,8 +293,9 @@ the owner's words. Code does the rest ([`nazar_agent/setup/`](nazar_agent/setup)
 - **What is missing** is asked, never guessed: a point, a shift, which of two
   Karimovs.
 - **Each step is a sentence written by code** from the parameters NAZAR will
-  get, in Russian, Uzbek or English: «Создам объект «ЖК Олмазор», Чиланзар:
-  точка 41.28561, 69.20341, радиус 100 м; смена 08:00–17:00, пн–сб.»
+  get, in Russian, Uzbek or English, reading the same before and after it is
+  done: "Create the location “Olmazor City”: point 41.28560, 69.20340, radius
+  100 m; shift 08:00–17:00, Mon–Sat."
 - **The next message changes the same draft**: "make it 9 to 18, not Bobur".
 - **Apply all** rebuilds the plan from what NAZAR says at that moment, runs
   the steps in order with the rights of whoever presses it, writes each to
@@ -512,7 +532,8 @@ visitor applied is gone by morning. Deployment next to NAZAR:
 | "Disagree" reasons fed to the next analysis, the skeptic and the card; share of applied proposals in the window | done |
 | Evals over the planted cases and a bank of 72 owner questions, scored by code | done (bank: 48/72 → 70/72) |
 | Every model call recorded: role, model, tokens, price (an estimate where no price is published); spend today, this week and in all in the window and `/usage` in the bot | done |
-| Public demo: limits per session and per day, nightly reset, container next to NAZAR | done |
+| Public demo: limits per session and per day, nightly reset, container next to NAZAR, always a working morning | done |
+| The window explains itself: what the product does on the first screen, "Try these" in one click, import samples, a Company tab that marks what Apply changed | done |
 | Demo NAZAR in the repository: the demo company in memory, every route checked against recorded real answers, `DEMO_MODE`, one-command start | done |
 
 ## Run it against NAZAR
