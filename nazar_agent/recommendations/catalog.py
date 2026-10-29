@@ -316,11 +316,11 @@ async def _void_undo(nazar: NazarClient, params: VoidShiftParams, result: dict[s
     await call_nazar(nazar.delete(f"/timesheet/adjustments/void/{result['adjustment_id']}"))
 
 
-def _schedule_of(site: dict[str, Any]) -> dict[str, Any]:
+def schedule_of(site: dict[str, Any]) -> dict[str, Any]:
     return {field: site.get(field) for field in SCHEDULE_FIELDS}
 
 
-async def _site(nazar: NazarClient, object_id: UUID) -> dict[str, Any]:
+async def site_by_id(nazar: NazarClient, object_id: UUID) -> dict[str, Any]:
     # NAZAR has no single-object read; the list carries every field.
     sites = await call_nazar(nazar.get("/objects", {"include_inactive": True}))
     site = next((item for item in sites if item.get("id") == str(object_id)), None)
@@ -330,8 +330,8 @@ async def _site(nazar: NazarClient, object_id: UUID) -> dict[str, Any]:
 
 
 async def _schedule_preview(nazar: NazarClient, params: ChangeScheduleParams) -> Preview:
-    site = await _site(nazar, params.object_id)
-    before = _schedule_of(site)
+    site = await site_by_id(nazar, params.object_id)
+    before = schedule_of(site)
     after = {
         "shift_start": params.shift_start,
         "shift_end": params.shift_end,
@@ -342,26 +342,26 @@ async def _schedule_preview(nazar: NazarClient, params: ChangeScheduleParams) ->
     return Preview(before=before, after=after)
 
 
-async def _write_schedule(nazar: NazarClient, object_id: UUID, schedule: dict[str, Any]) -> dict[str, Any]:
+async def write_schedule(nazar: NazarClient, object_id: UUID, schedule: dict[str, Any]) -> dict[str, Any]:
     """NAZAR's object update replaces the whole object, so everything else is sent back as it is."""
-    site = await _site(nazar, object_id)
+    site = await site_by_id(nazar, object_id)
     payload = {field: site.get(field) for field in OBJECT_FIELDS} | schedule
     await call_nazar(nazar.patch(f"/objects/{object_id}", payload))
-    return _schedule_of(site)
+    return schedule_of(site)
 
 
 async def _schedule_execute(nazar: NazarClient, params: ChangeScheduleParams) -> dict[str, Any]:
     after = (await _schedule_preview(nazar, params)).after or {}
     # NAZAR keeps schedule versions: the change applies from today, past days stay as counted.
-    return {"previous": await _write_schedule(nazar, params.object_id, after), "written": after}
+    return {"previous": await write_schedule(nazar, params.object_id, after), "written": after}
 
 
 async def _schedule_undo(nazar: NazarClient, params: ChangeScheduleParams, result: dict[str, Any]) -> None:
     written = result.get("written")
-    if written is not None and _schedule_of(await _site(nazar, params.object_id)) != written:
+    if written is not None and schedule_of(await site_by_id(nazar, params.object_id)) != written:
         # Someone changed the schedule after this action; putting ours back would erase their edit.
         raise ToolExecutionError("the site's schedule was changed after this action; change it back by hand in NAZAR.")
-    await _write_schedule(nazar, params.object_id, result["previous"])
+    await write_schedule(nazar, params.object_id, result["previous"])
 
 
 CATALOG: dict[str, ActionSpec] = {

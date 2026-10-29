@@ -38,7 +38,8 @@ from nazar_agent.recommendations import Recommendations, Team, recommend
 from nazar_agent.replies import clarification, reply, suggestions
 from nazar_agent.roles import attendance_analyst, timesheet_analyst
 from nazar_agent.roles.dispatcher import LANGUAGES, Analyst, Request, parse
-from nazar_agent.setup.draft import Draft, Drafts
+from nazar_agent.setup.desk import SetupDesk, company
+from nazar_agent.setup.draft import Draft
 from nazar_agent.setup.plan import build as build_plan
 from nazar_agent.setup.reading import SETUP_OPEN, merge, point_from, read_setup
 from nazar_agent.setup.view import setup_view
@@ -95,9 +96,10 @@ class Assistant:
         self.ledger = ledger
         self.reporter = reporter
         self.drafts = DraftStore(store.path, store)
+        # Setting the company up: each conversation's draft and the plans applied (nazar_agent.setup).
+        self.setup = SetupDesk(store, self.drafts)
         self.last: Answer | None = None
         self.dialogs = Dialogs()
-        self.setups = Drafts()  # the setup being made in each conversation (nazar_agent.setup)
         # The question being answered, or the last one: the window follows it live.
         self.progress: Progress | None = None
         self._lock = asyncio.Lock()
@@ -111,7 +113,7 @@ class Assistant:
         self.last = None
         self.progress = None
         self.dialogs.clear()
-        self.setups.clear()
+        self.setup.clear()
 
     def executor(self, nazar: NazarClient | None = None) -> Executor:
         return Executor(self.store, self._acting(nazar))
@@ -217,7 +219,7 @@ class Assistant:
         now = settings.now()
         today = now.date()
         try:
-            draft = self.setups.get(conversation) if conversation is not None else None
+            draft = self.setup.drafts.get(conversation) if conversation is not None else None
             told = brief(earlier) + (SETUP_OPEN if draft else "")
             request = await parse(analyst_llm, settings.analyst_model, question, today, lang, told)
             if request.intent == "setup":
@@ -270,11 +272,7 @@ class Assistant:
         settings = self.settings
         today = settings.now().date()
         draft = draft or Draft.new(request.lang)
-        sites, employees, groups = await asyncio.gather(
-            call_nazar(nazar.get("/objects", {"include_inactive": False})),
-            call_nazar(nazar.get("/employees")),
-            call_nazar(nazar.get("/departments")),
-        )
+        sites, employees, groups = await company(nazar)
         llm = settings.analyst_llm()
         try:
             reading = await read_setup(llm, settings.analyst_model, question, draft, sites, today)
@@ -282,7 +280,7 @@ class Assistant:
             await llm.aclose()
         draft = merge(draft, reading, await point_from(question), employees=employees, sites=sites, groups=groups)
         if conversation is not None:
-            self.setups.put(conversation, draft)
+            self.setup.drafts.put(conversation, draft)
         plan = await build_plan(draft, nazar, today)
         text = setup_summary(plan, request.lang)
         emit("setup", steps=len(plan.steps), missing=len(plan.missing), clashes=len(plan.clashes))

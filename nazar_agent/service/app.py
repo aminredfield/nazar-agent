@@ -44,6 +44,8 @@ from nazar_agent.feedback import agreement
 from nazar_agent.limits import LimitReached, Limits
 from nazar_agent.usage import Ledger, NazarUsageReport
 from nazar_agent.nazar import NazarClient
+from nazar_agent.setup.apply import SetupRefused
+from nazar_agent.setup.edits import EditError, SetupEdit
 from nazar_agent.nazar.connect import NazarLink, connect
 from nazar_agent.telegram import Bot, TelegramApi
 from nazar_agent.telegram.schedule import parse_brief_time, run_daily
@@ -69,6 +71,16 @@ class AskRequest(BaseModel):
     analyst: Literal["auto", "attendance", "timesheet"] = "auto"
     # The window's language: failures are said in it, and an answer when the question's own is unclear.
     lang: Literal["ru", "uz", "en"] = "ru"
+
+
+class SetupLinkRequest(BaseModel):
+    draft_id: str = Field(max_length=40)
+    url: str = Field(min_length=3, max_length=2000)
+
+
+class SetupApplyRequest(BaseModel):
+    draft_id: str = Field(max_length=40)
+    actor: str = Field(default="", max_length=80)
 
 
 class DecisionRequest(BaseModel):
@@ -321,6 +333,40 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
             log.exception("voice failed")
             raise HTTPException(503, owner_message(exc, lang)) from exc
 
+    # Setting the company up: the draft made in the chat, changed card by card, applied, undone.
+
+    @app.get("/api/setup")
+    async def setup_now(current: Caller = Depends(caller)) -> dict[str, Any]:
+        """This window's setup draft with its plan, and the plan it applied last."""
+        return await _setup(current.assistant.setup.view(current.session_id, current.nazar_or_service, _today(current)))
+
+    @app.patch("/api/setup")
+    async def setup_change(change: SetupEdit, current: Caller = Depends(caller)) -> dict[str, Any]:
+        desk = current.assistant.setup
+        return await _setup(desk.change(current.session_id, change, current.nazar_or_service, _today(current)))
+
+    @app.post("/api/setup/link")
+    async def setup_link(request: SetupLinkRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
+        """A map link pasted on the site's card: opened only on map hosts, its point put on the card."""
+        desk = current.assistant.setup
+        return await _setup(desk.point(current.session_id, request.draft_id, request.url, current.nazar_or_service, _today(current)))
+
+    @app.post("/api/setup/apply")
+    async def setup_apply(request: SetupApplyRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
+        desk = current.assistant.setup
+        actor = current.actor_for(request.actor)
+        return await _setup(desk.apply(current.session_id, request.draft_id, current.nazar_or_service, actor, _today(current)))
+
+    @app.post("/api/setup/runs/{run_id}/undo")
+    async def setup_undo(run_id: str, request: DecisionRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
+        desk = current.assistant.setup
+        return await _setup(desk.undo(current.session_id, run_id, current.nazar_or_service, current.actor_for(request.actor)))
+
+    @app.post("/api/setup/discard")
+    async def setup_discard(current: Caller = Depends(caller)) -> dict[str, bool]:
+        current.assistant.setup.discard(current.session_id)
+        return {"ok": True}
+
     @app.post("/api/import/read")
     async def read_import(
         http: Request,
@@ -402,9 +448,35 @@ class Caller:
     session_id: str = ""  # the window session, for the demo limits
     demo: bool = False  # the demo company in this process
 
+    @property
+    def nazar_or_service(self) -> NazarClient:
+        """Who acts in NAZAR: the person who opened the window, or the local setup's service account."""
+        acting = self.nazar or self.assistant.service
+        if acting is None:
+            raise HTTPException(503, "No NAZAR account to act with.")
+        return acting
+
     def actor_for(self, typed: str) -> str:
         """Who decided: from the NAZAR session, never from the window — a typed name is used only locally."""
         return self.name or typed.strip() or "Владелец"
+
+
+async def _setup(outcome: Any) -> dict[str, Any]:
+    """A setup call's answer, or what went wrong in words: 422 a change to fix, 409 not now, 502 NAZAR refused."""
+    try:
+        return await outcome
+    except EditError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except SetupRefused as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except KeyError:
+        raise HTTPException(404, "No such plan.") from None
+    except ToolExecutionError as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+
+def _today(current: Caller) -> date:
+    return current.assistant.settings.now().date()
 
 
 def _fresh(assistant: Assistant, view: dict[str, Any]) -> dict[str, Any]:

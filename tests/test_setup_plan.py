@@ -163,7 +163,7 @@ async def test_the_assistant_keeps_one_draft_per_conversation(tmp_path, monkeypa
     assert first.view["reply"] == "setup" and first.view["setup"]["ready"] and first.view["cards"] == []
     assert "A setup is being made in this conversation" in llms[2].requests[0]["instructions"]
     assert second.view["setup"]["steps"][-1]["text"].endswith("Рустам Юлдашев.")
-    assert helper.setups.get("w").person("Бобур Каримов").state == "skip"
+    assert helper.setup.drafts.get("w").person("Бобур Каримов").state == "skip"
 
 
 def test_the_bot_shows_the_plan_and_sends_the_owner_to_the_window():

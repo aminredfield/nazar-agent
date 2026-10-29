@@ -48,6 +48,7 @@ const I18N = {
     EVENTS: {
       proposed: "предложено агентом", executed: "выполнено в NAZAR", declined: "отклонено", refused: "не выполнено", failed: "ошибка", undone: "отменено",
       draft_created: "добавлен, ждёт фото", employee_created: "создан в NAZAR", photo_rejected: "фото не подошло", draft_discarded: "убран из списка",
+      setup_step: "настройка: сделано", setup_failed: "настройка: не вышло", setup_undone: "настройка: отменено",
     },
     ANALYSTS: { attendance: "Аналитик отметок", timesheet: "Аналитик табеля" },
     REPLIES: {
@@ -162,6 +163,7 @@ const I18N = {
     EVENTS: {
       proposed: "agent taklif qildi", executed: "NAZAR'da bajarildi", declined: "rad etildi", refused: "bajarilmadi", failed: "xato", undone: "bekor qilindi",
       draft_created: "qo'shildi, surat kutmoqda", employee_created: "NAZAR'da yaratildi", photo_rejected: "surat mos kelmadi", draft_discarded: "ro'yxatdan olib tashlandi",
+      setup_step: "sozlash: bajarildi", setup_failed: "sozlash: bo'lmadi", setup_undone: "sozlash: bekor qilindi",
     },
     ANALYSTS: { attendance: "Belgilar tahlilchisi", timesheet: "Tabel tahlilchisi" },
     REPLIES: {
@@ -276,6 +278,7 @@ const I18N = {
     EVENTS: {
       proposed: "proposed by the agent", executed: "done in NAZAR", declined: "declined", refused: "not done", failed: "error", undone: "undone",
       draft_created: "added, waiting for a photo", employee_created: "created in NAZAR", photo_rejected: "the photo did not fit", draft_discarded: "removed from the list",
+      setup_step: "setup: done", setup_failed: "setup: failed", setup_undone: "setup: undone",
     },
     ANALYSTS: { attendance: "Check-in analyst", timesheet: "Timesheet analyst" },
     REPLIES: {

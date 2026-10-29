@@ -25,6 +25,8 @@ AuditEvent = Literal[
     "proposed", "executed", "declined", "refused", "failed", "undone",
     # Importing a list of employees (nazar_agent.onboarding).
     "draft_created", "employee_created", "photo_rejected", "draft_discarded",
+    # Setting the company up through the chat (nazar_agent.setup): each step of a plan.
+    "setup_step", "setup_failed", "setup_undone",
 ]
 
 _SCHEMA = """

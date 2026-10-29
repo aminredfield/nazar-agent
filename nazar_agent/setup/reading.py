@@ -131,10 +131,10 @@ def merge(
     elif point is not None:
         draft = replace(draft, link_problem="")
     if reading.group_name.strip():
-        draft = replace(draft, group=_group(_capital(reading.group_name.strip()), groups))
+        draft = replace(draft, group=_group(capital(reading.group_name.strip()), groups))
     for written in reading.people:
         if written.strip() and draft.person(written.strip()) is None:
-            draft = draft.with_person(_person(written.strip(), employees))
+            draft = draft.with_person(person_card(written.strip(), employees))
     for written in reading.leave_out:
         card = _closest(draft.people, written)
         if card is not None:
@@ -148,7 +148,7 @@ def _site(card: SiteCard, reading: SetupReading, point: Point | LinkError | None
         if known is not None:
             return replace(card, existing_id=known["id"], name=known["name"], state="keep")
     if reading.site_name.strip():
-        card = replace(card, name=_capital(reading.site_name.strip()), existing_id="")
+        card = replace(card, name=capital(reading.site_name.strip()), existing_id="")
     if reading.address.strip():
         card = replace(card, address=reading.address.strip())
     if isinstance(point, Point):
@@ -170,7 +170,7 @@ def _group(name: str, groups: list[dict[str, Any]]) -> GroupCard:
     return GroupCard(name=known["name"], existing_id=known["id"]) if known else GroupCard(name=name)
 
 
-def _person(written: str, employees: list[dict[str, Any]]) -> PersonCard:
+def person_card(written: str, employees: list[dict[str, Any]]) -> PersonCard:
     found = find(written, employees, [])["matches"]
     if not found:
         return PersonCard(written=written, state="new")
@@ -180,7 +180,7 @@ def _person(written: str, employees: list[dict[str, Any]]) -> PersonCard:
     return PersonCard(written=written, employee_id=found[0]["id"], full_name=found[0]["name"])
 
 
-def _capital(name: str) -> str:
+def capital(name: str) -> str:
     """"бригада Рустама" → "Бригада Рустама": a name, as NAZAR lists them."""
     return name[:1].upper() + name[1:]
 

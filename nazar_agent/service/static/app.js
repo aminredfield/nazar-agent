@@ -490,7 +490,7 @@ async function loadAudit() {
       : t("decisions", stats.applied, stats.applied + stats.declined, Math.round(stats.agreement * 100), stats.undone, stats.pending);
     $("audit").replaceChildren(...entries.map((entry) => el("li", { class: entry.event },
       el("span", { class: "when" }, entry.at.replace("T", " ").slice(0, 16)),
-      `${L().EVENTS[entry.event] || entry.event} · ${L().ACTIONS[entry.action] || entry.action || ""} · ${entry.subject || entry.details.full_name || ""} · ${entry.actor}`,
+      `${L().EVENTS[entry.event] || entry.event} · ${L().ACTIONS[entry.action] || entry.action || ""} · ${entry.details.text || entry.subject || entry.details.full_name || ""} · ${entry.actor}`,
       entry.details.reasons ? el("span", { class: "ref" }, entry.details.reasons.join("; ")) : null,
       entry.details.reason ? el("span", { class: "ref" }, `«${entry.details.reason}»`) : null,
       entry.details.error ? el("span", { class: "ref" }, entry.details.error) : null)));
