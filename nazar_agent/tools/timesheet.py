@@ -297,6 +297,11 @@ def _day_view(row: dict[str, Any], names: dict[str, str], objects: dict[str, str
         "object_name": objects.get(row.get("object_id")),
         "day_kind": row.get("day_code"),
         "planned_minutes": row.get("schedule_norm_minutes"),
+        # Lateness counts from here: "why late" is answered with it.
+        "planned_start": next(
+            (local_time(shift["planned_start_at"]) for shift in row.get("shift_breakdown") or [] if shift.get("planned_start_at")),
+            None,
+        ),
         # What NAZAR actually counted. Without it a model guessed live that a
         # day was paid from the first check-in when it was paid from the second.
         "counted_intervals": [

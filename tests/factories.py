@@ -51,7 +51,7 @@ def finding(**overrides) -> dict:
 
 
 def report(*findings: dict) -> AnalystReport:
-    return AnalystReport.model_validate({"summary": "s", "data_gaps": [], "findings": list(findings)})
+    return AnalystReport.model_validate({"answer": [], "summary": "s", "data_gaps": [], "findings": list(findings)})
 
 
 def evidence() -> Evidence:

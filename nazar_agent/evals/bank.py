@@ -76,7 +76,7 @@ async def ask_one(question: Question, settings: Settings, link: NazarLink, store
 
 def owner_text(view: dict[str, Any]) -> str:
     """Everything the owner reads in the answer."""
-    parts = [view["summary"], *view.get("data_gaps", []), *view.get("notes", [])]
+    parts = [view["summary"], *(fact["text"] for fact in view.get("answer", [])), *view.get("data_gaps", []), *view.get("notes", [])]
     for card in view["cards"]:
         parts += [card["title"], card["subject"]["name"] or "", card.get("hypothesis") or "", *card.get("alternatives", []), *card.get("check_steps", [])]
         parts += [fact["text"] for fact in card["facts"]]

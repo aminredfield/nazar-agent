@@ -111,6 +111,9 @@ def confirm_keyboard(proposal: str, index: int) -> list[list[dict[str, str]]]:
 
 def answer_header(view: dict[str, Any]) -> str:
     lines = [escape(view["summary"])]
+    answer = view.get("answer", [])
+    if answer:
+        lines += [""] + [f"• {escape(fact['text'])}" for fact in answer]
     gaps = view.get("data_gaps", []) + view.get("notes", [])
     if gaps:
         lines += ["", "<i>Чего не видно в данных:</i>"] + [f"• {escape(text)}" for text in gaps]

@@ -19,6 +19,11 @@ def answer_view(
     """``models`` — every model call of this answer by role (``usage.Meter.by_role``)."""
     return {
         "summary": analysis.report.summary,
+        # The direct answer, fact by fact, each verified like a finding's.
+        "answer": [
+            {"text": fact.text, "evidence": [{"kind": ref.kind, "id": ref.id} for ref in fact.evidence]}
+            for fact in analysis.report.answer
+        ],
         "cards": [card_view(card, card_proposals) for card, card_proposals in zip(recommendations.cards, proposals, strict=True)],
         "data_gaps": list(analysis.report.data_gaps),
         "notes": list(recommendations.notes),

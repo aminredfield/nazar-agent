@@ -133,9 +133,9 @@ class Request:
                 "so this is its last part. Say so in data gaps."
             )
         if self.people:
-            lines.append(f"- Employees named: {', '.join(self.people)}.")
+            lines.append(f"- Employees named: {', '.join(self.people)}. Find them with find_people_and_sites.")
         if self.sites:
-            lines.append(f"- Sites named: {', '.join(self.sites)}.")
+            lines.append(f"- Sites named: {', '.join(self.sites)}. Find them with find_people_and_sites.")
         lines.append(f"- Write everything for the owner in {LANGUAGES[self.lang]}.")
         return "\n".join(lines) + "\n"
 

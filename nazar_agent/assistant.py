@@ -160,7 +160,8 @@ class Assistant:
         settings = self.settings
         analyst_llm = settings.analyst_llm()
         skeptic_llm = settings.skeptic_llm()
-        today = settings.now().date()
+        now = settings.now()
+        today = now.date()
         try:
             request = await parse(analyst_llm, settings.analyst_model, question, today)
             if request.short:
@@ -172,7 +173,7 @@ class Assistant:
             log.info("question routed to the %s analyst", chosen)
             # The photo inspector runs on the open-weights model, like the skeptic.
             photos = PhotoInspector(skeptic_llm, settings.skeptic_model)
-            tools = analyst_tools(chosen, nazar, photos)
+            tools = analyst_tools(chosen, nazar, photos, now)
             # What the owner said when disagreeing before: the team does not bring it back as new.
             feedback = owner_feedback(self.store)
             role = ANALYSTS[chosen](
@@ -197,7 +198,7 @@ def short_answer(question: str, request: Request, meter: Meter) -> Answer:
     text = reply(request)
     run = RoleRun(role="dispatcher", answer=text, steps=(), model_turns=0, input_tokens=0, output_tokens=0, stopped="answered", conversation=())
     analysis = Analysis(
-        run=run, report=AnalystReport(summary=text, findings=[], data_gaps=[]), rejected=(), corrections=0,
+        run=run, report=AnalystReport(answer=[], findings=[], data_gaps=[], summary=text), rejected=(), corrections=0,
         clean_first_time=True, caught=(), input_tokens=0, output_tokens=0,
     )
     recommendations = Recommendations(cards=(), notes=(), usage=())

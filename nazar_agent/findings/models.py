@@ -1,4 +1,7 @@
-"""What an analyst hands over: findings, each a set of facts plus a hypothesis.
+"""What an analyst hands over: a direct answer and findings, each a set of facts.
+
+The answer says what was asked — who, when, how many — fact by fact; a
+finding is something worth checking, with a hypothesis.
 
 A fact is only what a tool returned, and it says where it came from. Every
 value a fact relies on (a distance, a time, a count) is also stated as a
@@ -15,7 +18,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-EvidenceKind = Literal["event", "employee", "object", "device", "timesheet_day", "setup_finding"]
+EvidenceKind = Literal["event", "employee", "object", "device", "timesheet_day", "setup_finding", "count"]
 SubjectKind = Literal["employee", "object", "company"]
 # What is in question: how people worked, or how NAZAR is set up (a schedule,
 # a site). The skeptic weighs the two differently.
@@ -60,6 +63,10 @@ class Finding(_Strict):
 
 
 class AnalystReport(_Strict):
-    summary: str = Field(description="Two or three sentences for the owner.")
+    # Written before the summary, so the summary says what the facts say.
+    answer: list[Fact] = Field(
+        description="The direct answer, fact by fact: every person, time or number the owner asked about, named."
+    )
     findings: list[Finding]
     data_gaps: list[str] = Field(description="What could not be seen: truncated results, failed tools.")
+    summary: str = Field(description="Two or three sentences for the owner, only from the facts above.")

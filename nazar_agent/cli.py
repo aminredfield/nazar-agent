@@ -42,9 +42,10 @@ async def ask(question: str, analyst: str, *, review: bool, settings: Settings |
     skeptic_llm = settings.skeptic_llm()
     # The photo inspector runs on the open-weights model, like the skeptic.
     photos = PhotoInspector(skeptic_llm, settings.skeptic_model)
-    today = settings.now().date()
+    now = settings.now()
+    today = now.date()
     try:
-        tools = analyst_tools(analyst, nazar, photos)
+        tools = analyst_tools(analyst, nazar, photos, now)
         role = ANALYSTS[analyst](model=settings.analyst_model, tools=tools, today=today)
         analysis = await analyze(role, analyst_llm, question)
         photo_usage = (

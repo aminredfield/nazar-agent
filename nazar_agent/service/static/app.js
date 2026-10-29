@@ -35,7 +35,9 @@ const TOOLS = {
   get_attendance_events: "Читаю отметки",
   list_objects: "Смотрю объекты и геозоны",
   get_event_detail: "Открываю отметку целиком",
-  get_presence_today: "Смотрю, кто сейчас на объектах",
+  get_today: "Считаю сегодняшний день по отметкам",
+  count_period: "Считаю итоги за период по табелю",
+  find_people_and_sites: "Ищу человека или объект по имени",
   inspect_check_in_photos: "Отдаю фото отметок инспектору",
   get_timesheet_summary: "Читаю табель, посчитанный NAZAR",
   get_timesheet_day: "Открываю день табеля",
@@ -398,6 +400,7 @@ function renderAnswer(data) {
   const rounds = data.fact_checker_rounds.flat();
   $("answer").replaceChildren(...[
     el("p", { class: "summary" }, data.summary),
+    (data.answer || []).length ? el("ul", { class: "answer-facts" }, data.answer.map((fact) => el("li", {}, fact.text))) : null,
     data.cards.map(cardView),
     section("Чего не видно в данных", data.data_gaps.concat(data.notes)),
     rounds.length || removed.length ? el("details", { class: "trace" },

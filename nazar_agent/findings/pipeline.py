@@ -8,9 +8,10 @@
    ``max_corrections`` times. Tools are not offered again: a fix may only use
    data already seen.
 4. Whatever still fails is removed from the report and kept, with the
-   reasons, in ``rejected`` — nothing unverified reaches the owner, and the
-   trace shows what was cut.
-5. A report with no findings after an investigation is asked for once more:
+   reasons, in ``rejected`` — a fact of the answer or a finding, a sentence
+   of the summary with a number no tool returned. Nothing unverified reaches
+   the owner, and the trace shows what was cut.
+5. A report with neither an answer nor findings after an investigation is asked for once more:
    in evals one came back as a summary "Placeholder" right after the photo
    inspector had described four photos of a screen.
 """
@@ -18,6 +19,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
@@ -25,7 +27,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from nazar_agent.engine import Role, RoleRun, run_role, tool_schema
-from nazar_agent.findings.checker import Evidence, Issue, check_report
+from nazar_agent.findings.checker import Evidence, Issue, check_report, unsupported_numbers
 from nazar_agent.findings.models import AnalystReport, Finding
 from nazar_agent.llm import LLMClient
 from nazar_agent.progress import emit
@@ -45,31 +47,44 @@ REPORT_REQUEST = """\
 Now write your report for the owner, as JSON matching the schema.
 
 - Use only what the tools returned in this conversation.
+- answer: the direct answer to what the owner asked, one fact per person,
+  time or number — who was late and by how much, who is absent, who is on
+  site, how many hours. Name every person the question asks about; a
+  pattern found about a site does not replace the names. Counts and sums
+  come from the tools' counted totals (count_period, get_today), never from
+  your own arithmetic. Leave the answer empty only when the question asks
+  what is worth checking.
 - Each fact cites the records it comes from in evidence, with ids exactly as
   returned and the right kind: event, employee, object, timesheet_day (ids
-  like "<employee_id>:<date>"), setup_finding.
+  like "<employee_id>:<date>"), setup_finding, count (ids like "today:…" or
+  "tally:…" from the counting tools).
 - Put every number, time, status or name a fact relies on into claims: the
   record id, the field name exactly as in the tool output (dots for nested
   fields, e.g. previous_event.at) and the value exactly as returned (6600.0,
   not 6.6 km). The text itself may say it in human form.
-- One finding per employee, site or company-wide pattern worth checking. If
-  nothing is worth checking, return no findings and say so in the summary.
+- findings: one per employee, site or company-wide pattern worth checking.
+  If nothing is worth checking, return no findings. When the owner asks for
+  an action on a record — mark a check-in as reviewed, change a site's
+  schedule, correct a shift — make a finding about that record, so the
+  action can be proposed for the owner to confirm.
   Missing or not yet final data (an open period, a truncated result) is a
   data gap, not a finding.
 - The title says what is worth checking; the subject's name is shown next to
   it, so do not repeat the name in the title.
 - The hypothesis is a hypothesis. Alternatives hold at least one innocent
   explanation. Confidence is low, medium or high.
+- summary: two or three sentences that say what the answer and the
+  findings say. Any number in it must be one a tool returned.
 - Write the summary, titles, facts, hypothesis, alternatives and data gaps
   in {language}, with no internal codes or field names.
 """
 
 
 EMPTY_REPORT_CHECK = """\
-Your report has no findings. Look again at what the tools returned in this
-conversation. If nothing there is worth checking, return the empty report
-again with a summary that says so in plain words for the owner; otherwise
-return the full report with the findings.
+Your report has neither an answer nor findings. Look again at what the tools
+returned in this conversation. If nothing there answers the question or is
+worth checking, return the empty report again with a summary that says so in
+plain words for the owner; otherwise return the full report.
 """
 
 
@@ -161,7 +176,7 @@ async def analyze(
     if report is None:
         raise ReportError("No valid report after corrections.")
 
-    if not report.findings and not issues and run.steps:
+    if not report.answer and not report.findings and not issues and run.steps:
         emit("checker", round=0, findings=0, facts=0, issues=["в отчёте нет находок после расследования — спрашиваю ещё раз"])
         conversation.append({"role": "user", "content": EMPTY_REPORT_CHECK})
         turn = await llm.respond(
@@ -183,7 +198,7 @@ async def analyze(
             # No further correction rounds: whatever fails now is dropped below.
             report, issues = again, check_report(again, evidence)
 
-    verified, rejected = drop_failing(report, issues)
+    verified, rejected = drop_failing(report, issues, evidence)
     return Analysis(
         run=run,
         report=verified,
@@ -206,18 +221,33 @@ def correction_request(issues: list[Issue]) -> str:
     )
 
 
-def drop_failing(report: AnalystReport, issues: list[Issue]) -> tuple[AnalystReport, tuple[Rejected, ...]]:
-    """Remove what failed: a fact with an issue, a finding with its own issue or no facts left."""
+def drop_failing(
+    report: AnalystReport, issues: list[Issue], evidence: Evidence | None = None
+) -> tuple[AnalystReport, tuple[Rejected, ...]]:
+    """Remove what failed: a fact with an issue, a finding with its own issue or no facts left,
+    a sentence of the summary with a number no tool returned."""
     finding_issues: dict[int, list[str]] = defaultdict(list)
     fact_issues: dict[tuple[int, int], list[str]] = defaultdict(list)
+    answer_issues: dict[int, list[str]] = defaultdict(list)
     for issue in issues:
-        if issue.fact is None:
+        if issue.section == "answer" and issue.fact is not None:
+            answer_issues[issue.fact].append(issue.detail)
+        elif issue.section == "summary":
+            continue
+        elif issue.fact is None:
             finding_issues[issue.finding].append(issue.detail)
         else:
             fact_issues[(issue.finding, issue.fact)].append(issue.detail)
 
-    kept: list[Finding] = []
     rejected: list[Rejected] = []
+    answer = []
+    for index, fact in enumerate(report.answer):
+        if index in answer_issues:
+            rejected.append(Rejected("answer", fact.text, tuple(answer_issues[index])))
+        else:
+            answer.append(fact)
+
+    kept: list[Finding] = []
     for index, finding in enumerate(report.findings):
         if index in finding_issues:
             rejected.append(Rejected(finding.title, None, tuple(finding_issues[index])))
@@ -234,4 +264,23 @@ def drop_failing(report: AnalystReport, issues: list[Issue]) -> tuple[AnalystRep
             continue
         kept.append(finding.model_copy(update={"facts": facts}))
 
-    return report.model_copy(update={"findings": kept}), tuple(rejected)
+    summary = report.summary
+    if evidence is not None and any(issue.section == "summary" for issue in issues):
+        summary = _verified_summary(report.summary, evidence, answer, kept, rejected)
+    return report.model_copy(update={"answer": answer, "findings": kept, "summary": summary}), tuple(rejected)
+
+
+def _verified_summary(
+    summary: str, evidence: Evidence, answer: list, findings: list[Finding], rejected: list[Rejected]
+) -> str:
+    """The summary without its sentences that say a number no tool returned; the facts if none is left."""
+    kept = []
+    for sentence in re.split(r"(?<=[.!?])\s+", summary.strip()):
+        unsupported = unsupported_numbers(sentence, evidence)
+        if unsupported:
+            rejected.append(Rejected("summary", sentence, (f"numbers no tool returned: {', '.join(unsupported)}",)))
+        else:
+            kept.append(sentence)
+    if kept:
+        return " ".join(kept)
+    return " ".join(fact.text for fact in answer) or "; ".join(finding.title for finding in findings)

@@ -22,7 +22,11 @@ false lateness and absences. When many people are late or absent in the same
 way, a wrong schedule is the first explanation to consider: compare each
 site's schedule with its real working day (compare_site_schedules) and report
 a mismatch as a finding about the site (subject_kind object, concern setup),
-not about the people who are counted late because of it.
+not about the people who are counted late because of it — and still name
+them when the owner asks who was late.
+
+Lateness counts from the planned shift start plus the site's grace
+(late_grace_minutes): within the grace it is not lateness.
 
 """
 

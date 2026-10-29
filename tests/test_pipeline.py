@@ -27,6 +27,7 @@ ROLE = Role(
 
 def report_json(distance: str, *, alternatives=("weak GPS",)) -> str:
     return json.dumps({
+        "answer": [],
         "summary": "One check-in is worth a look.",
         "data_gaps": [],
         "findings": [{
@@ -131,7 +132,7 @@ def test_report_schema_fits_strict_mode():
 
 
 def empty_report(summary: str) -> str:
-    return json.dumps({"summary": summary, "data_gaps": [], "findings": []})
+    return json.dumps({"answer": [], "summary": summary, "data_gaps": [], "findings": []})
 
 
 async def test_an_empty_report_after_an_investigation_is_asked_for_once_more():
@@ -143,7 +144,7 @@ async def test_an_empty_report_after_an_investigation_is_asked_for_once_more():
 
     analysis = await analyze(ROLE, llm, "Anything odd?")
 
-    assert llm.requests[3]["input"][-1]["content"].startswith("Your report has no findings")
+    assert llm.requests[3]["input"][-1]["content"].startswith("Your report has neither an answer nor findings")
     assert len(analysis.report.findings) == 1
     assert analysis.caught == (("the report had no findings after an investigation; asked once more",),)
 
@@ -160,3 +161,58 @@ async def test_a_second_empty_report_stands():
     assert analysis.report.findings == []
     assert analysis.report.summary == "Nothing is worth checking this week."
     assert len(llm.requests) == 4
+
+
+def answer_report(minutes: str, summary: str) -> str:
+    return json.dumps({
+        "answer": [{
+            "text": f"Jasur was {minutes} minutes late",
+            "evidence": [{"kind": "count", "id": "today:emp-1"}],
+            "claims": [{"ref": {"kind": "count", "id": "today:emp-1"}, "field": "late_minutes", "value": minutes}],
+        }],
+        "findings": [],
+        "data_gaps": [],
+        "summary": summary,
+    })
+
+
+async def today(params: NoParams) -> dict:
+    return {"people": [{"id": "today:emp-1", "employee_id": "emp-1", "name": "Jasur", "late_minutes": 62}]}
+
+
+TODAY_ROLE = Role(name="analyst", instructions="Analyse.", tools=(Tool("get_today", "Today.", NoParams, today),), model="m")
+
+
+def asked_today():
+    return [turn(call("get_today", {}), response_id="r1"), turn(text="Seen enough.", response_id="r2")]
+
+
+async def test_a_direct_answer_is_checked_like_a_finding():
+    llm = ScriptedLLM([*asked_today(), turn(text=answer_report("45", "One person was late.")), turn(text=answer_report("62", "One person was late."))])
+
+    analysis = await analyze(TODAY_ROLE, llm, "Who was late today?")
+
+    assert "answer, fact 1: count:today:emp-1.late_minutes is 62, not '45'" in llm.requests[3]["input"][-1]["content"]
+    assert [fact.text for fact in analysis.report.answer] == ["Jasur was 62 minutes late"]
+    assert len(llm.requests) == 4  # an answer without findings is not asked for again
+
+
+async def test_a_number_no_tool_returned_is_cut_from_the_summary():
+    invented = answer_report("62", "Jasur was 62 minutes late. That is 54 hours this month.")
+    llm = ScriptedLLM([*asked_today(), *(turn(text=invented) for _ in range(2))])
+
+    analysis = await analyze(TODAY_ROLE, llm, "Who was late today?", max_corrections=1)
+
+    assert "summary: it says 54" in llm.requests[3]["input"][-1]["content"]
+    assert analysis.report.summary == "Jasur was 62 minutes late."
+    assert [(item.finding, item.fact) for item in analysis.rejected] == [("summary", "That is 54 hours this month.")]
+
+
+async def test_a_wrong_answer_is_removed_and_the_summary_falls_back_to_what_is_verified():
+    wrong = answer_report("45", "Jasur was 45 minutes late.")
+    llm = ScriptedLLM([*asked_today(), *(turn(text=wrong) for _ in range(2))])
+
+    analysis = await analyze(TODAY_ROLE, llm, "Who was late today?", max_corrections=1)
+
+    assert analysis.report.answer == [] and analysis.report.summary == ""
+    assert {item.finding for item in analysis.rejected} == {"answer", "summary"}

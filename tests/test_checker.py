@@ -31,6 +31,7 @@ def evidence():
 
 def report(facts, **finding):
     return AnalystReport.model_validate({
+        "answer": [],
         "summary": "s",
         "data_gaps": [],
         "findings": [{

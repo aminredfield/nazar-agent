@@ -8,7 +8,7 @@ claim in the final answer can be traced back to it.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID
 
 from pydantic import Field, model_validator
@@ -78,13 +78,6 @@ class EventDetailParams(ToolParams):
     event_id: UUID = Field(description="Attendance event id from get_attendance_events.")
 
 
-class PresenceTodayParams(ToolParams):
-    status: Literal["all", "in", "out", "absent"] = Field(
-        default="all",
-        description="all; in — on site now; out — checked out today; absent — no check-in today."
-    )
-
-
 def attendance_tools(nazar: NazarClient, *, page_size: int = PAGE_SIZE) -> tuple[Tool, ...]:
     async def get_shared_phones(params: SharedPhonesParams) -> dict[str, Any]:
         events, truncated = await scan_events(nazar, params.date_from, params.date_to, page_size=page_size)
@@ -121,12 +114,6 @@ def attendance_tools(nazar: NazarClient, *, page_size: int = PAGE_SIZE) -> tuple
     async def get_event_detail(params: EventDetailParams) -> dict[str, Any]:
         detail = await call_nazar(nazar.get(f"/attendance/events/{params.event_id}"))
         return _event_detail_view(detail)
-
-    async def get_presence_today(params: PresenceTodayParams) -> dict[str, Any]:
-        page = await call_nazar(
-            nazar.get("/attendance/presence", {"status": params.status, "limit": 100})
-        )
-        return _presence_view(page)
 
     return (
         Tool(
@@ -166,12 +153,6 @@ def attendance_tools(nazar: NazarClient, *, page_size: int = PAGE_SIZE) -> tuple
             params=EventDetailParams,
             handler=get_event_detail,
         ),
-        Tool(
-            name="get_presence_today",
-            description="Who is on site, has left or has not arrived today, with schedule-aware counters.",
-            params=PresenceTodayParams,
-            handler=get_presence_today,
-        ),
     )
 
 
@@ -197,6 +178,7 @@ def _object_view(item: dict[str, Any]) -> dict[str, Any]:
         "is_active": item.get("is_active"),
         "schedule_mode": item.get("work_schedule_mode"),
         "shift": [item.get("shift_start"), item.get("shift_end")],
+        "late_grace_minutes": item.get("late_grace_minutes"),
         "assigned_employees": item.get("assigned_employee_count"),
     }
 
@@ -302,22 +284,3 @@ def _phone_user(key: str, employee: str, items: list[dict[str, Any]], events: li
 
 def _moment(item: dict[str, Any]) -> datetime:
     return datetime.fromisoformat(item["received_at_server"])
-
-
-def _presence_view(page: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "summary": page.get("summary", {}),
-        "objects": page.get("objects", []),
-        "employees": [
-            {
-                "id": entry["employee"]["id"],
-                "name": entry["employee"]["full_name"],
-                "status": entry.get("status"),
-                "object_id": entry.get("object_id"),
-                "object_name": entry.get("object_name"),
-                "last_event_at": local_time(entry.get("last_event_at")),
-            }
-            for entry in page.get("items", [])
-        ],
-        "total": page.get("total"),
-    }
