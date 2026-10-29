@@ -93,7 +93,7 @@ def test_a_step_that_fails_stops_the_plan_and_undo_takes_back_what_was_done(wind
     client.post(f"/api/setup/runs/{run['id']}/undo", json={})
 
     assert not any(item.name == "ЖК Олмазор" for item in demo.world.sites.values())
-    assert not demo.setup.departments
+    assert sorted(item.name for item in demo.setup.departments.values()) == ["Chilonzor crew", "Sergeli crew", "Yashnobod finishing crew"]
 
 
 def test_a_pasted_link_puts_the_point_or_says_why_not(window):

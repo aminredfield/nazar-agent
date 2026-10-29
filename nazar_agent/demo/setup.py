@@ -18,7 +18,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, Field
 
 from nazar_agent.demo.timesheet import iso
-from nazar_agent.demo.world import SITE_SCHEDULE, TZ, Schedule, Site, World
+from nazar_agent.demo.world import SITE_SCHEDULE, TZ, Schedule, Site, World, stable_id
 
 CLOCK = r"^([01]\d|2[0-3]):[0-5]\d$"
 Weekday = Annotated[int, Field(ge=1, le=7)]
@@ -107,6 +107,22 @@ class GroupAt:
 class Setup:
     departments: dict[str, Department] = field(default_factory=dict)
     groups: dict[str, dict[str, GroupAt]] = field(default_factory=dict)  # site → department → group at it
+
+
+# The crews the company starts with: a group per site, everyone on it a member.
+CREWS = (("chilonzor", "Chilonzor crew", "blue"), ("sergeli", "Sergeli crew", "green"), ("yashnobod", "Yashnobod finishing crew", "amber"))
+
+
+def crews(world: World) -> Setup:
+    """The demo's groups as of the first day: one crew per site, not tied to a site's schedule."""
+    setup = Setup()
+    sites = {site.key: site for site in world.sites.values()}
+    for key, name, color in CREWS:
+        site = sites[key]
+        item = Department(id=stable_id("group", key), name=name, color=color, created_at=site.created_at)
+        item.members = {person.id: person.assigned_from for person in world.people.values() if person.site_id == site.id}
+        setup.departments[item.id] = item
+    return setup
 
 
 # --- Sites ---------------------------------------------------------------------

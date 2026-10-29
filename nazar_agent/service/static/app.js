@@ -293,6 +293,7 @@ function actionBlock(action, card) {
       const updated = await api(`/api/proposals/${action.proposal_id}/${kind}`, body);
       render(updated.status);
       loadAudit();
+      companyChanged();
     } catch (error) {
       result.className = "error"; result.textContent = error.message;
       for (const button of buttons.querySelectorAll("button")) button.disabled = false;
@@ -331,7 +332,7 @@ function actionBlock(action, card) {
       result.className = "done"; result.textContent = t("executed");
       const undo = el("button", { type: "button" }, t("undo"));
       undo.onclick = () => decide("undo", { actor: $("actor").value });
-      buttons.append(undo);
+      buttons.append(undo, seeCompany());
     } else {
       result.textContent = { declined: t("declined"), undone: t("undone"), stale: t("stale"), failed: t("not_done") }[status] || status;
     }
@@ -736,6 +737,7 @@ for (const button of $("lang-seg").children) {
     showPrefs();
     renderTry();
     renderSamples();
+    if (!$("tab-company").hidden) loadCompany();
     if (shownAnswer) renderAnswer(shownAnswer);
     renderHistory();
     loadAudit();
@@ -749,5 +751,6 @@ showPrefs();
 signIn().then(async (ready) => {
   if (!ready) return;
   loadAudit();
+  companyBaseline();
   if (!(await followRunning())) loadDialog();
 });

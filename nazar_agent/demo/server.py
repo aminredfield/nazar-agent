@@ -86,7 +86,10 @@ class DemoNazar:
     uploads: dict[str, bytes] = field(default_factory=dict)
     usage: list[dict[str, Any]] = field(default_factory=list)
     updated: dict[str, datetime] = field(default_factory=dict)
-    setup: company.Setup = field(default_factory=company.Setup)  # groups and their schedules at sites
+    setup: company.Setup = field(init=False)  # groups and their schedules at sites, from the starting crews
+
+    def __post_init__(self) -> None:
+        self.setup = company.crews(self.world)
 
     @classmethod
     def today(cls, clock: Callable[[], datetime] | None = None, **options: Any) -> DemoNazar:
@@ -108,7 +111,7 @@ class DemoNazar:
         self.uploads.clear()
         self.usage.clear()
         self.updated.clear()
-        self.setup = company.Setup()
+        self.setup = company.crews(self.world)
 
     def issue(self, ttl: timedelta = ACCESS_TTL, store: dict[str, datetime] | None = None) -> tuple[str, datetime]:
         store = self.tokens if store is None else store

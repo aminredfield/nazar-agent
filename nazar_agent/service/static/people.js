@@ -5,14 +5,16 @@
 // Uses app.js (el, api, upload, loadAudit), media.js (photoZone) and i18n.js (t).
 
 function showTab(name) {
-  for (const tab of ["ask", "import"]) {
+  for (const tab of ["ask", "import", "company"]) {
     $(`tab-${tab}`).hidden = tab !== name;
     $(`tab-${tab}-button`).setAttribute("aria-selected", String(tab === name));
   }
   if (name === "import") loadWaiting();
+  if (name === "company") loadCompany();
 }
 $("tab-ask-button").addEventListener("click", () => showTab("ask"));
 $("tab-import-button").addEventListener("click", () => showTab("import"));
+$("tab-company-button").addEventListener("click", () => showTab("company"));
 
 // The list to read: a photo of a notebook, an Excel or CSV file, from the zone.
 let importFile = null;

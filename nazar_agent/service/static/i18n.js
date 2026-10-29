@@ -84,7 +84,10 @@ const I18N = {
       { t: "По-узбекски", q: "Kecha kim ishga kelmadi?", e: "Отвечает по-узбекски — на языке вопроса." },
       { t: "Правило", q: "Оштрафуй всех, кто опоздал на этой неделе", e: "Отказывается: штраф — решение человека по каждому случаю. Предлагает показать, кто опоздал." },
     ],
+    STATUS: {"on_site": "на объекте", "left": "ушёл", "not_arrived": "не пришёл", "not_started_yet": "смена не началась", "day_off": "выходной"},
+    REVIEW: {"no_violation": "проверено: нарушения нет", "confirmed": "проверено: нарушение", "insufficient_data": "проверено: мало данных"},
     text: {
+      tab_company: "Компания", company_note: "Демо-компания, как её сейчас хранит NAZAR. Что изменило ваше последнее «Применить» или «Отменить», отмечено.", company_asof: "На {0}, {1}", company_sites: "Объекты и смены", company_groups: "Группы", company_people: "Сотрудники", company_week: "Табель за 7 дней", company_checkins: "Отметки за сегодня", company_changed: "изменено", company_new: "новое", company_shift: "Смена {0}–{1}", company_grace: "опоздание после {0} мин", company_no_shift: "Смена не задана", company_map: "карта", company_group_shift: "{0}: своя смена {1}–{2}", company_nobody: "Пока никого.", company_no_groups: "Групп пока нет.", company_no_checkins: "Сегодня отметок ещё нет.", th_code: "№", th_sites: "Объекты", th_groups: "Группы", th_today: "Сегодня", th_hours: "Часы", th_late_days: "Дней с опозданием", company_late: "опоздание {0} мин", company_absent: "нет", company_open: "на смене", company_adjusted: "исправлено", company_in: "приход", company_out: "уход", company_legend: "Часы за день; жёлтым — опоздание; ✎ — исправлено в NAZAR.", see_company: "Посмотреть в «Компании»",
       title: "NAZAR · Помощник", brand_sub: "Помощник", team_idle: "ИИ-агенты ждут вопроса", team_busy: "ИИ-агенты работают над вопросом",
       theme_dark: "Тёмная тема", theme_light: "Светлая тема", language: "Язык",
       hero_title: "ИИ-агенты проверяют, кто на самом деле работает на ваших объектах.", hero_grad: "Решаете вы.",
@@ -229,7 +232,10 @@ const I18N = {
       { t: "Ruscha", q: "Кто вчера не пришёл на работу?", e: "Rus tilida javob beradi — savol tilida." },
       { t: "Qoida", q: "Bu hafta kechikkanlarning hammasini jarimaga tort", e: "Rad etadi: jarima — har bir holat bo'yicha insonning qarori. Kim kechikkanini ko'rsatishni taklif qiladi." },
     ],
+    STATUS: {"on_site": "obyektda", "left": "ketdi", "not_arrived": "kelmadi", "not_started_yet": "smena boshlanmagan", "day_off": "dam olish"},
+    REVIEW: {"no_violation": "tekshirildi: buzilish yo'q", "confirmed": "tekshirildi: buzilish", "insufficient_data": "tekshirildi: ma'lumot yetarli emas"},
     text: {
+      tab_company: "Kompaniya", company_note: "Demo kompaniya, NAZAR uni hozir qanday saqlayotgan bo'lsa. Oxirgi «Qo'llash» yoki «Bekor qilish» nimani o'zgartirgani belgilangan.", company_asof: "{0}, {1} holatiga", company_sites: "Obyektlar va smenalar", company_groups: "Guruhlar", company_people: "Xodimlar", company_week: "Oxirgi 7 kunlik tabel", company_checkins: "Bugungi belgilar", company_changed: "o'zgardi", company_new: "yangi", company_shift: "Smena {0}–{1}", company_grace: "{0} daqiqadan keyin kechikish", company_no_shift: "Smena belgilanmagan", company_map: "xarita", company_group_shift: "{0}: o'z smenasi {1}–{2}", company_nobody: "Hali hech kim yo'q.", company_no_groups: "Hali guruhlar yo'q.", company_no_checkins: "Bugun hali belgilar yo'q.", th_code: "№", th_sites: "Obyektlar", th_groups: "Guruhlar", th_today: "Bugun", th_hours: "Soat", th_late_days: "Kechikkan kunlar", company_late: "{0} daqiqa kechikdi", company_absent: "yo'q", company_open: "smenada", company_adjusted: "tuzatilgan", company_in: "keldi", company_out: "ketdi", company_legend: "Kunlik ishlangan soatlar; sariq — kechikish; ✎ — NAZAR'da tuzatilgan.", see_company: "«Kompaniya»da ko'rish",
       title: "NAZAR · Yordamchi", brand_sub: "Yordamchi", team_idle: "SI agentlari savolni kutmoqda", team_busy: "SI agentlari savol ustida ishlamoqda",
       theme_dark: "Qorong'i mavzu", theme_light: "Yorug' mavzu", language: "Til",
       hero_title: "SI agentlari obyektlaringizda aslida kim ishlayotganini tekshiradi.", hero_grad: "Qarorni siz qabul qilasiz.",
@@ -374,7 +380,10 @@ const I18N = {
       { t: "In Uzbek", q: "Kecha kim ishga kelmadi?", e: "Answers in Uzbek — the language of the question." },
       { t: "A rule it keeps", q: "Fine everyone who was late this week", e: "Refuses: a penalty is a person's decision, case by case. Offers to show who was late instead." },
     ],
+    STATUS: {"on_site": "on site", "left": "left", "not_arrived": "not arrived", "not_started_yet": "shift not started", "day_off": "day off"},
+    REVIEW: {"no_violation": "reviewed: fine", "confirmed": "reviewed: violation", "insufficient_data": "reviewed: not enough data"},
     text: {
+      tab_company: "Company", company_note: "The demo company as NAZAR keeps it now. What your last “Apply” or “Undo” changed is marked.", company_asof: "As of {0}, {1}", company_sites: "Sites and shifts", company_groups: "Groups", company_people: "People", company_week: "Timesheet, last 7 days", company_checkins: "Today's check-ins", company_changed: "changed", company_new: "new", company_shift: "Shift {0}–{1}", company_grace: "late after {0} min", company_no_shift: "No shift set", company_map: "map", company_group_shift: "{0}: own shift {1}–{2}", company_nobody: "No one yet.", company_no_groups: "No groups yet.", company_no_checkins: "No check-ins yet today.", th_code: "No.", th_sites: "Sites", th_groups: "Groups", th_today: "Today", th_hours: "Hours", th_late_days: "Late days", company_late: "{0} min late", company_absent: "absent", company_open: "on shift", company_adjusted: "corrected", company_in: "in", company_out: "out", company_legend: "Hours worked a day; amber — came late; ✎ — corrected in NAZAR.", see_company: "See it in Company",
       title: "NAZAR · Assistant", brand_sub: "Assistant", team_idle: "AI agents: waiting for a question", team_busy: "AI agents: working on your question",
       theme_dark: "Dark theme", theme_light: "Light theme", language: "Language",
       hero_title: "AI agents that check who really works on your sites.", hero_grad: "You decide.",

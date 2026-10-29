@@ -152,6 +152,29 @@ main { max-width: 1040px; margin: 0 auto; padding: 8px 20px 40px; }
 .powers span { color: var(--muted); font-size: 13px; }
 .demo-line { color: var(--muted); font-size: 14px; margin: 0 0 14px; max-width: 760px; }
 .try { margin: 6px 0 14px; }
+.company-head { align-items: center; gap: 12px; margin: 10px 0; }
+.company-head p { margin: 0; flex: 1 1 320px; }
+.company-part { margin-top: 14px; }
+.company-part h2 { font-size: 16px; margin: 0 0 10px; }
+.company-sites { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.site-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--card); display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.site-card .shift { font-weight: 600; }
+.small { font-size: 12px; }
+.people-list { color: var(--muted); }
+.table-wrap { overflow-x: auto; }
+.company-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.company-table th, .company-table td { padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.company-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.company-table td.late { background: var(--gold-soft); color: var(--warn); }
+.company-table td.absent { color: var(--bad); }
+.company-groups li, .company-checkins li { padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--line); }
+.dot-color { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; background: var(--violet); }
+.dot-color.green { background: var(--good); } .dot-color.amber { background: var(--gold); } .dot-color.red { background: var(--bad); }
+.reviewed { color: var(--good); }
+.badge { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 1px 7px; margin-left: 4px; }
+.badge.mark-changed, .badge.mark-new { background: var(--gold); color: #fff; }
+.mark-changed, .mark-new { background: var(--attention); outline: 1px solid var(--gold); }
+.badge.mark-changed, .badge.mark-new { outline: 0; }
 .samples { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-bottom: 10px; font-size: 13px; }
 .samples .sample { display: inline-flex; align-items: center; gap: 4px; }
 .samples a { font-size: 12px; color: var(--muted); }

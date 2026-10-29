@@ -367,6 +367,13 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         current.assistant.setup.discard(current.session_id)
         return {"ok": True}
 
+    @app.get("/api/company")
+    async def company_now(current: Caller = Depends(caller)) -> dict[str, Any]:
+        try:
+            return await current.assistant.company_now(nazar=current.nazar)
+        except ToolExecutionError as exc:  # NAZAR refused: say so, not "Internal Server Error"
+            raise HTTPException(502, str(exc)) from exc
+
     @app.post("/api/import/read")
     async def read_import(
         http: Request,
@@ -459,7 +466,7 @@ class Caller:
 
     def actor_for(self, typed: str) -> str:
         """Who decided: from the NAZAR session, never from the window — a typed name is used only locally."""
-        return self.name or typed.strip() or "Владелец"
+        return self.name or typed.strip() or "Owner"
 
 
 async def _setup(outcome: Any) -> dict[str, Any]:

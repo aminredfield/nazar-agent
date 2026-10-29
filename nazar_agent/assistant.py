@@ -25,6 +25,7 @@ from typing import Any
 
 from nazar_agent.actions import Executor, Proposal, ProposalStore
 from nazar_agent.clarify import Choice, Clarification, resolve
+from nazar_agent.company import snapshot
 from nazar_agent.config import Settings
 from nazar_agent.dialog import Dialogs, Turn, brief, previous_answer
 from nazar_agent.engine import RoleRun
@@ -198,6 +199,10 @@ class Assistant:
             # After NAZAR was asked: by then the bot's service account knows its company.
             await self.spent("import", text or "(file)", meter)
         return review(people, sites, employees, lang), sites
+
+    async def company_now(self, *, nazar: NazarClient | None = None) -> dict[str, Any]:
+        """The company as NAZAR keeps it now: sites, groups, people, a week, today — for the Company tab."""
+        return await snapshot(self._acting(nazar), self.settings.now())
 
     async def sites(self, *, nazar: NazarClient | None = None) -> list[Site]:
         objects = await call_nazar(self._acting(nazar).get("/objects", {"include_inactive": False}))

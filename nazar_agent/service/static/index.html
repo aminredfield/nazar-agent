@@ -54,6 +54,7 @@
   <nav class="tabs" role="tablist">
     <button type="button" id="tab-ask-button" role="tab" aria-selected="true" data-i18n="tab_ask"></button>
     <button type="button" id="tab-import-button" role="tab" aria-selected="false" data-i18n="tab_import"></button>
+    <button type="button" id="tab-company-button" role="tab" aria-selected="false" data-i18n="tab_company"></button>
   </nav>
 
   <section id="tab-ask">
@@ -129,6 +130,15 @@
     </section>
   </section>
 
+  <section id="tab-company" hidden>
+    <div class="row company-head">
+      <p class="muted" id="company-note" data-i18n="company_note"></p>
+      <span class="muted" id="company-asof"></span>
+      <button type="button" id="refresh-company" data-i18n="refresh"></button>
+    </div>
+    <div id="company"></div>
+  </section>
+
   <details class="panel glass fold" id="usage-section">
     <summary><h2 data-i18n="usage_title"></h2></summary>
     <div class="row"><p class="muted" data-i18n="usage_note"></p><button type="button" id="refresh-usage" data-i18n="refresh"></button></div>
@@ -147,5 +157,6 @@
 <script src="/static/app.js?v=15"></script>
 <script src="/static/people.js?v=15"></script>
 <script src="/static/setup.js?v=15"></script>
+<script src="/static/company.js?v=15"></script>
 </body>
 </html>

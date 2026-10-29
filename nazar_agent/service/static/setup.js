@@ -217,6 +217,7 @@ function planBlock(view) {
     }
     drawSetup();
     loadAudit();
+    companyChanged();
   });
   discard.addEventListener("click", async () => {
     await send("POST", "/api/setup/discard", {}).catch(() => undefined);
@@ -244,6 +245,7 @@ function runBlock(run) {
     }
     drawSetup();
     loadAudit();
+    companyChanged();
     if (!$("tab-import").hidden) loadWaiting();
   });
   return el("div", { class: `setup-run ${run.status}` },

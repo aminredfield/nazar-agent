@@ -1,6 +1,7 @@
 """Setting the demo company up behaves as NAZAR does: a second site, groups, a site with history."""
 
 from tests.test_demo_server import demo, people, signed_in
+from nazar_agent.demo.world import stable_id
 
 NEW_SITE = {
     "name": "ЖК Олмазор", "address": "Ташкент, Чиланзар", "latitude": 41.2856, "longitude": 69.2034,
@@ -45,7 +46,10 @@ async def test_a_group_counts_its_members_who_work_at_the_site():
 
     assert twice.status_code == 409 and added["data"]["changed_count"] == 2
     assert groups[0]["employee_count"] == 1 and groups[0]["shift_start"] == "09:00" and groups[0]["schedule_type"] == "weekly"
-    assert card["departments"] == [{"id": group, "name": "Бригада Рустама", "color": "blue"}]
+    assert card["departments"] == [
+        {"id": stable_id("group", "chilonzor"), "name": "Chilonzor crew", "color": "blue"},
+        {"id": group, "name": "Бригада Рустама", "color": "blue"},
+    ]
 
 
 async def test_a_site_with_check_ins_is_not_deleted_a_new_one_is():
