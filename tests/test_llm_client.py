@@ -1,6 +1,8 @@
-"""Each role thinks as long as the settings say: the effort goes into that role's requests only."""
+"""The model client: each role thinks as long as the settings say; a dropped connection is tried again."""
 
 import json
+
+import pytest
 
 import httpx
 
@@ -60,3 +62,33 @@ def test_the_settings_carry_the_measured_defaults_and_take_json_from_the_environ
     monkeypatch.setenv("REASONING_EFFORT", '{"writer": "low"}')
 
     assert Settings(_env_file=None, model_api_key="k", demo_mode=True).reasoning_effort == {"writer": "low"}
+
+
+async def test_a_dropped_connection_is_tried_again_and_a_timeout_is_not(monkeypatch):
+    from nazar_agent.llm import client as module
+
+    monkeypatch.setattr(module, "RECONNECT_PAUSES", (0.0, 0.0))
+    calls = {"n": 0}
+
+    def flaky(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] <= 3:  # the SDK's own retry, then ours
+            raise httpx.ConnectError("dropped", request=request)
+        return httpx.Response(200, json=RESPONSE)
+
+    client = MetaResponsesClient(api_key="k", base_url="http://meta.test/v1", timeout_seconds=5,
+                                 http_client=httpx.AsyncClient(transport=httpx.MockTransport(flaky)))
+    turn = await client.respond(model="m", instructions="i", input="q", tools=[])
+
+    assert turn.text == "{}" and calls["n"] == 4
+
+    def slow(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        raise httpx.ReadTimeout("slow", request=request)
+
+    calls["n"] = 0
+    client = MetaResponsesClient(api_key="k", base_url="http://meta.test/v1", timeout_seconds=5,
+                                 http_client=httpx.AsyncClient(transport=httpx.MockTransport(slow)))
+    with pytest.raises(module.APITimeoutError):
+        await client.respond(model="m", instructions="i", input="q", tools=[])
+    assert calls["n"] == 2  # the SDK's one retry only

@@ -10,16 +10,38 @@ OpenAI-compatible: https://dev.meta.ai/docs/tool-calling
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 import httpx
-from openai import AsyncOpenAI
+from openai import APIConnectionError, APITimeoutError, AsyncOpenAI
+
+log = logging.getLogger(__name__)
 
 # The SDK retries a timed-out request twice by default: a stuck call then
 # blocks for three timeouts (seen live: ~8 minutes for one question).
 MAX_RETRIES = 1
+# A dropped connection (not a slow model: a timeout is not tried again) is
+# tried again after these pauses. In the evals a minute-long network blip
+# failed 16 questions in a row.
+RECONNECT_PAUSES = (3.0, 10.0)
+
+
+async def _reconnecting(send: Callable[[], Awaitable[Any]]) -> Any:
+    for pause in (*RECONNECT_PAUSES, None):
+        try:
+            return await send()
+        except APITimeoutError:
+            raise
+        except APIConnectionError:
+            if pause is None:
+                raise
+            log.warning("model API connection dropped; trying again in %.0f s", pause)
+            await asyncio.sleep(pause)
+    raise AssertionError("unreachable")
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,7 +115,7 @@ class MetaResponsesClient:
             request["max_output_tokens"] = max_output_tokens
         if role in self._efforts:
             request["reasoning"] = {"effort": self._efforts[role]}
-        response = await self._client.responses.create(**request)
+        response = await _reconnecting(lambda: self._client.responses.create(**request))
 
         calls = tuple(
             ToolCall(call_id=item.call_id, name=item.name, arguments=item.arguments)
@@ -174,7 +196,7 @@ class ChatCompletionsClient:
             request["max_tokens"] = max_output_tokens
         if role in self._efforts:
             request["reasoning_effort"] = self._efforts[role]
-        response = await self._client.chat.completions.create(**request)
+        response = await _reconnecting(lambda: self._client.chat.completions.create(**request))
 
         usage = response.usage
         return ModelTurn(

@@ -26,7 +26,7 @@ Or without Docker (Python 3.11+):
 
 ```bash
 python -m venv .venv && . .venv/bin/activate     # Windows: .venv\Scripts\activate
-pip install .
+pip install -c constraints.txt .                 # the versions it was tested with
 python -m nazar_agent.demo                       # → http://127.0.0.1:8100
 ```
 
