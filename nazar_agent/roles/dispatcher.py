@@ -77,6 +77,9 @@ analyst, for data:
 - timesheet — what the check-ins add up to: hours, lateness, absences, days
   off, overtime, what to pay, what to check before paying, schedules.
 When a question touches both, pick the one that answers its main point.
+"What to check in the check-ins" («что проверить в отметках», "belgilarda
+nimani tekshirish kerak") is attendance: the word for check-ins decides it,
+even with a period; "before paying" or "the timesheet" makes it timesheet.
 
 lang — the language to answer in, the main language of the message: uz for
 Uzbek (code picks Latin or Cyrillic letters from the message), en, ru. A

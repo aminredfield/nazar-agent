@@ -344,6 +344,17 @@ standard model on a paid balance (while an account spends free credits, Meta
 may use the content for product improvement too) or to self-hosted open
 weights.
 
+**How long each role thinks.** Most of an answer's time was the models
+thinking: an analyst wrote 12–15 thousand tokens for one question, the
+dispatcher 1.6 thousand to sort a message. Muse Spark takes a reasoning
+effort per request, and each role now has its own (`REASONING_EFFORT`):
+the dispatcher at `minimal` reads a message in 2–4 s instead of 7–9 with the
+same reading; the analysts, the writer, the photo inspector and the list
+reader at `low`. On 24 heavy questions of the bank that halved the median
+time (164 s → 72 s) and the tokens, with the same questions passing; the
+dead-souls questions passed 10 of 10. The skeptic keeps the model's own
+judgement — it is the second opinion.
+
 Every demo employee is a fictional person whose portrait Muse Image drew for
 that name, age and look ([`scripts/generate_demo_faces.py`](scripts/generate_demo_faces.py));
 the prompt, model, date and hash of each photo are kept with it. A face
@@ -436,9 +447,13 @@ What moved the numbers:
 - **Asking back.** A name that fits two people is asked back with a button
   for each, before anyone investigates; a name no one has is answered at once.
 
-The price of depth is time: on the final run the median question took about
-two minutes with four asked at once; an off-topic or forbidden one, 11–14
-seconds.
+The price of depth is time. With each role's reasoning effort set (see Meta
+models), the Oct 30 run of all 72 questions, four asked at once, took a
+median of 66 s for a question the analysts investigate (it was 140 s) and
+4 s for a greeting, an off-topic or a forbidden one (it was 11–14 s); 70/72
+passed. The two misses — a question about check-ins sent to the timesheet
+analyst, a card about someone late twice in a week — got a rule each, and
+those questions with their neighbours then passed 16 of 16.
 
 Oct 29, the demo NAZAR (`nazar_agent/demo`), final code:
 

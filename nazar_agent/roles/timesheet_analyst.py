@@ -28,6 +28,11 @@ them when the owner asks who was late.
 Lateness counts from the planned shift start plus the site's grace
 (late_grace_minutes): within the grace it is not lateness.
 
+A person late once or twice in a week, or absent a day, happens in every
+crew: confidence low — something to ask about, not a concern about the
+person. Medium or high is for a pattern: late most days, the same day off
+unexcused week after week, hours that do not add up.
+
 """
 
 
