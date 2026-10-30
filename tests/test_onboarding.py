@@ -220,3 +220,24 @@ async def test_photo_without_a_face_gets_nazars_own_words(drafts, monkeypatch):
 
     assert rejected.value.reasons == ["Лицо не найдено на изображении."]
     assert store.get(draft.id).status == "waiting"
+
+
+def test_a_file_is_known_by_its_first_bytes_not_by_the_type_it_was_sent_with():
+    from nazar_agent.onboarding.parse import SHEET_TYPES, file_type
+
+    book = Workbook()
+    book.active.append(["Full name", "Site"])
+    xlsx = io.BytesIO()
+    book.save(xlsx)
+
+    assert file_type(xlsx.getvalue(), "application/octet-stream") in SHEET_TYPES
+    assert file_type(b"\xff\xd8\xff\xe0jpeg", "") == "image/jpeg"
+    assert file_type("name,site\nUmida,".encode(), "application/octet-stream") == "text/plain"
+    assert file_type(b"\x00\x01binary", "application/octet-stream") == "application/octet-stream"
+
+
+def test_a_reading_error_is_said_in_the_window_language():
+    error = ParseError("format")
+
+    assert error.said("en").startswith("This file does not fit") and error.said("uz").startswith("Bu format")
+    assert "Excel" in str(error)

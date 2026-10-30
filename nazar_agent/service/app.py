@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import mimetypes
 import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -175,7 +176,9 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
             return
         raise HTTPException(401, "Откройте помощника из кабинета NAZAR.")
 
-    # The window's stylesheet, script and logo; the page itself is "/".
+    # The window's stylesheet, script and logo; the page itself is "/". A slim
+    # image's Python does not know .xlsx: the Excel sample would go out untyped.
+    mimetypes.add_type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx")
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
     @app.get("/", include_in_schema=False)
@@ -390,7 +393,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
                 text=text, file=content, content_type=file.content_type if file else None, nazar=current.nazar, lang=lang
             )
         except ParseError as exc:
-            raise HTTPException(422, str(exc)) from exc
+            raise HTTPException(422, exc.said(lang)) from exc
         except ToolExecutionError as exc:  # NAZAR refused: say so, not "Internal Server Error"
             raise HTTPException(502, str(exc)) from exc
         return {"rows": [_row_view(row) for row in rows], "sites": [{"id": site.id, "name": site.name} for site in sites]}

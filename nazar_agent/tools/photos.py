@@ -103,6 +103,7 @@ class PhotoInspector:
             tools=[],
             text_format=PHOTO_FORMAT,
             max_output_tokens=INSPECTOR_MAX_OUTPUT_TOKENS,
+            role="photos",
         )
         count("photos", self.model, turn.input_tokens, turn.output_tokens)
         self.input_tokens += turn.input_tokens

@@ -482,9 +482,12 @@ button.mic.recording { color: var(--bad); border-color: var(--bad); background: 
   /* A phone shows the examples as a row to swipe, not a page of cards. */
   .try-grid { grid-auto-flow: column; grid-auto-columns: 80%; grid-template-columns: none; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; }
   .try-card { scroll-snap-align: start; }
-  .powers { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .powers li { padding: 8px 10px; }
-  .powers span { font-size: 12px; }
+  /* A phone gets to the examples and the question first: the abilities and the models are on a wider screen. */
+  .powers, .models { display: none; }
+  #tab-ask { display: flex; flex-direction: column; }
+  #ask { order: -1; }  /* the question box on the first screen, the examples right under it */
+  .hero { padding: 16px 0 8px; }
+  .lead, .demo-line { font-size: 14px; margin: 8px 0; }
   .run-body > * { min-width: 0; }
   main { padding: 4px 16px 32px; }
   .run-body { grid-template-columns: 1fr; }

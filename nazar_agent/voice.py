@@ -128,6 +128,7 @@ async def transcribe(llm: LLMClient, model: str, audio: bytes, lang: str | None 
         }],
         tools=[],
         max_output_tokens=TRANSCRIBE_MAX_OUTPUT_TOKENS,
+        role="voice",
     )
     count("voice", model, turn.input_tokens, turn.output_tokens)
     text = turn.text.strip()

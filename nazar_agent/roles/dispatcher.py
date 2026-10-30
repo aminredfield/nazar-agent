@@ -186,7 +186,9 @@ async def parse(
         + WINDOW_LANG.format(lang=window_lang)
         + earlier
     )
-    turn = await llm.respond(model=model, instructions=instructions, input=question, tools=[], text_format=READING_FORMAT)
+    turn = await llm.respond(
+        model=model, instructions=instructions, input=question, tools=[], text_format=READING_FORMAT, role="dispatcher"
+    )
     count("dispatcher", model, turn.input_tokens, turn.output_tokens)
     try:
         reading = Reading.model_validate_json(turn.text)

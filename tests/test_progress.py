@@ -20,7 +20,7 @@ async def test_the_window_sees_each_step_of_the_investigation():
     tool_start = next(event for event in progress.events if event["kind"] == "tool" and event["status"] == "start")
     tool_done = next(event for event in progress.events if event["kind"] == "tool" and event["status"] == "done")
     assert kinds == ["thinking", "tool", "tool", "thinking", "note", "report", "checker", "finished"]
-    assert tool_start["args"] == {"limit": 5, "ids": "2 шт."}  # short values only, never nested records
+    assert tool_start["args"] == {"limit": 5, "ids": "×2"}  # short values only, never nested records
     assert tool_done["found"] == 1
     assert progress.events[-2] == {**progress.events[-2], "findings": 1, "issues": []}
     assert [event["seq"] for event in progress.since(6)] == [7, 8]

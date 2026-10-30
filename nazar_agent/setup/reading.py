@@ -91,7 +91,9 @@ async def read_setup(
         sites=json.dumps([item.get("name") for item in sites if item.get("is_active", True)], ensure_ascii=False),
         draft=json.dumps(asdict(draft), ensure_ascii=False),
     )
-    turn = await llm.respond(model=model, instructions=instructions, input=message, tools=[], text_format=READING_FORMAT)
+    turn = await llm.respond(
+        model=model, instructions=instructions, input=message, tools=[], text_format=READING_FORMAT, role="setup"
+    )
     count("setup", model, turn.input_tokens, turn.output_tokens)
     try:
         return SetupReading.model_validate_json(turn.text)

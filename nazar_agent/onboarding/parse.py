@@ -48,7 +48,43 @@ amounts and other columns. Skip headings, totals and empty lines.
 
 
 class ParseError(Exception):
-    """The input cannot be read; the message is for the person."""
+    """The input cannot be read; ``said(lang)`` is the message for the person, in the window's language."""
+
+    def __init__(self, kind: str) -> None:
+        super().__init__(MESSAGES[kind]["ru"])
+        self.kind = kind
+
+    def said(self, lang: str) -> str:
+        return MESSAGES[self.kind].get(lang, MESSAGES[self.kind]["en"])
+
+
+MESSAGES = {
+    "empty": {
+        "ru": "Пришлите фото списка, Excel или вставьте текст.",
+        "uz": "Ro'yxat suratini, Excel faylini yuboring yoki matnni qo'ying.",
+        "en": "Send a photo of the list or an Excel file, or paste the text.",
+    },
+    "unreadable": {
+        "ru": "Не получилось разобрать список — попробуйте ещё раз или пришлите текстом.",
+        "uz": "Ro'yxatni o'qib bo'lmadi — qayta urinib ko'ring yoki matn bilan yuboring.",
+        "en": "Could not read the list — try again or paste it as text.",
+    },
+    "format": {
+        "ru": "Этот формат не подходит: пришлите фото (JPG, PNG), Excel (.xlsx) или CSV.",
+        "uz": "Bu format mos emas: surat (JPG, PNG), Excel (.xlsx) yoki CSV yuboring.",
+        "en": "This file does not fit: send a photo (JPG, PNG), an Excel file (.xlsx) or a CSV.",
+    },
+    "excel": {
+        "ru": "Не получилось открыть Excel-файл.",
+        "uz": "Excel faylini ochib bo'lmadi.",
+        "en": "Could not open the Excel file.",
+    },
+    "encoding": {
+        "ru": "Не получилось прочитать файл — сохраните его в UTF-8.",
+        "uz": "Faylni o'qib bo'lmadi — uni UTF-8 da saqlang.",
+        "en": "Could not read the file — save it as UTF-8.",
+    },
+}
 
 
 class ListedPerson(BaseModel):
@@ -89,7 +125,7 @@ async def read_list(
     if text and text.strip():
         content.append({"type": "input_text", "text": text.strip()[:MAX_TEXT]})
     if len(content) == 1:
-        raise ParseError("Пришлите фото списка, Excel или вставьте текст.")
+        raise ParseError("empty")
 
     turn = await llm.respond(
         model=model,
@@ -97,15 +133,17 @@ async def read_list(
         input=[{"type": "message", "role": "user", "content": content}],
         tools=[],
         text_format=PEOPLE_FORMAT,
+        role="import",
     )
     count("import", model, turn.input_tokens, turn.output_tokens)
     try:
         return ListedPeople.model_validate_json(turn.text).people
     except ValidationError as exc:
-        raise ParseError("Не получилось разобрать список — попробуйте ещё раз или пришлите текстом.") from exc
+        raise ParseError("unreadable") from exc
 
 
 def _file_content(file: bytes, content_type: str) -> dict[str, Any]:
+    content_type = file_type(file, content_type)
     if content_type in IMAGE_TYPES:
         data = base64.b64encode(file).decode()
         return {"type": "input_image", "image_url": f"data:{content_type};base64,{data}"}
@@ -113,7 +151,24 @@ def _file_content(file: bytes, content_type: str) -> dict[str, Any]:
         return {"type": "input_text", "text": sheet_text(file)}
     if content_type.startswith("text/"):
         return {"type": "input_text", "text": _decode(file)[:MAX_TEXT]}
-    raise ParseError("Этот формат не подходит: пришлите фото (JPG, PNG), Excel (.xlsx) или CSV.")
+    raise ParseError("format")
+
+
+def file_type(file: bytes, declared: str) -> str:
+    """What the file is by its first bytes, not by the name a browser or a server gave it:
+    a server without the .xlsx type sends an Excel file as application/octet-stream."""
+    if file.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if file.startswith(b"\x89PNG"):
+        return "image/png"
+    if file[:4] == b"RIFF" and file[8:12] == b"WEBP":
+        return "image/webp"
+    if file.startswith(b"PK\x03\x04"):  # a zip: .xlsx is one
+        return next(iter(SHEET_TYPES))
+    if declared in IMAGE_TYPES or declared in SHEET_TYPES or declared.startswith("text/"):
+        return declared
+    unnamed = declared in ("", "application/octet-stream")  # a CSV from a server that does not know .csv
+    return "text/plain" if unnamed and file and b"\x00" not in file[:4096] else declared
 
 
 def sheet_text(file: bytes) -> str:
@@ -121,7 +176,7 @@ def sheet_text(file: bytes) -> str:
     try:
         workbook = load_workbook(io.BytesIO(file), read_only=True, data_only=True)
     except Exception as exc:  # openpyxl raises many kinds for a broken file
-        raise ParseError("Не получилось открыть Excel-файл.") from exc
+        raise ParseError("excel") from exc
     lines: list[str] = []
     for sheet in workbook.worksheets:
         lines.append(f"# {sheet.title}")
@@ -149,4 +204,4 @@ def _decode(file: bytes) -> str:
                 return text
             return "\n".join(" | ".join(row) for row in csv.reader(io.StringIO(text), dialect))
         return text
-    raise ParseError("Не получилось прочитать файл — сохраните его в UTF-8.")
+    raise ParseError("encoding")

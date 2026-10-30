@@ -4,6 +4,10 @@
 
 // Words come from i18n.js: t("key") for phrases, L().ACTIONS and the like for names of things.
 const number = (value) => Number(value).toLocaleString(LOCALES[LANG]);
+// A moment in the company's time, whatever the viewer's clock: the demo lives in Tashkent.
+const companyTime = (iso) => new Date(iso).toLocaleString(LOCALES[LANG], {
+  timeZone: "Asia/Tashkent", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+});
 const dollars = (value, estimated) => `$${Number(value).toFixed(4)}${estimated ? "*" : ""}`;
 
 const $ = (id) => document.getElementById(id);
@@ -492,7 +496,7 @@ async function loadAudit() {
     $("decisions").textContent = stats.agreement === null ? t("no_decisions")
       : t("decisions", stats.applied, stats.applied + stats.declined, Math.round(stats.agreement * 100), stats.undone, stats.pending);
     $("audit").replaceChildren(...entries.map((entry) => el("li", { class: entry.event },
-      el("span", { class: "when" }, entry.at.replace("T", " ").slice(0, 16)),
+      el("span", { class: "when", title: "Tashkent, UTC+5" }, companyTime(entry.at)),
       `${L().EVENTS[entry.event] || entry.event} · ${L().ACTIONS[entry.action] || entry.action || ""} · ${entry.details.text || entry.subject || entry.details.full_name || ""} · ${entry.actor}`,
       entry.details.reasons ? el("span", { class: "ref" }, entry.details.reasons.join("; ")) : null,
       entry.details.reason ? el("span", { class: "ref" }, `«${entry.details.reason}»`) : null,

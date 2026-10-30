@@ -84,6 +84,7 @@ $("import-form").addEventListener("submit", async (event) => {
     renderReview(await upload("/api/import/read", form));
     $("import-status").textContent = "";
   } catch (error) {
+    $("import-review").replaceChildren(); // the table of an earlier list is not this one's
     $("import-status").className = "status error"; $("import-status").textContent = error.message;
   } finally {
     $("import-read").disabled = false;

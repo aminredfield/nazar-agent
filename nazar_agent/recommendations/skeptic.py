@@ -129,6 +129,7 @@ async def run_skeptic(
         tools=[],
         text_format=SKEPTIC_FORMAT,
         max_output_tokens=SKEPTIC_MAX_OUTPUT_TOKENS,
+        role="skeptic",
     )
     count("skeptic", model, turn.input_tokens, turn.output_tokens)
     try:

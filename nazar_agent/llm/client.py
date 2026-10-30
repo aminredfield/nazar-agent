@@ -10,6 +10,7 @@ OpenAI-compatible: https://dev.meta.ai/docs/tool-calling
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -47,6 +48,7 @@ class LLMClient(Protocol):
         tools: list[dict[str, Any]],
         text_format: dict[str, Any] | None = None,
         max_output_tokens: int | None = None,
+        role: str = "",
     ) -> ModelTurn: ...
 
 
@@ -58,7 +60,10 @@ class MetaResponsesClient:
         base_url: str,
         timeout_seconds: float,
         http_client: httpx.AsyncClient | None = None,
+        efforts: Mapping[str, str] | None = None,
     ) -> None:
+        # How long each role thinks (reasoning.effort); a role not in it lets the model choose.
+        self._efforts = dict(efforts or {})
         self._client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url,
@@ -76,6 +81,7 @@ class MetaResponsesClient:
         tools: list[dict[str, Any]],
         text_format: dict[str, Any] | None = None,
         max_output_tokens: int | None = None,
+        role: str = "",
     ) -> ModelTurn:
         request: dict[str, Any] = {"model": model, "instructions": instructions, "input": input}
         if tools:
@@ -85,6 +91,8 @@ class MetaResponsesClient:
             request["text"] = {"format": text_format}
         if max_output_tokens:
             request["max_output_tokens"] = max_output_tokens
+        if role in self._efforts:
+            request["reasoning"] = {"effort": self._efforts[role]}
         response = await self._client.responses.create(**request)
 
         calls = tuple(
@@ -122,7 +130,10 @@ class ChatCompletionsClient:
         base_url: str,
         timeout_seconds: float,
         http_client: httpx.AsyncClient | None = None,
+        efforts: Mapping[str, str] | None = None,
     ) -> None:
+        # How long each role thinks (reasoning.effort); a role not in it lets the model choose.
+        self._efforts = dict(efforts or {})
         self._client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url,
@@ -140,6 +151,7 @@ class ChatCompletionsClient:
         tools: list[dict[str, Any]],
         text_format: dict[str, Any] | None = None,
         max_output_tokens: int | None = None,
+        role: str = "",
     ) -> ModelTurn:
         if tools:
             raise NotImplementedError("ChatCompletionsClient serves single-shot roles without tools.")
@@ -160,6 +172,8 @@ class ChatCompletionsClient:
             }
         if max_output_tokens:
             request["max_tokens"] = max_output_tokens
+        if role in self._efforts:
+            request["reasoning_effort"] = self._efforts[role]
         response = await self._client.chat.completions.create(**request)
 
         usage = response.usage

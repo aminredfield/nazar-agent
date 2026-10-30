@@ -140,6 +140,7 @@ async def analyze(
             input=list(conversation),
             tools=[],
             text_format=REPORT_FORMAT,
+            role=role.name,
         )
         count(role.name, role.model, turn.input_tokens, turn.output_tokens)
         input_tokens += turn.input_tokens
@@ -185,6 +186,7 @@ async def analyze(
             input=list(conversation),
             tools=[],
             text_format=REPORT_FORMAT,
+            role=role.name,
         )
         count(role.name, role.model, turn.input_tokens, turn.output_tokens)
         input_tokens += turn.input_tokens

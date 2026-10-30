@@ -170,6 +170,7 @@ async def compose(llm: LLMClient, model: str, cases: list[CaseInput], today: dat
         input=(OWNER_ASKED.format(question=question) if question else "") + cases_text(cases),
         tools=[],
         text_format=COMPOSER_FORMAT,
+        role="writer",
     )
     count("writer", model, turn.input_tokens, turn.output_tokens)
     try:

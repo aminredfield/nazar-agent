@@ -8,7 +8,7 @@ from functools import lru_cache
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from pydantic import SecretStr, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from nazar_agent.llm import ChatCompletionsClient, LLMClient, MetaResponsesClient
@@ -28,6 +28,12 @@ def working_morning(real: datetime) -> datetime:
     return datetime.combine(day, WORKING_MORNING, tzinfo=COMPANY_TZ)
 
 
+Effort = Literal["minimal", "low", "medium", "high", "xhigh"]
+# Measured on the question bank (python -m nazar_agent.evals.bank): the fastest
+# setting per role that keeps its answers right.
+REASONING_EFFORT: dict[str, Effort] = {"dispatcher": "minimal", "setup": "low"}
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -36,6 +42,11 @@ class Settings(BaseSettings):
     analyst_model: str = "muse-spark-1.3"
     # The skeptic on open weights reasons before it answers; 90 s timed out in evals.
     llm_timeout_seconds: float = 150.0
+    # How long each role thinks before it answers (the model's reasoning effort:
+    # minimal, low, medium, high, xhigh). Thinking is most of an answer's time; a
+    # role not listed lets the model choose. In the environment as JSON:
+    # REASONING_EFFORT='{"writer": "low"}' replaces the whole map.
+    reasoning_effort: dict[str, Effort] = Field(default_factory=lambda: dict(REASONING_EFFORT))
 
     # The skeptic runs on a different model than the analysts. Target: Muse
     # Spark Open on Baseten (chat_completions API, its own key). Until that is
@@ -144,13 +155,16 @@ class Settings(BaseSettings):
             api_key=self.model_api_key.get_secret_value(),
             base_url=self.meta_base_url,
             timeout_seconds=self.llm_timeout_seconds,
+            efforts=self.reasoning_effort,
         )
 
     def skeptic_llm(self) -> LLMClient:
         key = (self.skeptic_api_key or self.model_api_key).get_secret_value()
         base_url = self.skeptic_base_url or self.meta_base_url
         client_class = ChatCompletionsClient if self.skeptic_api == "chat_completions" else MetaResponsesClient
-        return client_class(api_key=key, base_url=base_url, timeout_seconds=self.llm_timeout_seconds)
+        return client_class(
+            api_key=key, base_url=base_url, timeout_seconds=self.llm_timeout_seconds, efforts=self.reasoning_effort
+        )
 
 
 @lru_cache

@@ -87,6 +87,7 @@ async def run_role(role: Role, llm: LLMClient, user_input: str) -> RoleRun:
             instructions=role.instructions,
             input=list(conversation),
             tools=schemas,
+            role=role.name,
         )
         count(role.name, role.model, turn.input_tokens, turn.output_tokens)
         input_tokens += turn.input_tokens
@@ -170,7 +171,7 @@ def _shown(raw: str | None) -> dict[str, Any]:
     if not isinstance(arguments, dict):
         return {}
     return {
-        key: (f"{len(value)} шт." if isinstance(value, list) else value)
+        key: (f"×{len(value)}" if isinstance(value, list) else value)  # a count reads the same in any language
         for key, value in arguments.items()
         if value is not None and not isinstance(value, dict)
     }
