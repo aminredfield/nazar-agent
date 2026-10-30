@@ -178,7 +178,8 @@ main { max-width: 1040px; margin: 0 auto; padding: 8px 20px 40px; }
 .samples { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-bottom: 10px; font-size: 13px; }
 .samples .sample { display: inline-flex; align-items: center; gap: 4px; }
 .samples a { font-size: 12px; color: var(--muted); }
-.try h2 { font-size: 15px; margin: 0 0 8px; }
+.try h2 { font-size: 15px; margin: 0 0 4px; }
+.try-note { font-size: 13px; margin: 0 0 8px; }
 .try-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
 .try-card { text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 12px; font-size: 13px; cursor: pointer; }
 .try-card b { font-size: 14px; color: var(--ink); }
