@@ -140,3 +140,25 @@ def test_company_wide_finding_needs_no_subject_id():
 )
 def test_values_match(claimed, actual, expected):
     assert values_match(claimed, actual) is expected
+
+
+@pytest.mark.parametrize("written", ['["08:00", "18:00"]', "08:00, 18:00", "08:00–18:00", "08:00 - 18:00", "['08:00', '18:00']"])
+def test_a_shift_written_another_way_is_the_same_list(written):
+    assert values_match(written, ["08:00", "18:00"])
+
+
+def test_another_list_is_still_a_mismatch():
+    assert not values_match("09:00–19:00", ["08:00", "18:00"])
+    assert not values_match('["08:00", "19:00"]', ["08:00", "18:00"])
+
+
+def test_a_field_is_found_through_a_list_and_without_the_record_s_own_place():
+    from nazar_agent.findings.checker import _lookup
+
+    event = {"id": "e1", "flags": [{"code": "accuracy_too_low"}, {"code": "gps_accuracy_warning"}]}
+    totals = {"id": "tally:all:2026-10-21:2026-10-28", "late_days": 7}
+
+    assert _lookup(event, "flags.code") == (True, ["accuracy_too_low", "gps_accuracy_warning"])
+    assert _lookup(totals, "totals.late_days") == (True, 7)
+    assert _lookup(totals, "late_minutes") == (False, None)
+    assert _lookup(event, "flags.meaning") == (False, None)

@@ -19,6 +19,8 @@ reference that exists, but a claim needs the record itself.
 
 from __future__ import annotations
 
+import contextlib
+import json
 import re
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -153,7 +155,7 @@ def _check_claim(claim: Claim, evidence: Evidence) -> tuple[IssueCode, str] | No
 def values_match(claimed: str, actual: Any) -> bool:
     text = claimed.strip()
     if isinstance(actual, list):
-        return any(values_match(text, item) for item in actual) or text == str(actual)
+        return any(values_match(text, item) for item in actual) or text == str(actual) or _same_list(text, actual)
     if isinstance(actual, dict):
         # A flag is {"code", "meaning"}: claiming either one is fine.
         return any(values_match(text, actual[key]) for key in ("code", "meaning", "name") if key in actual)
@@ -176,6 +178,23 @@ def values_match(claimed: str, actual: Any) -> bool:
     return len(claimed_text) >= _MIN_PARTIAL_TEXT and claimed_text in actual_text
 
 
+def _same_list(text: str, actual: list[Any]) -> bool:
+    """The whole list written another way: '["08:00", "18:00"]', "08:00, 18:00", "08:00–18:00".
+    The same values, so not a reason to send the report back for another round."""
+    if not actual or any(isinstance(item, (dict, list)) for item in actual):
+        return False
+    wanted = [str(item).strip().casefold() for item in actual]
+    with contextlib.suppress(json.JSONDecodeError):
+        written = json.loads(text)
+        if isinstance(written, list) and [str(item).strip().casefold() for item in written] == wanted:
+            return True
+    tokens = [token.casefold() for token in re.findall(r"[^\s,;\[\]\"'–—]+", text)]
+    if tokens == wanted:
+        return True
+    pair = re.fullmatch(r"\s*(\S+?)\s*[-–—]\s*(\S+)\s*", text)
+    return len(wanted) == 2 and pair is not None and [part.casefold() for part in pair.groups()] == wanted
+
+
 def _as_number(text: str) -> float | None:
     try:
         return float(text.replace(",", ".").replace(" ", ""))
@@ -184,12 +203,27 @@ def _as_number(text: str) -> float | None:
 
 
 def _lookup(record: dict[str, Any], path: str) -> tuple[bool, Any]:
-    current: Any = record
-    for part in path.split("."):
-        if not isinstance(current, dict) or part not in current:
-            return False, None
-        current = current[part]
-    return True, current
+    """A field by its dotted path, as the model names it. Through a list it takes
+    the field of every item ("flags.code", "counted_intervals.start"). A first part
+    the record does not have is dropped: the model often names where the record
+    sits in the tool's answer ("totals.late_days" of the record that is the totals).
+    Either way the value still has to be the one the tool returned."""
+    parts = path.split(".")
+    found, value = _walk(record, parts)
+    if not found and len(parts) > 1 and parts[0] not in record:
+        found, value = _walk(record, parts[1:])
+    return found, value
+
+
+def _walk(node: Any, parts: list[str]) -> tuple[bool, Any]:
+    if not parts:
+        return True, node
+    if isinstance(node, list):
+        values = [value for found, value in (_walk(item, parts) for item in node) if found]
+        return (True, values) if values else (False, None)
+    if not isinstance(node, dict) or parts[0] not in node:
+        return False, None
+    return _walk(node[parts[0]], parts[1:])
 
 
 def _index(node: Any, records: dict[str, dict[str, Any]], seen: set[str]) -> None:
