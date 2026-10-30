@@ -30,8 +30,19 @@ def working_morning(real: datetime) -> datetime:
 
 Effort = Literal["minimal", "low", "medium", "high", "xhigh"]
 # Measured on the question bank (python -m nazar_agent.evals.bank): the fastest
-# setting per role that keeps its answers right.
-REASONING_EFFORT: dict[str, Effort] = {"dispatcher": "minimal", "setup": "low"}
+# setting per role that keeps its answers right. On 24 heavy questions "low"
+# for the analysts and the writer halved the time (median 164 s → 72 s) with
+# the same results; the dead-souls questions passed 10 of 10. The skeptic
+# keeps its own judgement: it is the second opinion.
+REASONING_EFFORT: dict[str, Effort] = {
+    "dispatcher": "minimal",
+    "setup": "low",
+    "attendance_analyst": "low",
+    "timesheet_analyst": "low",
+    "writer": "low",
+    "photos": "low",
+    "import": "low",
+}
 
 
 class Settings(BaseSettings):
