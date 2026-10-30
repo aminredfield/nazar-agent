@@ -44,7 +44,9 @@ Today is {weekday}, {today} (Asia/Tashkent).
 intent:
 - data — anything about the company's employees, sites, check-ins, hours,
   lateness, absences, overtime, schedules, the timesheet or pay for worked
-  time; a general "how are things", a follow-up like "and Rustam?"; and an
+  time; a general "how are things", a follow-up like "and Rustam?"; a
+  question about someone by name ("who is Timur Hasanov?", "tell me about
+  Sherzod") — the owner asks about an employee, typos and all; and an
   action the assistant can propose for one person or site: mark a check-in
   as reviewed, correct or void a shift, change a site's schedule, look into
   deleting some of someone's check-ins.
