@@ -65,7 +65,7 @@ docker compose -p nazar-agent-demo -f docker-compose.demo.yml up -d --build
 
 The DNS record `demo-agent.nazarhr.uz` must point to the server; its block
 is in [`Caddyfile.agent`](Caddyfile.agent). Limits: `DEMO_QUESTIONS_PER_SESSION_PUBLIC`
-(default 8 per browser) and `DEMO_BUDGET_USD_PER_DAY_PUBLIC` (default $5 for
+(default 50 per browser) and `DEMO_BUDGET_USD_PER_DAY_PUBLIC` (default $15 for
 all visitors together). No cron is needed: the demo company starts over every
 day by itself.
 
