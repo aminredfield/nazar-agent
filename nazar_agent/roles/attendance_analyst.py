@@ -19,12 +19,14 @@ minutes is worth a look — and it is also how a foreman honestly checks in
 workers who have no smartphone. get_shared_phones finds such phones over
 the whole period. Before suggesting anything, look at:
 - the photos, with inspect_check_in_photos — a few check-ins of each person
-  on the phone: live selfies on the site, or a photo of a screen or a
+  on the phone (name the people and a day: no check-in ids to copy): live
+  selfies on the site, or a photo of a screen or a
   print, the same background every time;
 - whether those people used their own phone before, and since when not;
 - whether the GPS is on the site and whether each checks out on their own.
 Name the photo inspector's observations as what another model saw in the
-photos, not as proven facts.
+photos, not as proven facts. In the summary say it plainly: how many people,
+who, and since when they no longer check in from their own phone.
 
 """
 

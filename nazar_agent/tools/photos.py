@@ -15,17 +15,19 @@ checker can trace like any other NAZAR record.
 from __future__ import annotations
 
 import base64
+from datetime import date, timedelta
 from typing import Any, Literal
 from uuid import UUID
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from nazar_agent.engine import Tool, ToolExecutionError, ToolParams, tool_schema
 from nazar_agent.llm import LLMClient
 from nazar_agent.nazar import NazarApiError, NazarClient
 from nazar_agent.progress import emit
 from nazar_agent.tools.common import call_nazar, local_time
+from nazar_agent.tools.schedules import local_day_start
 from nazar_agent.usage import count
 
 MAX_PHOTOS = 8
@@ -76,10 +78,23 @@ PHOTO_FORMAT: dict[str, Any] = {
 
 class InspectPhotosParams(ToolParams):
     event_ids: list[UUID] = Field(
-        min_length=1,
+        default_factory=list,
         max_length=MAX_PHOTOS,
-        description=f"Check-in or check-out event ids from get_attendance_events, 1–{MAX_PHOTOS}.",
+        description=f"Check-in or check-out event ids from get_attendance_events, up to {MAX_PHOTOS}.",
     )
+    # Live: the analyst copied 36-character ids with typos and lost those photos.
+    employee_ids: list[UUID] = Field(
+        default_factory=list,
+        max_length=MAX_PHOTOS,
+        description="Instead of event ids: these employees' first check-in on `day` — no check-in ids to copy.",
+    )
+    day: date | None = Field(default=None, description="The local day for employee_ids, YYYY-MM-DD.")
+
+    @model_validator(mode="after")
+    def _something_to_look_at(self) -> InspectPhotosParams:
+        if not self.event_ids and not (self.employee_ids and self.day):
+            raise ValueError("Give event_ids, or employee_ids with day.")
+        return self
 
 
 class PhotoInspector:
@@ -119,6 +134,19 @@ class PhotoInspector:
         return report
 
 
+async def _first_check_ins(nazar: NazarClient, employee_ids: list[UUID], day: date) -> list[UUID]:
+    """Each employee's first check-in of the local day, if any."""
+    found = []
+    for employee_id in employee_ids:
+        items = await call_nazar(nazar.get("/attendance/logs", {
+            "employee_id": str(employee_id), "event_type": "check_in", "limit": 50,
+            "date_from": local_day_start(day).isoformat(), "date_to": local_day_start(day + timedelta(days=1)).isoformat(),
+        }))
+        if items:
+            found.append(UUID(min(items, key=lambda item: item["received_at_server"])["id"]))
+    return found
+
+
 async def _event_or_none(nazar: NazarClient, event_id: UUID) -> dict[str, Any] | None:
     # Live: the model copied one of eight ids with a typo, and the 404 cost it
     # all eight photos. An unknown id is reported, the rest are still looked at.
@@ -132,7 +160,11 @@ async def _event_or_none(nazar: NazarClient, event_id: UUID) -> dict[str, Any] |
 
 def photo_tools(nazar: NazarClient, inspector: PhotoInspector) -> tuple[Tool, ...]:
     async def inspect_photos(params: InspectPhotosParams) -> dict[str, Any]:
-        found = {event_id: await _event_or_none(nazar, event_id) for event_id in params.event_ids}
+        wanted = list(params.event_ids)
+        if params.employee_ids and params.day:
+            wanted += await _first_check_ins(nazar, params.employee_ids, params.day)
+        wanted = list(dict.fromkeys(wanted))[:MAX_PHOTOS]
+        found = {event_id: await _event_or_none(nazar, event_id) for event_id in wanted}
         events = [event for event in found.values() if event is not None]
         result: dict[str, Any] = {
             "photos": [],
@@ -178,6 +210,7 @@ def photo_tools(nazar: NazarClient, inspector: PhotoInspector) -> tuple[Tool, ..
             description=(
                 "Look at the photos of up to 8 check-ins: whether each is a live selfie or a photo of a "
                 "screen or a print, what is in the background, and which photos share a background. "
+                "Name the check-ins by event id, or name the people and a day to see their first check-in. "
                 "Another model looks and describes; it does not judge."
             ),
             params=InspectPhotosParams,

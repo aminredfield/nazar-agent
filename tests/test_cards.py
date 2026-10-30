@@ -49,7 +49,7 @@ async def test_cards_combine_both_opinions_and_keep_only_valid_actions():
                        intervals=[{"start_at": "2026-10-23T09:06:00+05:00", "end_at": "2026-10-23T17:49:00+05:00"}],
                        comment_or_reason="Считать с 09:06"),
                 action("void_shift", employee_id=factories.EMPLOYEE, work_date=factories.DAY, comment_or_reason="x"),
-                action("review_event", event_id=factories.EVENT, status="insufficient_data", comment_or_reason="third is cut"),
+                action("review_event", event_id=factories.EVENT, status="insufficient_data", comment_or_reason="third is kept"),
             ], "why": "Табель посчитал приход по второй отметке."},
             {"case": 2, "check_steps": [], "actions": [], "why": "Невиновное объяснение вероятнее."},
         ),
@@ -61,9 +61,9 @@ async def test_cards_combine_both_opinions_and_keep_only_valid_actions():
 
     zarina, jasur = result.cards
     assert (zarina.confidence, jasur.confidence) == ("medium", "low")
-    assert [item.name for item in zarina.actions] == ["adjust_shift"]
+    assert [item.name for item in zarina.actions] == ["adjust_shift", "review_event"]
     assert zarina.actions[0].preview.after["late_minutes"] == 6
-    # Policy: not paying a day needs high confidence; the third action is cut (max two).
+    # Policy: not paying a day needs high confidence; a third action is kept (a case may name several people).
     assert [item.name for item in zarina.rejected_actions] == ["void_shift"]
     assert zarina.check_steps == ("Посмотреть фото",)
     assert jasur.alternatives == ("Скачок GPS", "Другое")  # skeptic first, no duplicates

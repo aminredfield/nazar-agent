@@ -134,3 +134,28 @@ async def test_chat_completions_client_sends_images_as_chat_parts():
         {"type": "text", "text": "Photo 1"},
         {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,AAA"}},
     ]}
+
+
+async def test_people_and_a_day_are_enough_no_check_in_ids_to_copy(tmp_path):
+    from nazar_agent.config import Settings
+    from nazar_agent.evals.questions import BANK_NOW
+    from nazar_agent.nazar.connect import connect
+
+    settings = Settings(_env_file=None, model_api_key="k", demo_mode=True, demo_now=BANK_NOW, agent_db_path=str(tmp_path / "a.sqlite3"))
+    link = connect(settings)
+    client = link.client()
+    world = link.demo.world
+    left = [person for person in world.people.values() if person.kind == "left"][:2]
+    llm = inspector_says([look(1, "photo_of_screen", "cabin"), look(2, "photo_of_screen", "cabin")], [[1, 2]])
+    [tool] = photo_tools(client, PhotoInspector(llm, "open"))
+
+    result = await tool.handler(InspectPhotosParams(employee_ids=[person.id for person in left], day=world.today))
+    await client.aclose()
+
+    assert sorted(item["employee_name"] for item in result["photos"]) == sorted(person.name for person in left)
+    assert len(result["same_background"]) == 1
+
+
+def test_something_to_look_at_is_required():
+    with pytest.raises(ValueError, match="event_ids"):
+        InspectPhotosParams(employee_ids=[FIRST])

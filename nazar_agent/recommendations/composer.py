@@ -23,7 +23,8 @@ from nazar_agent.recommendations.catalog import CATALOG
 from nazar_agent.recommendations.skeptic import SkepticView
 from nazar_agent.usage import count
 
-MAX_ACTIONS_PER_CASE = 2
+# A case about one phone can be about four people: each gets their own action.
+MAX_ACTIONS_PER_CASE = 6
 
 INSTRUCTIONS = """\
 You write recommendations for the owner of a company that uses NAZAR, a
@@ -51,6 +52,9 @@ For each case:
   someone to ask, presence to confirm — record insufficient_data with what
   is to check, and let the owner decide after checking. Fill only the fields
   the action lists; set the others to null.
+- A case about several people in the same way — check-ins from one phone,
+  the same photo of a screen — gives each of them the same action, one per
+  person: the owner decides about every one, not about two of four.
 - When the facts show that a site's schedule does not match the real working
   day — people there start and end later or earlier every day — propose
   change_schedule with the hours from the facts, rounded to the nearest whole
