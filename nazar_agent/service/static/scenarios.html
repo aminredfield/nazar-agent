@@ -8,102 +8,120 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="/static/app.css?v=23">
-<script src="/static/i18n.js?v=23"></script>
+<link rel="stylesheet" href="/static/app.css?v=25">
+<script src="/static/i18n.js?v=25"></script>
 </head>
-<body>
+<body class="sc-page">
 <div class="backdrop" aria-hidden="true"></div>
 
 <header class="top">
   <div class="brand">
     <img src="/static/logo.png" alt="" width="34" height="34">
-    <div><strong>NAZAR</strong> <span class="brand-sub">Scenarios</span></div>
+    <div><strong>NAZAR</strong> <span class="brand-sub" data-i18n="sc_brand"></span></div>
   </div>
-  <a class="ghost sc-back" href="/">← Back to the assistant</a>
+  <a class="sc-back" href="/" data-i18n="sc_back"></a>
+  <div class="prefs">
+    <div class="seg lang" id="lang-seg" role="radiogroup" data-i18n-aria="language">
+      <button type="button" data-lang="en" role="radio">EN</button>
+      <button type="button" data-lang="ru" role="radio">RU</button>
+      <button type="button" data-lang="uz" role="radio">UZ</button>
+    </div>
+    <button type="button" class="theme" id="theme-toggle">☾</button>
+  </div>
 </header>
 
 <main>
-  <section class="hero">
-    <h1>New abilities, <span class="grad">one scene at a time.</span></h1>
-    <p class="lead">Each scene is staged — its records are written for it, for a café, a store, a cleaning team or a factory.
-      The models are live. Pick a scene and play the other side: answer as the employee, choose the photo, or bring your own.</p>
+  <section class="hero sc-hero">
+    <h1><span data-i18n="sc_h1"></span> <span class="grad" data-i18n="sc_h1_grad"></span></h1>
+    <p class="lead" data-i18n="sc_lead"></p>
+    <nav class="sc-nav">
+      <a href="#explain"><b>1</b><span data-i18n="sc_t1"></span></a>
+      <a href="#roster"><b>2</b><span data-i18n="sc_t2"></span></a>
+      <a href="#headcount"><b>3</b><span data-i18n="sc_t3"></span></a>
+      <a href="#place"><b>4</b><span data-i18n="sc_t4"></span></a>
+    </nav>
   </section>
 
-  <section class="panel glass sc-part" id="explain">
-    <h2>1. The employee explains</h2>
-    <p class="muted">Before anyone decides, the agent asks the person — in their language — and checks what they say against the records.</p>
+  <section class="sc-part" id="explain">
+    <header class="sc-head"><span class="sc-step">1</span>
+      <div><h2 data-i18n="sc_t1"></h2><p data-i18n="sc_d1"></p></div></header>
     <div class="sc-scenes" id="explain-scenes"></div>
     <div class="sc-two">
-      <div class="sc-side">
-        <h3 class="lead">The owner's window</h3>
+      <div class="sc-side sc-pane">
+        <h3 class="sc-label" data-i18n="sc_owner"></h3>
         <div id="explain-card"></div>
-        <div class="row sc-ask">
-          <label class="muted">Ask in
-            <select id="explain-lang"><option value="en">English</option><option value="uz">Uzbek</option><option value="ru">Russian</option></select>
+        <div class="sc-actions">
+          <label class="sc-select"><span data-i18n="sc_ask_in"></span>
+            <select id="explain-lang"><option value="en">English</option><option value="uz">O'zbek</option><option value="ru">Русский</option></select>
           </label>
-          <button class="primary" id="explain-ask" type="button">Ask the employee</button>
+          <button class="primary" id="explain-ask" type="button"></button>
         </div>
-        <div id="explain-result"></div>
+        <div class="sc-result" id="explain-result"></div>
       </div>
       <div class="sc-side sc-phone">
-        <h3 class="lead">The employee's phone — you answer</h3>
-        <div class="sc-chat" id="explain-chat"><p class="muted">The agent's question appears here.</p></div>
+        <h3 class="sc-label" data-i18n="sc_phone"></h3>
+        <div class="sc-chat" id="explain-chat"></div>
+        <p class="sc-label sc-small" data-i18n="sc_answer_as"></p>
         <div class="sc-templates" id="explain-templates"></div>
-        <form class="row sc-reply" id="explain-form">
-          <input id="explain-text" type="text" maxlength="1000" placeholder="Or write your own answer, in any language">
-          <button class="primary" type="submit">Send</button>
+        <form class="sc-reply" id="explain-form">
+          <input id="explain-text" type="text" maxlength="1000" data-i18n-placeholder="sc_own_answer">
+          <button class="primary" type="submit" data-i18n="sc_send"></button>
         </form>
       </div>
     </div>
   </section>
 
-  <section class="panel glass sc-part" id="roster">
-    <h2>2. A company from one picture</h2>
-    <p class="muted">The owner sends the schedule they already keep — a table, a chat message — and gets a plan of locations, shifts and people.</p>
+  <section class="sc-part" id="roster">
+    <header class="sc-head"><span class="sc-step">2</span>
+      <div><h2 data-i18n="sc_t2"></h2><p data-i18n="sc_d2"></p></div></header>
     <div class="sc-scenes" id="roster-scenes"></div>
     <div class="sc-two">
-      <div class="sc-side"><img class="sc-picture" id="roster-picture" alt="The owner's schedule"></div>
-      <div class="sc-side">
-        <div class="row">
-          <button class="primary" id="roster-read" type="button">Read it</button>
-          <label class="ghost sc-file">Use my own picture<input type="file" id="roster-file" accept="image/*" hidden></label>
+      <div class="sc-side"><img class="sc-picture sc-contain" id="roster-picture" alt=""></div>
+      <div class="sc-side sc-pane">
+        <div class="sc-actions">
+          <button class="primary" id="roster-read" type="button" data-i18n="sc_read"></button>
+          <label class="sc-file"><span data-i18n="sc_own_picture"></span><input type="file" id="roster-file" accept="image/*" hidden></label>
         </div>
-        <div id="roster-result"></div>
+        <div class="sc-result" id="roster-result"></div>
       </div>
     </div>
   </section>
 
-  <section class="panel glass sc-part" id="headcount">
-    <h2>3. Who is on shift — from one photo</h2>
-    <p class="muted">A photo of the team at the start of the shift, counted and compared with who checked in. No face recognition: only how many.</p>
+  <section class="sc-part" id="headcount">
+    <header class="sc-head"><span class="sc-step">3</span>
+      <div><h2 data-i18n="sc_t3"></h2><p data-i18n="sc_d3"></p></div></header>
     <div class="sc-scenes" id="headcount-scenes"></div>
     <div class="sc-two">
-      <div class="sc-side"><img class="sc-picture" id="headcount-picture" alt="The shift photo"></div>
-      <div class="sc-side">
+      <div class="sc-side"><img class="sc-picture" id="headcount-picture" alt=""></div>
+      <div class="sc-side sc-pane">
         <div id="headcount-roster"></div>
-        <div class="row">
-          <button class="primary" id="headcount-count" type="button">Count and compare</button>
-          <label class="ghost sc-file">Use my own photo<input type="file" id="headcount-file" accept="image/*" hidden></label>
+        <div class="sc-actions">
+          <button class="primary" id="headcount-count" type="button" data-i18n="sc_count"></button>
+          <label class="sc-file"><span data-i18n="sc_own_photo"></span><input type="file" id="headcount-file" accept="image/*" hidden></label>
         </div>
-        <div id="headcount-result"></div>
+        <div class="sc-result" id="headcount-result"></div>
       </div>
     </div>
   </section>
 
-  <section class="panel glass sc-part" id="place">
-    <h2>4. Is it really there? — the place behind a check-in</h2>
-    <p class="muted">GPS can be faked by an app. The place behind the face cannot: the agent compares a new check-in with the place's earlier selfies.</p>
+  <section class="sc-part" id="place">
+    <header class="sc-head"><span class="sc-step">4</span>
+      <div><h2 data-i18n="sc_t4"></h2><p data-i18n="sc_d4"></p></div></header>
     <div class="sc-scenes" id="place-scenes"></div>
-    <h3 class="lead">Earlier check-ins at this place</h3>
-    <div class="sc-thumbs" id="place-references"></div>
-    <h3 class="lead">New check-ins — <span id="place-gps"></span>. Pick one</h3>
-    <div class="sc-thumbs" id="place-candidates"></div>
-    <div class="row"><label class="ghost sc-file">Use my own photo<input type="file" id="place-file" accept="image/*" hidden></label></div>
-    <div id="place-result"></div>
+    <div class="sc-pane">
+      <h3 class="sc-label" data-i18n="sc_earlier"></h3>
+      <div class="sc-thumbs" id="place-references"></div>
+      <h3 class="sc-label" data-i18n="sc_new"></h3>
+      <div class="sc-thumbs" id="place-candidates"></div>
+      <div class="sc-actions">
+        <label class="sc-file"><span data-i18n="sc_own_photo"></span><input type="file" id="place-file" accept="image/*" hidden></label>
+      </div>
+      <div class="sc-result" id="place-result"></div>
+    </div>
   </section>
 </main>
 
-<footer class="foot">NAZAR Agent · Meta AI Developer Hackathon 2026 · staged scenes, live models</footer>
-<script src="/static/scenarios.js?v=23"></script>
+<footer class="foot" data-i18n="sc_footer"></footer>
+<script src="/static/scenarios.js?v=25"></script>
 </body>
 </html>

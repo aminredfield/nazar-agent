@@ -94,27 +94,29 @@ def scenario_routes(
 
     @router.post("/api/scenarios/roster")
     async def roster(
-        http: Request, scene: str = Form(""), file: UploadFile | None = File(None), current: Any = Depends(caller),
+        http: Request, scene: str = Form(""), lang: Lang = Form("en"), file: UploadFile | None = File(None),
+        current: Any = Depends(caller),
     ) -> dict[str, Any]:
         own = await read_upload(file)
         data, mime = (own, file.content_type or "image/png") if own else (picture(_scene(ROSTER, scene)["file"]), "image/png")
-        found = await played(http, current, "en", "roster", lambda llm, model: read_roster(llm, model, data, mime))
+        found = await played(http, current, lang, "roster", lambda llm, model: read_roster(llm, model, data, mime, lang))
         return {"people": found.people, "plan": found.plan, "unclear": found.unclear}
 
     @router.post("/api/scenarios/headcount")
     async def headcount(
-        http: Request, scene: str = Form(...), file: UploadFile | None = File(None), current: Any = Depends(caller),
+        http: Request, scene: str = Form(...), lang: Lang = Form("en"), file: UploadFile | None = File(None),
+        current: Any = Depends(caller),
     ) -> dict[str, Any]:
         case = _scene(HEADCOUNT, scene)
         own = await read_upload(file)
         data, mime = (own, file.content_type or "image/jpeg") if own else (picture(case["file"]), "image/jpeg")
-        return await played(http, current, "en", f"headcount: {scene}",
-                            lambda llm, model: count_shift(llm, model, data, mime, case["checked_in"]))
+        return await played(http, current, lang, f"headcount: {scene}",
+                            lambda llm, model: count_shift(llm, model, data, mime, case["checked_in"], lang))
 
     @router.post("/api/scenarios/place")
     async def place(
-        http: Request, scene: str = Form(...), candidate: int = Form(0), file: UploadFile | None = File(None),
-        current: Any = Depends(caller),
+        http: Request, scene: str = Form(...), candidate: int = Form(0), lang: Lang = Form("en"),
+        file: UploadFile | None = File(None), current: Any = Depends(caller),
     ) -> dict[str, Any]:
         case = _scene(PLACES, scene)
         own = await read_upload(file)
@@ -122,7 +124,8 @@ def scenario_routes(
             raise HTTPException(404, "No such check-in in this scene.")
         new = own or picture(case["candidates"][candidate]["file"])
         references = [picture(name) for name in case["references"]]
-        return await played(http, current, "en", f"place: {scene}", lambda llm, model: same_place(llm, model, references, new))
+        return await played(http, current, lang, f"place: {scene}",
+                            lambda llm, model: same_place(llm, model, references, new, lang))
 
     return router
 

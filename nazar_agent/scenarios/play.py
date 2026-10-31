@@ -93,7 +93,7 @@ a photo of a sheet. For each person: their name as written, their workplace (sto
 office, site, client address), the days they work (1 = Monday … 7 = Sunday) and the shift
 start and end (HH:MM, 24 hours). Write names in Latin letters as written. workplace: as
 written, or "" when the picture does not say where they work — never a guess. unclear: anything
-you could not read or had to guess, in English; empty when everything was clear."""
+you could not read or had to guess, in {language}; empty when everything was clear."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,8 +103,9 @@ class Roster:
     unclear: list[str]
 
 
-async def read_roster(llm: LLMClient, model: str, picture: bytes, mime: str) -> Roster:
-    found = await _json(llm, model, ROSTER, [_image(picture, mime)], "roster", _strict({
+async def read_roster(llm: LLMClient, model: str, picture: bytes, mime: str, lang: str = "en") -> Roster:
+    instructions = ROSTER.format(language=LANG_NAMES.get(lang, "English"))
+    found = await _json(llm, model, instructions, [_image(picture, mime)], "roster", _strict({
         "people": {"type": "array", "items": _strict({
             "name": {"type": "string"}, "workplace": {"type": "string"},
             "days": {"type": "array", "items": {"type": "integer"}},
@@ -148,11 +149,14 @@ def _days(days: tuple[int, ...]) -> str:
 COUNT = """Count the people in this photo of a team at the start of a shift. people: everyone you
 can see, including anyone partly hidden or far in the background. in_team: those who are clearly
 part of the team — the same work clothes or doing the work; visitors and passers-by are not.
-notes: one sentence on anyone you were unsure about, in English; empty when nobody."""
+notes: one sentence on anyone you were unsure about, in {language}; empty when nobody."""
 
 
-async def count_shift(llm: LLMClient, model: str, photo: bytes, mime: str, checked_in: list[str]) -> dict[str, Any]:
-    seen = await _json(llm, model, COUNT, [_image(photo, mime)], "count", _strict({
+async def count_shift(
+    llm: LLMClient, model: str, photo: bytes, mime: str, checked_in: list[str], lang: str = "en"
+) -> dict[str, Any]:
+    instructions = COUNT.format(language=LANG_NAMES.get(lang, "English"))
+    seen = await _json(llm, model, instructions, [_image(photo, mime)], "count", _strict({
         "people": {"type": "integer"}, "in_team": {"type": "integer"}, "notes": {"type": "string"},
     }))
     expected = len(checked_in)
@@ -172,14 +176,16 @@ async def count_shift(llm: LLMClient, model: str, photo: bytes, mime: str, check
 PLACE = """The first photos are earlier check-in selfies at one workplace. The last photo is a new
 check-in whose GPS says it was taken there. Ignore the people; compare only the place behind them
 — walls, furniture, shelves, counters, windows, floor. same_place: whether it is that workplace.
-why: one sentence naming what in the background matches or differs, in English."""
+why: one sentence naming what in the background matches or differs, in {language}."""
 
 
-async def same_place(llm: LLMClient, model: str, references: list[bytes], candidate: bytes) -> dict[str, Any]:
+async def same_place(
+    llm: LLMClient, model: str, references: list[bytes], candidate: bytes, lang: str = "en"
+) -> dict[str, Any]:
     content: list[dict[str, Any]] = []
     for reference in references:
         content += [{"type": "input_text", "text": "Earlier check-in:"}, _image(reference)]
     content += [{"type": "input_text", "text": "New check-in:"}, _image(candidate)]
-    return await _json(llm, model, PLACE, content, "place", _strict({
+    return await _json(llm, model, PLACE.format(language=LANG_NAMES.get(lang, "English")), content, "place", _strict({
         "same_place": {"type": "boolean"}, "why": {"type": "string"},
     }))
