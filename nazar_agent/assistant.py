@@ -21,13 +21,14 @@ import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TypeVar
 
 from nazar_agent.actions import Executor, Proposal, ProposalStore
 from nazar_agent.clarify import Choice, Clarification, resolve
 from nazar_agent.company import snapshot
-from nazar_agent.config import Settings
+from nazar_agent.config import COMPANY_TZ, Settings
 from nazar_agent.dialog import Dialogs, Turn, brief, previous_answer
 from nazar_agent.engine import RoleRun
 from nazar_agent.errors import WindowLang, owner_message
@@ -106,6 +107,9 @@ class Assistant:
         self.dialogs = Dialogs()
         # The question being answered, or the last one: the window follows it live.
         self.progress: Progress | None = None
+        # The demo company starts over (each day, or by its button): what visitors
+        # said when disagreeing before that is not this company's history.
+        self.feedback_since = ""
         self._lock = asyncio.Lock()
 
     @property
@@ -118,6 +122,14 @@ class Assistant:
         self.progress = None
         self.dialogs.clear()
         self.setup.clear()
+        self.feedback_since = datetime.now(UTC).isoformat(timespec="seconds")
+
+    def _feedback_since(self) -> str:
+        """In the shared demo only today's disagreements count: the company is built again every day."""
+        if not self.settings.demo_mode:
+            return self.feedback_since
+        midnight = datetime.now(COMPANY_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+        return max(self.feedback_since, midnight.astimezone(UTC).isoformat(timespec="seconds"))
 
     def executor(self, nazar: NazarClient | None = None) -> Executor:
         return Executor(self.store, self._acting(nazar))
@@ -272,7 +284,7 @@ class Assistant:
             photos = PhotoInspector(skeptic_llm, settings.skeptic_model)
             tools = analyst_tools(chosen, nazar, photos, now)
             # What the owner said when disagreeing before: the team does not bring it back as new.
-            feedback = owner_feedback(self.store)
+            feedback = owner_feedback(self.store, since=self._feedback_since())
             role = ANALYSTS[chosen](
                 model=settings.analyst_model, tools=tools, today=today, feedback=instructions_text(feedback), request=request.hints()
             )

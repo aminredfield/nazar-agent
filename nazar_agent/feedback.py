@@ -32,9 +32,12 @@ class Feedback:
     reason: str
 
 
-def owner_feedback(store: ProposalStore, *, limit: int = MAX_FEEDBACK) -> tuple[Feedback, ...]:
+def owner_feedback(store: ProposalStore, *, limit: int = MAX_FEEDBACK, since: str = "") -> tuple[Feedback, ...]:
+    """``since`` — an ISO moment in UTC: older disagreements are left out (the shared demo's earlier visitors)."""
     items = []
     for proposal, entry in store.declined(limit=limit):
+        if entry.at < since:
+            continue
         subject = proposal.card.get("subject") or {}
         items.append(Feedback(
             at=entry.at[:10],
