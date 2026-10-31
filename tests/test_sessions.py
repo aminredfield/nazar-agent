@@ -110,7 +110,7 @@ def test_production_window_needs_the_cabinet(tmp_path):
 def test_locally_the_service_account_still_works(tmp_path):
     client, _ = client_for(tmp_path, nazar_email="service@example.com", nazar_password="secret")
     with client:
-        assert client.get("/api/me").json() == {"mode": "service"}
+        assert client.get("/api/me").json() == {"mode": "service", "second_opinion_open": False}
 
 
 @pytest.mark.parametrize("company", ["../../etc/passwd", "not-a-uuid"])

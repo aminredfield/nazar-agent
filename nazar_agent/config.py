@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from nazar_agent.llm import ChatCompletionsClient, LLMClient, MetaResponsesClient
+from nazar_agent.llm import ChatCompletionsClient, LLMClient, MetaResponsesClient, WithBackup
 
 log = logging.getLogger(__name__)
 COMPANY_TZ = ZoneInfo("Asia/Tashkent")
@@ -32,14 +32,15 @@ Effort = Literal["minimal", "low", "medium", "high", "xhigh"]
 # Measured on the question bank (python -m nazar_agent.evals.bank): the fastest
 # setting per role that keeps its answers right. On 24 heavy questions "low"
 # for the analysts and the writer halved the time (median 164 s → 72 s) with
-# the same results; the dead-souls questions passed 10 of 10. The skeptic
-# keeps its own judgement: it is the second opinion.
+# the same results; the dead-souls questions passed 10 of 10. The skeptic at
+# "low" gave the same six verdicts as at its own effort, in 6 s instead of 18.
 REASONING_EFFORT: dict[str, Effort] = {
     "dispatcher": "minimal",
     "setup": "low",
     "attendance_analyst": "low",
     "timesheet_analyst": "low",
     "writer": "low",
+    "skeptic": "low",
     "photos": "low",
     "import": "low",
 }
@@ -69,6 +70,11 @@ class Settings(BaseSettings):
     # Without a key of its own the skeptic (and the photo inspector) runs on
     # this Meta model through the Meta key, whatever else SKEPTIC_* says.
     skeptic_fallback_model: str = "muse-spark-1.2"
+    # The same open model on a second host (Fireworks, a hackathon partner), asked
+    # when the skeptic's own host fails. Off without a key.
+    fireworks_api_key: SecretStr | None = None
+    skeptic_backup_model: str = "accounts/fireworks/models/muse-spark-open"
+    skeptic_backup_base_url: str = "https://api.fireworks.ai/inference/v1"
 
     # The demo construction company, built in this process (nazar_agent.demo):
     # no NAZAR, no account — only the model key is needed. Off: the real NAZAR.
@@ -173,9 +179,21 @@ class Settings(BaseSettings):
         key = (self.skeptic_api_key or self.model_api_key).get_secret_value()
         base_url = self.skeptic_base_url or self.meta_base_url
         client_class = ChatCompletionsClient if self.skeptic_api == "chat_completions" else MetaResponsesClient
-        return client_class(
+        primary = client_class(
             api_key=key, base_url=base_url, timeout_seconds=self.llm_timeout_seconds, efforts=self.reasoning_effort
         )
+        if not self.skeptic_on_open_model or not self.fireworks_api_key or not self.fireworks_api_key.get_secret_value():
+            return primary
+        backup = ChatCompletionsClient(
+            api_key=self.fireworks_api_key.get_secret_value(), base_url=self.skeptic_backup_base_url,
+            timeout_seconds=self.llm_timeout_seconds, efforts=self.reasoning_effort,
+        )
+        return WithBackup(primary, backup, self.skeptic_backup_model)
+
+    @property
+    def skeptic_on_open_model(self) -> bool:
+        """Whether the second opinion comes from Muse Spark Open, not the Meta-key fallback."""
+        return "open" in self.skeptic_model
 
 
 @lru_cache

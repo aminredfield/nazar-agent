@@ -379,7 +379,17 @@ function choiceButton(choice) {
 }
 
 // `live` — the latest answer: a setup in it can still be changed and applied.
+// An answer is drawn in its own language — the question's, English when that was unclear —
+// so an Uzbek answer in an English window has Uzbek headings, not English ones.
 function answerNodes(data, live = false) {
+  const own = (data.lang || "").split("-")[0];
+  if (!LANGS.includes(own) || own === LANG) return answerParts(data, live);
+  const window_ = LANG;
+  LANG = own;
+  try { return answerParts(data, live); } finally { LANG = window_; }
+}
+
+function answerParts(data, live) {
   const removed = data.removed_by_fact_checker.map((item) => `${item.fact || item.finding}: ${item.reasons.join("; ")}`);
   const rounds = data.fact_checker_rounds.flat();
   const actions = data.cards.flatMap((card) => card.actions.map((action) => actionBlock(action, card)));
@@ -688,6 +698,9 @@ async function signIn() {
   }
   try {
     const me = await api("/api/me");
+    // Without a Baseten key the second opinion is Muse Spark 1.2 on the Meta key: say so.
+    if (me.second_opinion_open === false) $("chip-second").dataset.i18n = "chip_fallback";
+    translatePage();
     if (me.mode === "person" || me.mode === "demo") {
       const initials = me.full_name.split(/\s+/).map((part) => part[0] || "").join("").slice(0, 2).toUpperCase();
       $("who").replaceChildren(el("span", { class: "avatar" }, initials), el("span", {}, me.full_name, el("small", {}, me.company_name)));

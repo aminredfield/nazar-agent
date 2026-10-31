@@ -204,9 +204,11 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
 
     @app.get("/api/me")
     async def me(current: Caller = Depends(caller)) -> dict[str, Any]:
+        # Which model gives the second opinion here, so the window does not claim one it is not using.
+        second = {"second_opinion_open": current.assistant.settings.skeptic_on_open_model}
         if current.demo:
-            return {"mode": "demo", "full_name": "Demo Owner", "company_name": "Mustahkam Qurilish", "role": "owner"}
-        return _person_view(current.person) if current.person else {"mode": "service"}
+            return {"mode": "demo", "full_name": "Demo Owner", "company_name": "Mustahkam Qurilish", "role": "owner", **second}
+        return {**(_person_view(current.person) if current.person else {"mode": "service"}), **second}
 
     @app.post("/api/demo/reset")
     async def reset_demo(current: Caller = Depends(caller)) -> dict[str, Any]:

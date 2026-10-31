@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 import httpx
-from openai import APIConnectionError, APITimeoutError, AsyncOpenAI
+from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI
 
 log = logging.getLogger(__name__)
 
@@ -209,6 +209,25 @@ class ChatCompletionsClient:
 
     async def aclose(self) -> None:
         await self._client.close()
+
+
+class WithBackup:
+    """The same open model from a second provider when the first one fails: a host down
+    or overloaded does not take the skeptic with it. The backup names the model its own way."""
+
+    def __init__(self, primary: LLMClient, backup: LLMClient, backup_model: str) -> None:
+        self._primary, self._backup, self._backup_model = primary, backup, backup_model
+
+    async def respond(self, *, model: str, **request: Any) -> ModelTurn:
+        try:
+            return await self._primary.respond(model=model, **request)
+        except (APIConnectionError, APIStatusError) as exc:
+            log.warning("%s failed (%s); asking the backup %s", model, type(exc).__name__, self._backup_model)
+            return await self._backup.respond(model=self._backup_model, **request)
+
+    async def aclose(self) -> None:
+        await self._primary.aclose()
+        await self._backup.aclose()
 
 
 def _chat_message(message: dict[str, Any]) -> dict[str, Any]:

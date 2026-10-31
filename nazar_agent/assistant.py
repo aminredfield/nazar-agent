@@ -272,7 +272,7 @@ class Assistant:
             await skeptic_llm.aclose()
         proposals = Executor(self.store, nazar).propose(recommendations.cards, question, request.lang)
         view = answer_view(analysis, recommendations, proposals, meter.by_role())
-        shown = {**view, "analyst": chosen, "choices": [], "meant": request.meant}
+        shown = {**view, "analyst": chosen, "choices": [], "meant": request.meant, "lang": request.lang}
         return Answer(question, chosen, analysis, recommendations, proposals, shown, request)
 
 
@@ -315,7 +315,7 @@ def short_answer(
     view = answer_view(analysis, recommendations, [], meter.by_role())
     shown = {
         **view, "analyst": request.analyst, "reply": request.intent, "choices": [asdict(choice) for choice in choices],
-        "meant": request.meant,
+        "meant": request.meant, "lang": request.lang,
     }
     return Answer(question, request.analyst, analysis, recommendations, [], shown, request)
 

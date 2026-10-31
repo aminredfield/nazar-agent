@@ -92,3 +92,30 @@ async def test_a_dropped_connection_is_tried_again_and_a_timeout_is_not(monkeypa
     with pytest.raises(module.APITimeoutError):
         await client.respond(model="m", instructions="i", input="q", tools=[])
     assert calls["n"] == 2  # the SDK's one retry only
+
+
+async def test_a_failing_host_hands_the_call_to_the_backup_with_its_own_model_name():
+    from nazar_agent.llm import WithBackup
+
+    def down(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"error": {"message": "overloaded"}})
+
+    sent, http = recording(CHAT)
+    primary = ChatCompletionsClient(api_key="k", base_url="http://baseten.test/v1", timeout_seconds=5,
+                                    http_client=httpx.AsyncClient(transport=httpx.MockTransport(down)))
+    backup = ChatCompletionsClient(api_key="k", base_url="http://fireworks.test/v1", timeout_seconds=5, http_client=http)
+
+    turn = await WithBackup(primary, backup, "fireworks/muse-spark-open").respond(
+        model="baseten/muse-spark-open", instructions="i", input="q", tools=[], role="skeptic")
+
+    assert turn.text == "{}" and sent[0]["model"] == "fireworks/muse-spark-open"
+
+
+def test_the_backup_is_on_only_with_its_key_and_the_open_model():
+    from nazar_agent.llm import WithBackup
+
+    base = {"_env_file": None, "model_api_key": "k", "demo_mode": True, "skeptic_api": "chat_completions",
+            "skeptic_base_url": "https://inference.baseten.co/v1", "skeptic_model": "meta-models/muse-spark-open-1026"}
+    assert isinstance(Settings(**base, skeptic_api_key="b", fireworks_api_key="f").skeptic_llm(), WithBackup)
+    assert not isinstance(Settings(**base, skeptic_api_key="b").skeptic_llm(), WithBackup)
+    assert not Settings(**base).skeptic_on_open_model  # no Baseten key: Muse Spark 1.2 through Meta, no backup
