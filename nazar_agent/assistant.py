@@ -124,8 +124,9 @@ class Assistant:
         self.setup.clear()
         self.feedback_since = datetime.now(UTC).isoformat(timespec="seconds")
 
-    def _feedback_since(self) -> str:
-        """In the shared demo only today's disagreements count: the company is built again every day."""
+    def history_since(self) -> str:
+        """Where this company's history starts: in the shared demo, this morning or this visitor's reset —
+        the company is built again, and other visitors' disagreements, decisions and log are not its past."""
         if not self.settings.demo_mode:
             return self.feedback_since
         midnight = datetime.now(COMPANY_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -284,7 +285,7 @@ class Assistant:
             photos = PhotoInspector(skeptic_llm, settings.skeptic_model)
             tools = analyst_tools(chosen, nazar, photos, now)
             # What the owner said when disagreeing before: the team does not bring it back as new.
-            feedback = owner_feedback(self.store, since=self._feedback_since())
+            feedback = owner_feedback(self.store, since=self.history_since())
             role = ANALYSTS[chosen](
                 model=settings.analyst_model, tools=tools, today=today, feedback=instructions_text(feedback), request=request.hints()
             )

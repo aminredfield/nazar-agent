@@ -147,12 +147,13 @@ class ProposalStore:
         with self._connect() as connection:
             _append(connection, proposal_id, event, actor, details)
 
-    def audit(self, *, limit: int = 100, proposal_id: str | None = None) -> list[AuditEntry]:
-        query = "SELECT * FROM audit"
-        args: tuple[Any, ...] = ()
+    def audit(self, *, limit: int = 100, proposal_id: str | None = None, since: str = "") -> list[AuditEntry]:
+        """``since`` — an ISO moment in UTC: older entries are left out (the shared demo before its reset)."""
+        query = "SELECT * FROM audit WHERE at >= ?"
+        args: tuple[Any, ...] = (since,)
         if proposal_id is not None:
-            query += " WHERE proposal_id = ?"
-            args = (proposal_id,)
+            query += " AND proposal_id = ?"
+            args = (since, proposal_id)
         query += " ORDER BY seq DESC LIMIT ?"
         with self._connect() as connection:
             rows = connection.execute(query, (*args, limit)).fetchall()
@@ -175,10 +176,12 @@ class ProposalStore:
             for row in rows
         ]
 
-    def decisions(self) -> dict[str, int]:
-        """How the owner decided on the agents' proposals so far."""
+    def decisions(self, *, since: str = "") -> dict[str, int]:
+        """How the owner decided on the agents' proposals so far — on those proposed from ``since`` on."""
         with self._connect() as connection:
-            rows = connection.execute("SELECT status, COUNT(*) AS count FROM proposals GROUP BY status").fetchall()
+            rows = connection.execute(
+                "SELECT status, COUNT(*) AS count FROM proposals WHERE created_at >= ? GROUP BY status", (since,)
+            ).fetchall()
         counts = {row["status"]: row["count"] for row in rows}
         return {
             # Undone was applied first: the owner agreed, then changed their mind.

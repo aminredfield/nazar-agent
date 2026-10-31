@@ -76,7 +76,9 @@ Now write your report for the owner, as JSON matching the schema.
 - summary: two or three sentences that say what the answer and the
   findings say. Any number in it must be one a tool returned.
 - Write the summary, titles, facts, hypothesis, alternatives and data gaps
-  in {language}, with no internal codes or field names.
+  in {language}, with no internal codes or field names. Status values from
+  the tools (absent, late, excused, on_time…) are codes too: say them in
+  {language} words.
 """
 
 

@@ -92,8 +92,9 @@ ROSTER = """Read an owner's staff schedule from this picture: a table, a screens
 a photo of a sheet. For each person: their name as written, their workplace (store, café,
 office, site, client address), the days they work (1 = Monday … 7 = Sunday) and the shift
 start and end (HH:MM, 24 hours). Write names in Latin letters as written. workplace: as
-written, or "" when the picture does not say where they work — never a guess. unclear: anything
-you could not read or had to guess, in {language}; empty when everything was clear."""
+written for that person, or "" when the picture does not say where they work — never a guess,
+never carried over from the line above. unclear: anything you could not read or had to guess,
+in {language} — say what you left empty, not what you assumed; empty when everything was clear."""
 
 
 @dataclass(frozen=True, slots=True)

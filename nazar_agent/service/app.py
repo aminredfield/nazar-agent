@@ -306,7 +306,8 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
     @app.get("/api/stats")
     async def stats(current: Caller = Depends(caller)) -> dict[str, Any]:
         """How the owner decided on the proposals: the share applied is the quality measure."""
-        decisions = current.assistant.store.decisions()
+        # In the shared demo: what happened since this morning or this visitor's reset, not every visitor's past.
+        decisions = current.assistant.store.decisions(since=current.assistant.history_since())
         return {**decisions, "agreement": agreement(decisions)}
 
     @app.get("/api/usage")
@@ -320,7 +321,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
     @app.get("/api/audit")
     async def audit(limit: int = Query(50, ge=1, le=500), current: Caller = Depends(caller)) -> list[dict[str, Any]]:
         store = current.assistant.store
-        entries = store.audit(limit=limit)
+        entries = store.audit(limit=limit, since=current.assistant.history_since())
         proposals: dict[str, Any] = {}
         for entry in entries:
             if entry.proposal_id not in proposals:

@@ -63,6 +63,19 @@ async def test_agreement_counts_applied_and_undone_against_declined(tmp_path):
     assert agreement({"applied": 0, "undone": 0, "declined": 0, "pending": 3}) is None
 
 
+async def test_decisions_and_log_since_leave_out_the_demo_before_its_reset(tmp_path):
+    store = ProposalStore(tmp_path / "agent.sqlite3")
+    nazar, _ = factories.nazar()
+    executor = Executor(store, nazar)
+    await executor.confirm(_propose(store), "earlier visitor")
+    since = "9999-01-01T00:00:00+00:00"
+
+    assert store.decisions()["applied"] == 1
+    assert store.decisions(since=since) == {"applied": 0, "undone": 0, "declined": 0, "pending": 0}
+    assert store.audit()
+    assert store.audit(since=since) == []
+
+
 def test_a_reason_reaches_the_models_as_one_short_quoted_line(tmp_path):
     store = ProposalStore(tmp_path / "agent.sqlite3")
     nazar, _ = factories.nazar()
