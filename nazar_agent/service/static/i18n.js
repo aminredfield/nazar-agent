@@ -88,6 +88,7 @@ const I18N = {
     REVIEW: {"no_violation": "проверено: нарушения нет", "confirmed": "проверено: нарушение", "insufficient_data": "проверено: мало данных"},
     SEGMENTS: {"Café": "Кафе", "Store": "Магазин", "Cleaning": "Клининг", "Factory": "Цех"},
     text: {
+      more_facts: "Ещё фактов: {0}",
       sc_title: "NAZAR · Сценарии",
       sc_brand: "Сценарии",
       sc_back: "← Назад к помощнику",
@@ -301,6 +302,7 @@ const I18N = {
     REVIEW: {"no_violation": "tekshirildi: buzilish yo'q", "confirmed": "tekshirildi: buzilish", "insufficient_data": "tekshirildi: ma'lumot yetarli emas"},
     SEGMENTS: {"Café": "Kafe", "Store": "Do'kon", "Cleaning": "Tozalash", "Factory": "Sex"},
     text: {
+      more_facts: "Yana {0} ta fakt",
       sc_title: "NAZAR · Ssenariylar",
       sc_brand: "Ssenariylar",
       sc_back: "← Yordamchiga qaytish",
@@ -514,6 +516,7 @@ const I18N = {
     REVIEW: {"no_violation": "reviewed: fine", "confirmed": "reviewed: violation", "insufficient_data": "reviewed: not enough data"},
     SEGMENTS: {"Café": "Café", "Store": "Store", "Cleaning": "Cleaning", "Factory": "Factory"},
     text: {
+      more_facts: "{0} more facts",
       sc_title: "NAZAR · Scenarios",
       sc_brand: "Scenarios",
       sc_back: "← Back to the assistant",

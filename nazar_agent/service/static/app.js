@@ -389,6 +389,19 @@ function answerNodes(data, live = false) {
   try { return answerParts(data, live); } finally { LANG = window_; }
 }
 
+// A long answer keeps its first facts in sight and folds the rest: the summary is the point.
+const FACTS_SHOWN = 3;
+function answerFacts(facts) {
+  if (!facts.length) return null;
+  const item = (fact) => el("li", {}, fact.text);
+  if (facts.length <= FACTS_SHOWN + 1) return el("ul", { class: "answer-facts" }, facts.map(item));
+  return [
+    el("ul", { class: "answer-facts" }, facts.slice(0, FACTS_SHOWN).map(item)),
+    el("details", { class: "fold answer-more" }, el("summary", {}, t("more_facts", facts.length - FACTS_SHOWN)),
+      el("ul", { class: "answer-facts" }, facts.slice(FACTS_SHOWN).map(item))),
+  ];
+}
+
 function answerParts(data, live) {
   const removed = data.removed_by_fact_checker.map((item) => `${item.fact || item.finding}: ${item.reasons.join("; ")}`);
   const rounds = data.fact_checker_rounds.flat();
@@ -397,7 +410,7 @@ function answerParts(data, live) {
   return [
     actions.length ? el("h3", { class: "lead" }, t("lead_think")) : null,
     el("p", { class: "summary" }, data.summary),
-    (data.answer || []).length ? el("ul", { class: "answer-facts" }, data.answer.map((fact) => el("li", {}, fact.text))) : null,
+    answerFacts(data.answer || []),
     (data.choices || []).length ? el("div", { class: "suggest choices" }, data.choices.map(choiceButton)) : null,
     data.setup ? setupSection(data.setup, live) : null,
     actions.length ? el("h3", { class: "lead" }, t("lead_do")) : null,
