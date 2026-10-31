@@ -152,6 +152,39 @@ main { max-width: 1040px; margin: 0 auto; padding: 8px 20px 40px; }
 .powers span { color: var(--muted); font-size: 13px; }
 .demo-line { color: var(--muted); font-size: 14px; margin: 0 0 14px; max-width: 760px; }
 .try { margin: 6px 0 14px; }
+/* The Scenarios page (scenarios.html). */
+.tab-link { margin-left: auto; align-self: center; font-size: 14px; font-weight: 600; color: var(--violet); text-decoration: none; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--violet-soft); background: var(--violet-soft); }
+.sc-back { margin-left: auto; text-decoration: none; padding: 6px 12px; border-radius: 10px; }
+.sc-part { margin-top: 18px; }
+.sc-part h2 { margin: 0 0 4px; font-size: 18px; }
+.sc-scenes { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
+.sc-chip { cursor: pointer; }
+.sc-chip.on, .sc-candidate.on { outline: 2px solid var(--violet); }
+.sc-two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.sc-side { min-width: 0; }
+.sc-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--card); display: flex; flex-direction: column; gap: 4px; }
+.sc-card ul { margin: 4px 0 0; padding-left: 18px; }
+.sc-ask { margin: 10px 0; gap: 10px; align-items: center; }
+.sc-phone { border: 1px solid var(--line); border-radius: 18px; padding: 10px 12px; background: var(--panel); }
+.sc-chat { min-height: 120px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.sc-bubble { max-width: 88%; padding: 8px 12px; border-radius: 14px; font-size: 14px; white-space: pre-wrap; display: flex; flex-direction: column; gap: 2px; }
+.sc-bubble small { color: var(--muted); font-size: 11px; }
+.sc-bubble.from-agent { background: var(--card); border: 1px solid var(--line); align-self: flex-start; }
+.sc-bubble.from-person { background: var(--violet-soft); align-self: flex-end; }
+.sc-templates { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.sc-template { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; font-size: 13px; cursor: pointer; }
+.sc-lang { font-size: 11px; font-weight: 700; color: var(--violet); }
+.sc-reply input { flex: 1 1 200px; }
+.sc-verdict { display: inline-block; font-weight: 700; padding: 6px 12px; border-radius: 10px; margin: 8px 0 4px; }
+.sc-verdict.good { background: var(--good-soft); color: var(--good); }
+.sc-verdict.bad { background: var(--bad-soft); color: var(--bad); }
+.sc-verdict.warn { background: var(--gold-soft); color: var(--warn); }
+.sc-picture { width: 100%; border-radius: 12px; border: 1px solid var(--line); }
+.sc-file { cursor: pointer; padding: 6px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
+.sc-thumbs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.sc-thumb { width: 150px; height: 150px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); display: block; }
+.sc-candidate { display: flex; flex-direction: column; gap: 2px; padding: 6px; border-radius: 12px; cursor: pointer; text-align: left; }
+@media (max-width: 760px) { .sc-two { grid-template-columns: 1fr; } .sc-thumb { width: 104px; height: 104px; } }
 .company-head { align-items: center; gap: 12px; margin: 10px 0; }
 .company-head p { margin: 0; flex: 1 1 320px; }
 .company-part { margin-top: 14px; }

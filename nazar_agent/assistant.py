@@ -19,9 +19,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from nazar_agent.actions import Executor, Proposal, ProposalStore
 from nazar_agent.clarify import Choice, Clarification, resolve
@@ -32,6 +33,7 @@ from nazar_agent.engine import RoleRun
 from nazar_agent.errors import WindowLang, owner_message
 from nazar_agent.feedback import about, instructions_text, owner_feedback
 from nazar_agent.findings import Analysis, AnalystReport, analyze
+from nazar_agent.llm import LLMClient
 from nazar_agent.nazar import NazarClient
 from nazar_agent.onboarding import DraftStore, ImportRow, Site, read_list, review
 from nazar_agent.progress import Progress, emit, tracking
@@ -54,6 +56,7 @@ from nazar_agent.voice import transcribe
 ANALYSTS = {"attendance": attendance_analyst, "timesheet": timesheet_analyst}
 MAX_VISITORS = 500  # demo browsers kept in memory; the oldest idle one goes first
 log = logging.getLogger(__name__)
+T = TypeVar("T")
 
 
 class AssistantBusy(Exception):
@@ -199,6 +202,18 @@ class Assistant:
             # After NAZAR was asked: by then the bot's service account knows its company.
             await self.spent("import", text or "(file)", meter)
         return review(people, sites, employees, lang), sites
+
+    async def scenario(self, what: str, play: Callable[[LLMClient, str], Awaitable[T]]) -> T:
+        """One scene of the Scenarios page: a model call counted and recorded like a question."""
+        llm = self.settings.analyst_llm()
+        meter = Meter()
+        try:
+            with metering(meter):
+                return await play(llm, self.settings.analyst_model)
+        finally:
+            await llm.aclose()
+            # "ask": NAZAR's spend report knows a fixed set of sources; a scene is a question.
+            await self.spent("ask", f"scenario — {what}", meter)
 
     async def company_now(self, *, nazar: NazarClient | None = None) -> dict[str, Any]:
         """The company as NAZAR keeps it now: sites, groups, people, a week, today — for the Company tab."""

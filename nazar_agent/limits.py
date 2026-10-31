@@ -80,11 +80,12 @@ class Limits:
     def active(self) -> bool:
         return self.questions_per_session > 0 or self.budget_usd_per_day > 0
 
-    def reserve(self, session_id: str, *, question: bool = True) -> str:
+    def reserve(self, session_id: str, *, question: bool = True, budget_only: bool = False) -> str:
         """Count one question for this session, or raise LimitReached; returns the day to add its cost to.
 
         ``question=False`` checks the same limits but counts nothing: a voice
-        message turned into text is not a question yet.
+        message turned into text is not a question yet. ``budget_only`` — a
+        scene of the Scenarios page, a few cents: only the daily budget applies.
 
         Check and count happen in one write transaction, so parallel requests
         cannot all slip under the limit.
@@ -97,7 +98,7 @@ class Limits:
                 "SELECT questions FROM usage WHERE day = ? AND session = ?", (day, _key(session_id))
             ).fetchone()
             (spent,) = connection.execute("SELECT COALESCE(SUM(cost_usd), 0) FROM usage WHERE day = ?", (day,)).fetchone()
-            if self.questions_per_session and asked and asked[0] >= self.questions_per_session:
+            if not budget_only and self.questions_per_session and asked and asked[0] >= self.questions_per_session:
                 raise LimitReached("questions", self.questions_per_session)
             if self.budget_usd_per_day and spent >= self.budget_usd_per_day:
                 raise LimitReached("budget", self.budget_usd_per_day)

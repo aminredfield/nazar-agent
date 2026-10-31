@@ -43,6 +43,8 @@ REASONING_EFFORT: dict[str, Effort] = {
     "skeptic": "low",
     "photos": "low",
     "import": "low",
+    # The Scenarios page's calls: reading and comparing; probes got them all right at minimal.
+    "scenario": "minimal",
 }
 
 

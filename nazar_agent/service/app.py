@@ -24,32 +24,43 @@ import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from pathlib import Path
 from datetime import date
+from pathlib import Path
 from typing import Any, Literal
 
 import httpx
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from nazar_agent.actions import ExecutionError
-from nazar_agent.engine import ToolExecutionError
-from nazar_agent.onboarding import Draft, ImportRow, ParseError, PhotoRejected
-from nazar_agent.sessions import COOKIE, Person, SessionError, Sessions
-from nazar_agent.assistant import Assistant, Assistants, AssistantBusy
+from nazar_agent.assistant import Assistant, AssistantBusy, Assistants
 from nazar_agent.config import Settings, get_settings
+from nazar_agent.engine import ToolExecutionError
 from nazar_agent.errors import owner_message
 from nazar_agent.feedback import agreement
 from nazar_agent.limits import LimitReached, Limits
-from nazar_agent.usage import Ledger, NazarUsageReport
 from nazar_agent.nazar import NazarClient
+from nazar_agent.nazar.connect import NazarLink, connect
+from nazar_agent.onboarding import Draft, ImportRow, ParseError, PhotoRejected
+from nazar_agent.service.scenarios import scenario_routes
+from nazar_agent.sessions import COOKIE, Person, SessionError, Sessions
 from nazar_agent.setup.apply import SetupRefused
 from nazar_agent.setup.edits import EditError, SetupEdit
-from nazar_agent.nazar.connect import NazarLink, connect
 from nazar_agent.telegram import Bot, TelegramApi
 from nazar_agent.telegram.schedule import parse_brief_time, run_daily
+from nazar_agent.usage import Ledger, NazarUsageReport
 from nazar_agent.views import audit_view, proposal_view
 from nazar_agent.voice import VoiceError
 
@@ -448,6 +459,8 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         except KeyError:
             raise HTTPException(404, "No such draft.") from None
 
+    # The new abilities, staged on their own page.
+    app.include_router(scenario_routes(STATIC, caller, _reserve, _add_cost, _read_upload))
     return app
 
 
@@ -503,7 +516,7 @@ def _fresh(assistant: Assistant, view: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _reserve(request: Request, current: Caller, *, question: bool = True, lang: str = "en") -> str:
+def _reserve(request: Request, current: Caller, *, question: bool = True, lang: str = "en", budget_only: bool = False) -> str:
     """Count the question before any model runs. A window opened from NAZAR and a demo browser are limited.
 
     ``question=False`` — a model call that is not a question (the microphone): checked against the limits, not counted.
@@ -511,7 +524,7 @@ def _reserve(request: Request, current: Caller, *, question: bool = True, lang: 
     if current.person is None and not current.demo:
         return ""
     try:
-        return request.app.state.limits.reserve(current.session_id, question=question)
+        return request.app.state.limits.reserve(current.session_id, question=question, budget_only=budget_only)
     except LimitReached as exc:
         raise HTTPException(429, exc.said(lang)) from None
 

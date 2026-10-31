@@ -67,3 +67,14 @@ def test_a_voice_message_is_checked_against_the_limits_but_not_counted(tmp_path)
     limits.reserve("judge-1")  # the one question is still there
     with pytest.raises(LimitReached):
         limits.reserve("judge-1", question=False)  # nothing left to say it to
+
+
+def test_a_scene_is_limited_by_the_budget_only(tmp_path):
+    limits = Limits(str(tmp_path / "l.sqlite3"), questions_per_session=1, budget_usd_per_day=1.0)
+    day = limits.reserve("s")
+
+    limits.reserve("s", question=False, budget_only=True)  # the questions are used up; a scene still runs
+    limits.add_cost("s", day, 1.0)
+
+    with pytest.raises(LimitReached):
+        limits.reserve("s", question=False, budget_only=True)
