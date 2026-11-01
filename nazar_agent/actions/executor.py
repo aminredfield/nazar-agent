@@ -14,6 +14,7 @@ Every outcome, including refusals and failures, lands in the audit trail.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict, dataclass
 from typing import Any, Literal
 
@@ -28,6 +29,7 @@ ErrorCode = Literal["not_found", "wrong_status", "refused", "stale", "failed"]
 _TEXT_FIELDS = ("reason", "comment")
 _MAX_TEXT = 500
 AGENT_ACTOR = "nazar-agent"
+log = logging.getLogger(__name__)
 
 
 class ExecutionError(Exception):
@@ -96,11 +98,18 @@ class Executor:
                 )
                 raise ExecutionError("stale", "The day changed in NAZAR since this was proposed. Ask again to see it as it is now.")
             after = fresh.after
+            violation = spec.preview_policy(fresh, _context(proposal)) if spec.preview_policy else None
+            if violation:
+                self.store.transition(proposal_id, expected="executing", to="stale", audit=("refused", actor, {"reason": violation}))
+                raise ExecutionError("refused", violation)
 
         try:
             result = await spec.execute(self.nazar, _attributed(params, actor))
         except ToolExecutionError as exc:
             return self._fail(proposal_id, actor, "executing", "failed", str(exc))
+        except Exception as exc:  # a bug must not leave the proposal "executing" for ever, unaudited
+            log.exception("executing %s %s", proposal.action, proposal_id)
+            return self._fail(proposal_id, actor, "executing", "failed", f"{type(exc).__name__}: {exc}")
         return self._move(proposal_id, "executing", "executed", ("executed", actor, {"result": result, "after": after}), result)
 
     def decline(self, proposal_id: str, actor: str, reason: str) -> Proposal:

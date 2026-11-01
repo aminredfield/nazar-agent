@@ -22,7 +22,7 @@ from nazar_agent.llm import LLMClient
 from nazar_agent.nazar import NazarClient
 from nazar_agent.progress import emit
 from nazar_agent.recommendations.catalog import Context, ValidatedAction, validate_action
-from nazar_agent.recommendations.composer import CaseInput, compose
+from nazar_agent.recommendations.composer import CaseInput, CasePlan, compose
 from nazar_agent.recommendations.skeptic import SkepticView, merge_confidence, run_skeptic
 
 _ORDER: dict[Confidence, int] = {"high": 0, "medium": 1, "low": 2}
@@ -108,21 +108,33 @@ async def recommend(
     emit("writer", status="start", model=team.writer_model, cases=len(cases))
     writer = await compose(team.writer_llm, team.writer_model, cases, today, question)
     emit("writer", status="done", model=team.writer_model, actions=sum(len(plan.actions) for plan in writer.plans.values()))
+    plans = dict(writer.plans)
+    checked = {index: await _validated(plan, cases[index], evidence, nazar) for index, plan in plans.items()}
+    writer_tokens = [writer.input_tokens, writer.output_tokens]
+
+    # A field left empty or an id from nowhere goes back to the writer once, like a report to the analyst;
+    # a policy refusal does not: asking again would only invite a weaker variant of the same action.
+    fixable = [
+        f"case {index + 1}, {action.name}: {'; '.join(action.problems)}"
+        for index, actions in checked.items()
+        for action in actions
+        if action.fixable
+    ]
+    if fixable:
+        emit("writer", status="start", model=team.writer_model, cases=len(cases), retry=True)
+        again = await compose(team.writer_llm, team.writer_model, cases, today, question, corrections=fixable)
+        writer_tokens = [writer_tokens[0] + again.input_tokens, writer_tokens[1] + again.output_tokens]
+        retried = {index for index, actions in checked.items() if any(action.fixable for action in actions)}
+        for index in retried & again.plans.keys():
+            plans[index] = again.plans[index]
+            checked[index] = await _validated(plans[index], cases[index], evidence, nazar)
+        emit("writer", status="done", model=team.writer_model, actions=sum(len(plan.actions) for plan in plans.values()))
 
     stock = _stock_alternatives(findings)
     cards = []
     for index, case in enumerate(cases):
-        plan = writer.plans.get(index)
-        validated = [
-            await validate_action(
-                proposal.action,
-                proposal.raw_params(),
-                context=Context(case.confidence, case.skeptic),
-                evidence=evidence,
-                nazar=nazar,
-            )
-            for proposal in (plan.actions if plan else [])
-        ]
+        plan = plans.get(index)
+        validated = checked.get(index, [])
         for action in validated:
             emit("validator", action=action.name, ok=action.valid, text="; ".join(action.problems))
         cards.append(Card(
@@ -144,9 +156,22 @@ async def recommend(
     )
     usage = (
         Usage("skeptic", team.skeptic_model, skeptic.input_tokens, skeptic.output_tokens),
-        Usage("writer", team.writer_model, writer.input_tokens, writer.output_tokens),
+        Usage("writer", team.writer_model, *writer_tokens),
     )
     return Recommendations(tuple(cards), notes, usage)
+
+
+async def _validated(plan: CasePlan, case: CaseInput, evidence: Evidence, nazar: NazarClient) -> list[ValidatedAction]:
+    return [
+        await validate_action(
+            proposal.action,
+            proposal.raw_params(),
+            context=Context(case.confidence, case.skeptic),
+            evidence=evidence,
+            nazar=nazar,
+        )
+        for proposal in plan.actions
+    ]
 
 
 def _key(text: str) -> str:

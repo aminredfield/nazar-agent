@@ -2,8 +2,9 @@
 
 It gets the verified facts, the final confidence and the skeptic's opinion
 for each case, and the action catalog. It answers with one plan per case:
-concrete check steps and at most two proposed actions. Every proposed action
-is validated by code afterwards (``catalog.validate_action``).
+concrete check steps and proposed actions, one per person a case is about.
+Every proposed action is validated by code afterwards (``catalog.validate_action``);
+one with a field left empty goes back once, with code's reasons (``corrections``).
 """
 
 from __future__ import annotations
@@ -159,8 +160,21 @@ the data suggests.
 """
 
 
-async def compose(llm: LLMClient, model: str, cases: list[CaseInput], today: date, question: str = "") -> ComposerResult:
-    """``question`` — what the owner asked, so an action they spelled out is proposed as they said it."""
+CORRECTIONS = """
+
+Code rejected some actions of your previous plan:
+{problems}
+Return the whole plan again with these actions fixed: fill every field the action
+lists, and take ids from the records the facts cite ("records": kind and id).
+Leave out an action you cannot fill from the facts.
+"""
+
+
+async def compose(
+    llm: LLMClient, model: str, cases: list[CaseInput], today: date, question: str = "", corrections: list[str] | None = None
+) -> ComposerResult:
+    """``question`` — what the owner asked, so an action they spelled out is proposed as they said it;
+    ``corrections`` — what code rejected in the previous plan, for a second try."""
     if not cases:
         return ComposerResult({}, None, 0, 0)
 
@@ -171,7 +185,8 @@ async def compose(llm: LLMClient, model: str, cases: list[CaseInput], today: dat
             max_actions=MAX_ACTIONS_PER_CASE,
             catalog="\n".join(f"- {spec.name}: {spec.description}" for spec in CATALOG.values()),
         ),
-        input=(OWNER_ASKED.format(question=question) if question else "") + cases_text(cases),
+        input=(OWNER_ASKED.format(question=question) if question else "") + cases_text(cases)
+        + (CORRECTIONS.format(problems="\n".join(f"- {line}" for line in corrections)) if corrections else ""),
         tools=[],
         text_format=COMPOSER_FORMAT,
         role="writer",
@@ -200,6 +215,7 @@ def cases_text(cases: list[CaseInput]) -> str:
                     "facts": [
                         {
                             "text": fact.text,
+                            "records": [{"kind": ref.kind, "id": ref.id} for ref in fact.evidence],
                             "values": [
                                 {"record": f"{claim.ref.kind}:{claim.ref.id}", "field": claim.field, "value": claim.value}
                                 for claim in fact.claims

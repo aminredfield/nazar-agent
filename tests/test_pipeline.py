@@ -116,6 +116,28 @@ async def test_finding_without_innocent_explanation_is_rejected_whole():
     assert analysis.rejected[0].fact is None
 
 
+async def test_a_number_no_tool_returned_is_cut_from_the_hypothesis_not_the_finding_with_it():
+    guessed = json.loads(report_json("6600"))
+    guessed["findings"][0]["hypothesis"] = "Was not on site. Probably drove 45 km to another job. The day is 09:00–19:00."
+    llm = ScriptedLLM([*investigation(), turn(text=json.dumps(guessed))])
+
+    analysis = await analyze(ROLE, llm, "Anything odd?", max_corrections=1)
+
+    [finding] = analysis.report.findings
+    # Cut without another round of a minute; the hours it proposes are not an invented number.
+    assert finding.hypothesis == "Was not on site. The day is 09:00–19:00." and len(llm.requests) == 3
+    assert [(item.finding, item.fact) for item in analysis.rejected] == [("Far from the site", "Probably drove 45 km to another job.")]
+
+
+async def test_a_bad_last_attempt_keeps_the_valid_report_before_it():
+    llm = ScriptedLLM([*investigation(), turn(text=report_json("12000")), turn(text="{oops")])
+
+    analysis = await analyze(ROLE, llm, "Anything odd?", max_corrections=1)
+
+    [finding] = analysis.report.findings  # the wrong fact is dropped; the rest of the report stands
+    assert [fact.text for fact in finding.facts] == ["Has an employee record"]
+
+
 async def test_invalid_json_is_retried_then_fails_loudly():
     llm = ScriptedLLM([*investigation(), turn(text="{oops"), turn(text="{still bad")])
 

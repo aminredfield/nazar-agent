@@ -131,6 +131,7 @@ async def analyze(
     conversation = [*run.conversation, {"role": "user", "content": REPORT_REQUEST.format(language=language)}]
     input_tokens, output_tokens = run.input_tokens, run.output_tokens
     report: AnalystReport | None = None
+    valid: AnalystReport | None = None  # the last report that matched the schema
     issues: list[Issue] = []
     clean_first_time = False
     caught: list[tuple[str, ...]] = []
@@ -154,7 +155,8 @@ async def analyze(
         try:
             report = AnalystReport.model_validate_json(turn.text)
         except ValidationError as exc:
-            report = None
+            # A broken last try does not undo the valid report before it: that one is checked below.
+            report = valid
             conversation.append({
                 "role": "user",
                 "content": f"The report does not match the schema: {exc.errors()[:5]}. Return the full report again.",
@@ -162,6 +164,7 @@ async def analyze(
             caught.append(("the report did not match the schema",))
             continue
 
+        valid = report
         issues = check_report(report, evidence)
         emit(
             "checker",
@@ -170,9 +173,11 @@ async def analyze(
             facts=sum(len(finding.facts) for finding in report.findings),
             issues=[issue.describe() for issue in issues][:5],
         )
+        # A number in the hypothesis alone is not worth another round of a minute: its sentence is cut below.
+        blocking = [issue for issue in issues if issue.section != "hypothesis"]
         if attempt == 0:
-            clean_first_time = not issues
-        if not issues:
+            clean_first_time = not blocking
+        if not blocking:
             break
         if attempt < max_corrections:
             caught.append(tuple(issue.describe() for issue in issues))
@@ -235,11 +240,14 @@ def drop_failing(
     finding_issues: dict[int, list[str]] = defaultdict(list)
     fact_issues: dict[tuple[int, int], list[str]] = defaultdict(list)
     answer_issues: dict[int, list[str]] = defaultdict(list)
+    guessed: set[int] = set()  # findings whose hypothesis says a number no tool returned
     for issue in issues:
         if issue.section == "answer" and issue.fact is not None:
             answer_issues[issue.fact].append(issue.detail)
         elif issue.section == "summary":
             continue
+        elif issue.section == "hypothesis":
+            guessed.add(issue.finding)
         elif issue.fact is None:
             finding_issues[issue.finding].append(issue.detail)
         else:
@@ -268,7 +276,11 @@ def drop_failing(
         if not facts:
             rejected.append(Rejected(finding.title, None, ("no verified facts left",)))
             continue
-        kept.append(finding.model_copy(update={"facts": facts}))
+        hypothesis = finding.hypothesis
+        if index in guessed and evidence is not None:
+            # A guess stays a guess, but without a number nobody returned: that sentence goes, the finding stays.
+            hypothesis = _without_invented_numbers(finding.hypothesis, evidence, finding.title, rejected, keep_clocks=True)
+        kept.append(finding.model_copy(update={"facts": facts, "hypothesis": hypothesis}))
 
     summary = report.summary
     if evidence is not None and any(issue.section == "summary" for issue in issues):
@@ -280,13 +292,21 @@ def _verified_summary(
     summary: str, evidence: Evidence, answer: list, findings: list[Finding], rejected: list[Rejected]
 ) -> str:
     """The summary without its sentences that say a number no tool returned; the facts if none is left."""
+    kept = _without_invented_numbers(summary, evidence, "summary", rejected)
+    if kept:
+        return kept
+    return " ".join(fact.text for fact in answer) or "; ".join(finding.title for finding in findings)
+
+
+def _without_invented_numbers(
+    text: str, evidence: Evidence, where: str, rejected: list[Rejected], *, keep_clocks: bool = False
+) -> str:
+    """``keep_clocks`` — a hypothesis may name the hours it proposes, rounded as a schedule is."""
     kept = []
-    for sentence in re.split(r"(?<=[.!?])\s+", summary.strip()):
-        unsupported = unsupported_numbers(sentence, evidence)
+    for sentence in re.split(r"(?<=[.!?])\s+", text.strip()):
+        unsupported = [token for token in unsupported_numbers(sentence, evidence) if not (keep_clocks and ":" in token)]
         if unsupported:
-            rejected.append(Rejected("summary", sentence, (f"numbers no tool returned: {', '.join(unsupported)}",)))
+            rejected.append(Rejected(where, sentence, (f"numbers no tool returned: {', '.join(unsupported)}",)))
         else:
             kept.append(sentence)
-    if kept:
-        return " ".join(kept)
-    return " ".join(fact.text for fact in answer) or "; ".join(finding.title for finding in findings)
+    return " ".join(kept)

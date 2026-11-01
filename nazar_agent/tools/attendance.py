@@ -272,6 +272,8 @@ def _phone_user(key: str, employee: str, items: list[dict[str, Any]], events: li
         item for item in events if item["employee_id"] == employee and item.get("device_key") not in (None, key)
     ]
     return {
+        # The person's own record on this phone: a fact "employee:… last_on_own_or_other_phone" cites it.
+        "id": employee,
         "employee_id": employee,
         "employee_name": mine[0].get("employee_name"),
         "check_ins": sum(1 for item in mine if item["event_type"] == "check_in"),

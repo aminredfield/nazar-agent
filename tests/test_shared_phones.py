@@ -49,6 +49,18 @@ def test_a_phone_used_by_several_people_is_summarised_with_when_each_switched_to
     assert foreman["last_on_own_or_other_phone"] is None
 
 
+def test_a_person_on_the_phone_is_a_record_the_fact_checker_finds():
+    # Live: "no tool returned the record employee:…" cost the Riverside report a whole extra round.
+    from nazar_agent.engine import ToolStep
+    from nazar_agent.findings import Evidence
+    from nazar_agent.findings.checker import _lookup
+
+    step = ToolStep(call_id="c", name="count_shared_phones", arguments={}, output={"phones": shared_phones(EVENTS)}, error=None, duration_ms=1)
+    soul = Evidence.from_steps((step,)).records[SOUL]
+
+    assert _lookup(soul, "last_on_own_or_other_phone") == (True, "2026-10-17T08:01:00+05:00")
+
+
 def test_without_device_keys_there_is_nothing_to_summarise():
     assert shared_phones([{**item, "device_key": None} for item in EVENTS]) == []
 

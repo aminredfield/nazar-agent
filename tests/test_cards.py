@@ -93,6 +93,49 @@ async def test_a_stock_explanation_the_analyst_pasted_into_every_finding_is_left
     assert jasur.alternatives == (stock,)  # nothing better: a card is never left without one
 
 
+async def test_an_action_with_a_missing_field_goes_back_to_the_writer_once():
+    # Live: all four reviews of the Riverside card came back without event_id,
+    # and the owner got a card with nothing to apply.
+    review = {"status": "insufficient_data", "comment_or_reason": "check presence"}
+    writer = ScriptedLLM([
+        turn(text=json.dumps({"plans": [{"case": 1, "check_steps": [], "why": "w", "actions": [
+            action("review_event", **review),
+            action("void_shift", employee_id=factories.EMPLOYEE, work_date=factories.DAY, comment_or_reason="x"),
+        ]}]})),
+        turn(text=json.dumps({"plans": [{"case": 1, "check_steps": [], "why": "w", "actions": [
+            action("review_event", event_id=factories.EVENT, **review),
+        ]}]})),
+    ])
+    team = Team(skeptic_says(opinion(1, "concern_supported")), "open", writer, "spark")
+    nazar, _ = factories.nazar()
+
+    result = await recommend(analysis(factories.finding(confidence="medium")), team, nazar, date(2026, 10, 27))
+
+    [card] = result.cards
+    assert [item.name for item in card.actions] == ["review_event"]
+    assert [item.name for item in card.rejected_actions] == []  # the retried plan replaces the first
+    second = writer.requests[1]["input"]
+    assert "event_id: Field required" in second and "void_shift" not in second.split("rejected")[-1]
+    assert [usage.role for usage in result.usage] == ["skeptic", "writer"]
+    assert result.usage[1].input_tokens == 20  # both writer turns are counted
+
+
+async def test_an_action_refused_by_policy_is_not_asked_again():
+    team = Team(
+        skeptic_says(opinion(1, "inconclusive")), "open",
+        writer_says({"case": 1, "check_steps": [], "why": "w", "actions": [
+            action("void_shift", employee_id=factories.EMPLOYEE, work_date=factories.DAY, comment_or_reason="x"),
+        ]}),
+        "spark",
+    )
+    nazar, _ = factories.nazar()
+
+    result = await recommend(analysis(factories.finding(confidence="medium")), team, nazar, date(2026, 10, 27))
+
+    [card] = result.cards
+    assert [item.name for item in card.rejected_actions] == ["void_shift"]  # one writer turn was enough
+
+
 async def test_without_a_skeptic_cards_still_come_but_capped_and_explained():
     team = Team(ScriptedLLM([turn(text="oops")]), "open", writer_says(), "spark")
     nazar, _ = factories.nazar()

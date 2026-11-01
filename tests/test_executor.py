@@ -87,6 +87,41 @@ async def test_policy_is_checked_again_at_confirmation(store):
     assert refused.value.code == "refused" and writes(seen) == []
 
 
+async def test_new_intervals_that_cut_pay_are_refused_at_confirmation_too(store):
+    longer = {**factories.DAY_ROW, "worked_minutes": 600, "paid_minutes": 600}
+    nazar, seen = factories.nazar(day_row=dict(longer))
+    shown = {field: longer[field] for field in BEFORE}
+    proposal = store.add(
+        action="adjust_shift", level="changes_pay", params=ADJUST, preview={"before": shown, "after": {**shown, "paid_minutes": 523}},
+        context={"confidence": "medium", "skeptic_verdict": "inconclusive"},
+        card={"title": "t", "subject": {"name": "Зарина"}}, question="q", actor="nazar-agent",
+    )
+
+    with pytest.raises(ExecutionError) as refused:
+        await Executor(store, nazar).confirm(proposal.id, "Шерзод")
+
+    assert refused.value.code == "refused" and "cuts the pay" in refused.value.message and writes(seen) == []
+
+
+async def test_a_bug_while_writing_is_recorded_as_failed_not_left_running(store, monkeypatch):
+    from nazar_agent.recommendations import CATALOG
+
+    async def broken(nazar, params):
+        raise KeyError("id")
+
+    monkeypatch.setitem(CATALOG, "review_event", CATALOG["review_event"].__class__(
+        **{**{name: getattr(CATALOG["review_event"], name) for name in CATALOG["review_event"].__slots__}, "execute": broken}
+    ))
+    nazar, _ = factories.nazar()
+    proposal = propose(store, "review_event", REVIEW, level="record_only")
+
+    with pytest.raises(ExecutionError) as failed:
+        await Executor(store, nazar).confirm(proposal.id, "Шерзод")
+
+    assert failed.value.code == "failed" and store.get(proposal.id).status == "failed"
+    assert store.audit(proposal_id=proposal.id)[0].event == "failed"
+
+
 async def test_nazar_refusing_the_write_is_recorded_as_failed(store):
     nazar, _ = factories.nazar(write_status=422)
     proposal = propose(store)

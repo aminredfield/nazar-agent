@@ -151,6 +151,8 @@ class ActionSpec:
     # what ``undo`` needs to put NAZAR back (an adjustment id, a prior status).
     execute: Callable[[NazarClient, Any], Awaitable[dict[str, Any]]]
     undo: Callable[[NazarClient, Any, dict[str, Any]], Awaitable[None]]
+    # Policy that needs NAZAR's numbers: checked on the preview, at proposal and again at confirmation.
+    preview_policy: Callable[[Preview, Context], str | None] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,6 +163,8 @@ class ValidatedAction:
     preview: Preview | None
     problems: tuple[str, ...]
     about: dict[str, str] = field(default_factory=dict)  # the record's names, for the owner's sentence
+    # A field missing or malformed, an id from nowhere: the writer can fix it. A policy refusal is final.
+    fixable: bool = False
 
     @property
     def valid(self) -> bool:
@@ -180,6 +184,14 @@ def _review_policy(params: ReviewEventParams, context: Context) -> str | None:
 def _void_policy(params: VoidShiftParams, context: Context) -> str | None:
     if not _strong_case(context):
         return "not paying a day needs high confidence and a skeptic who agrees"
+    return None
+
+
+def _pay_cut_policy(preview: Preview, context: Context) -> str | None:
+    """New intervals that lower what the day pays are a decision against the employee: like an unpaid day."""
+    before, after = (preview.before or {}).get("paid_minutes"), (preview.after or {}).get("paid_minutes")
+    if isinstance(before, int) and isinstance(after, int) and after < before and not _strong_case(context):
+        return f"this cuts the pay of the day ({before} → {after} min): it needs high confidence and a skeptic who agrees"
     return None
 
 
@@ -396,6 +408,7 @@ CATALOG: dict[str, ActionSpec] = {
             preview=_adjust_preview,
             execute=_adjust_execute,
             undo=_adjust_undo,
+            preview_policy=_pay_cut_policy,
         ),
         ActionSpec(
             name="void_shift",
@@ -444,17 +457,17 @@ async def validate_action(
     if spec is None:
         return ValidatedAction(name, "record_only", None, None, (f"unknown action {name!r}",))
 
-    def rejected(*problems: str, params: _Params | None = None) -> ValidatedAction:
-        return ValidatedAction(spec.name, spec.level, params, None, problems)
+    def rejected(*problems: str, params: _Params | None = None, fixable: bool = False) -> ValidatedAction:
+        return ValidatedAction(spec.name, spec.level, params, None, problems, fixable=fixable)
 
     try:
         params = spec.params.model_validate(raw_params)
     except ValidationError as exc:
-        return rejected(*(f"{'.'.join(map(str, error['loc']))}: {error['msg']}" for error in exc.errors()))
+        return rejected(*(f"{'.'.join(map(str, error['loc']))}: {error['msg']}" for error in exc.errors()), fixable=True)
 
     unseen = [target for target in spec.targets(params) if target not in evidence.seen_ids]
     if unseen:
-        return rejected(f"acts on records no tool returned: {', '.join(unseen)}", params=params)
+        return rejected(f"acts on records no tool returned: {', '.join(unseen)}", params=params, fixable=True)
 
     violation = spec.policy(params, context)
     if violation:
@@ -467,4 +480,7 @@ async def validate_action(
         preview = await spec.preview(nazar, params)
     except ToolExecutionError as exc:
         return rejected(f"NAZAR could not compute before → after: {exc}", params=params)
+    violation = spec.preview_policy(preview, context) if spec.preview_policy else None
+    if violation:
+        return rejected(violation, params=params)
     return ValidatedAction(spec.name, spec.level, params, preview, (), named)

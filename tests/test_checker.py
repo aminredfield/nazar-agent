@@ -101,7 +101,8 @@ def test_wrong_value_and_unknown_ids_are_reported():
 
     codes = [(issue.fact, issue.code) for issue in check_report(bad, evidence())]
 
-    assert codes == [(0, "value_mismatch"), (1, "unknown_ref"), (1, "unknown_record"), (2, "no_evidence")]
+    # "12 km" is wrong twice: in the claim, and in the words the owner reads.
+    assert codes == [(0, "value_mismatch"), (0, "unsupported_number"), (1, "unknown_ref"), (1, "unknown_record"), (2, "no_evidence")]
 
 
 def test_finding_needs_known_subject_and_an_innocent_explanation():
@@ -162,3 +163,45 @@ def test_a_field_is_found_through_a_list_and_without_the_record_s_own_place():
     assert _lookup(totals, "totals.late_days") == (True, 7)
     assert _lookup(totals, "late_minutes") == (False, None)
     assert _lookup(event, "flags.meaning") == (False, None)
+
+
+def test_a_field_of_the_people_on_a_phone_is_found_without_naming_the_list():
+    # Live, twice: "device:05ec… has no field 'first_at'" sent the Riverside report back for a
+    # whole extra round, though the phone's record lists its people with first_at.
+    from nazar_agent.findings.checker import _lookup
+
+    phone = {"id": "05ec", "people_count": 2, "people": [
+        {"employee_id": "e1", "first_at": "2026-10-20 07:45"}, {"employee_id": "e2", "first_at": "2026-10-01 07:42"},
+    ]}
+
+    assert _lookup(phone, "first_at") == (True, ["2026-10-20 07:45", "2026-10-01 07:42"])
+    assert values_match("2026-10-20 07:45", _lookup(phone, "first_at")[1])
+    assert not values_match("2026-10-21 07:45", _lookup(phone, "first_at")[1])  # still a value the tool returned
+    assert _lookup(phone, "last_seen") == (False, None)
+
+
+def test_a_number_in_a_fact_s_own_words_must_be_one_a_tool_returned():
+    # The owner reads the text, not the claims: "3 hours late" with an honest claim beside it is still a lie.
+    checked = report([
+        fact("Checked in 6.6 km from the shop at 10:04", claims=[("ev-2", "distance_to_site_m", "6600")]),
+        fact("Was 3 hours late that morning"),
+    ])
+
+    [issue] = check_report(checked, evidence())
+
+    assert (issue.code, issue.fact) == ("unsupported_number", 1) and "3" in issue.detail
+
+
+def test_numbers_in_the_hypothesis_are_checked_too():
+    checked = report([fact("Checked in 6.6 km from the shop")], hypothesis="Probably drove 45 km to another job.")
+
+    [issue] = check_report(checked, evidence())
+
+    assert issue.code == "unsupported_number" and issue.section == "hypothesis" and "45" in issue.detail
+
+
+def test_the_digits_of_an_id_are_not_numbers_a_summary_may_use():
+    # "91" in a summary is not supported by the record id 3f2a91c4-…, nor by a phone key 05ec3e0db17e0065.
+    ids = Evidence.from_steps((step({"id": "3f2a91c4-0000-4000-8000-00000000abcd", "device": "05ec3e0db17e0065"}),))
+
+    assert "91" not in ids.numbers and "3" not in ids.numbers and "17" not in ids.numbers

@@ -76,6 +76,21 @@ async def test_policy_guards_verdicts_and_unpaid_days():
     assert unsure.valid
 
 
+async def test_new_intervals_that_cut_pay_need_a_strong_case_like_an_unpaid_day():
+    # NAZAR's preview says the day would be paid 523 minutes instead of 600: a cut.
+    longer_day = {**factories.DAY_ROW, "worked_minutes": 600, "paid_minutes": 600}
+
+    async def adjusted(context):
+        nazar, _ = factories.nazar(day_row=dict(longer_day))
+        return await validate_action("adjust_shift", shift(), context=context, evidence=factories.evidence(), nazar=nazar)
+
+    weak, strong = await adjusted(WEAK), await adjusted(STRONG)
+
+    assert "cuts the pay of the day" in weak.problems[0] and not weak.fixable
+    assert strong.valid
+    # In the employee's favour (455 → 523) it stays open to a medium case: the test above.
+
+
 def test_shift_target_comes_from_the_day_or_is_refused():
     one_shift = {"object_id": "o", "shift_breakdown": [{"assignment_id": "a"}, {"assignment_id": "a"}]}
     no_shift = {"object_id": "o", "shift_breakdown": []}

@@ -9,8 +9,10 @@ this run (the trace) and checks that
 - every finding is about a subject that exists and offers at least one
   innocent explanation;
 - the direct answer's facts pass the same checks as a finding's;
-- every number in the summary is one the tools returned — as is, or minutes
-  said as hours — so a model's own sum or guess cannot reach the owner there.
+- every number the owner reads — in the summary, a fact's own words, a
+  hypothesis — is one the tools returned, as is or minutes said as hours, so
+  a model's own sum or guess cannot reach the owner there. The digits of an
+  id (a UUID, a phone's key) are not numbers anyone may quote.
 
 Records are dicts with an ``id`` in any tool output; the same id seen in a
 list and in a detail view is merged. Any other ``*_id`` value counts as a
@@ -39,7 +41,7 @@ IssueCode = Literal[
     "no_facts",
     "unsupported_number",
 ]
-Section = Literal["finding", "answer", "summary"]
+Section = Literal["finding", "answer", "summary", "hypothesis"]
 
 # Counts (minutes, days) are integers and must match exactly. Measurements
 # (distances, scores) are floats and agree within 1%: a model may write 6600
@@ -52,6 +54,8 @@ _MIN_PARTIAL_TEXT = 4
 # A number as written: 1824, 1 824, 30,4, 09:02, 28.10.2026.
 _NUMBER = re.compile(r"\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?![\d.,:])|\d+(?:[:.,]\d+)*")
 _MINUTES_AS_HOURS_FROM = 60
+# An id is not a number: a UUID, a phone's key — hex letters and digits run together.
+_ID = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b|\b(?=[0-9a-f]*[a-f])(?=[0-9a-f]*\d)[0-9a-f]{8,}\b", re.I)
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +101,14 @@ def check_report(report: AnalystReport, evidence: Evidence) -> list[Issue]:
         issues.extend(_check_fact(0, index, fact, evidence, "answer"))
     for index, finding in enumerate(report.findings):
         issues.extend(_check_finding(index, finding, evidence))
+        # A clock time in a guess is often the proposal itself ("the day is 09:00–19:00"), rounded as a schedule is.
+        invented = [token for token in unsupported_numbers(finding.hypothesis, evidence) if ":" not in token]
+        if invented:
+            issues.append(Issue(
+                index, None, "unsupported_number",
+                f"the hypothesis says {', '.join(invented)}, which no tool returned; take numbers from the facts or leave them out",
+                "hypothesis",
+            ))
     unsupported = unsupported_numbers(report.summary, evidence)
     if unsupported:
         issues.append(Issue(
@@ -137,6 +149,12 @@ def _check_fact(index: int, fact_index: int, fact: Fact, evidence: Evidence, sec
         problem = _check_claim(claim, evidence)
         if problem is not None:
             issues.append(Issue(index, fact_index, problem[0], problem[1], section))
+    invented = unsupported_numbers(fact.text, evidence)
+    if invented:
+        issues.append(Issue(
+            index, fact_index, "unsupported_number",
+            f"the text says {', '.join(invented)}, which no tool returned; write the numbers the tools gave", section,
+        ))
     return issues
 
 
@@ -212,6 +230,12 @@ def _lookup(record: dict[str, Any], path: str) -> tuple[bool, Any]:
     found, value = _walk(record, parts)
     if not found and len(parts) > 1 and parts[0] not in record:
         found, value = _walk(record, parts[1:])
+    if not found:
+        # The field of a list the record carries, named without the list: "first_at" of a phone's
+        # people. Its values are still the record's own, and the claimed one must be among them.
+        nested = [value for key, item in record.items() if isinstance(item, list) for found_in, value in [_walk(item, parts)] if found_in]
+        if nested:
+            return True, nested[0] if len(nested) == 1 else [value for values in nested for value in values]
     return found, value
 
 
@@ -278,7 +302,7 @@ def _collect_numbers(node: Any, numbers: set[str]) -> None:
         if abs(node) >= 100:  # metres said as kilometres
             numbers.add(_decimal(f"{node / 1000:.1f}"))
     elif isinstance(node, str):
-        for token in _NUMBER.findall(node):
+        for token in _NUMBER.findall(_ID.sub(" ", node)):
             plain = re.sub(r"[ \u00a0\u202f]", "", token).replace(",", ".")
             if ":" in plain:
                 numbers.add(_clock(plain))
