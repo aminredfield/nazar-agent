@@ -18,7 +18,7 @@ function fits(file, accept) {
 function photoZone({ accept = "image/*", facing = "environment", compact = false, hint = "zone_hint", onFile }) {
   const input = el("input", { type: "file", accept, hidden: "" });
   const choose = el("button", { type: "button", "data-i18n": "zone_choose" }, t("zone_choose"));
-  const camera = el("button", { type: "button" }, "📷 ", el("span", { "data-i18n": "zone_camera" }, t("zone_camera")));
+  const camera = el("button", { type: "button" }, icon("camera", 16), " ", el("span", { "data-i18n": "zone_camera" }, t("zone_camera")));
   const message = el("div", { class: "zone-msg", role: "status" });
   const zone = el("div", { class: compact ? "zone compact" : "zone" },
     compact ? null : el("div", { class: "zone-hint", "data-i18n": hint }, t(hint)),

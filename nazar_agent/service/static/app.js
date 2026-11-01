@@ -180,7 +180,7 @@ function handle(event) {
       break;
     case "note":
       setActive("analyst");
-      typed("💭", event.text, at);
+      typed("…", event.text, at);
       break;
     case "tool": {
       if (event.name !== "inspect_check_in_photos") setActive("analyst");
@@ -538,7 +538,7 @@ let watching = null; // the card asked last: its "watch for" line follows the la
 function renderTry() {
   $("try-list").replaceChildren(...L().TRY.map((item, index) => {
     const card = el("button", { type: "button", class: "try-card", title: item.q },
-      el("span", { class: "try-icon", "aria-hidden": "true" }, item.i),
+      el("span", { class: "try-icon" }, icon(item.i)),
       el("b", {}, item.t), el("span", { class: "try-pain" }, item.p),
       el("span", { class: "try-go" }, t("try_go")));
     card.addEventListener("click", () => {
@@ -569,7 +569,7 @@ const mic = { recorder: null, timer: null, started: 0 };
 
 function showMic(recording) {
   $("mic").classList.toggle("recording", recording);
-  $("mic").textContent = recording ? "■" : "🎤";
+  $("mic").replaceChildren(recording ? "■" : icon("mic"));
   $("mic").dataset.i18nTitle = recording ? "mic_stop" : "mic";
   $("mic").title = t($("mic").dataset.i18nTitle);
 }
@@ -630,6 +630,7 @@ $("mic").addEventListener("click", async () => {
   mic.timer = setInterval(tick, 200);
 });
 $("mic").hidden = !(window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+$("mic").replaceChildren(icon("mic"));
 
 $("question").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {

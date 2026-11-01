@@ -229,10 +229,10 @@ $("place-file").addEventListener("change", (event) => {
 // why it matters and its three steps. The names are the server's SCENE_PAGES.
 
 const PAGES = [
-  { name: "gps", part: "place", icon: "📍" },
-  { name: "explain", part: "explain", icon: "💬" },
-  { name: "headcount", part: "headcount", icon: "👥" },
-  { name: "roster", part: "roster", icon: "📋" },
+  { name: "gps", part: "place", icon: "map-pin" },
+  { name: "explain", part: "explain", icon: "message" },
+  { name: "headcount", part: "headcount", icon: "users" },
+  { name: "roster", part: "roster", icon: "table" },
 ];
 const opened = PAGES.find((page) => page.name === location.pathname.split("/")[2]) || null;
 
@@ -242,7 +242,7 @@ function drawPage() {
   for (const page of PAGES) $(page.part).hidden = page !== opened;
   if (!opened) {
     $("sc-cards").replaceChildren(...PAGES.map((page) => el("a", { class: "sc-card-link", href: `/scenarios/${page.name}` },
-      el("span", { class: "try-icon", "aria-hidden": "true" }, page.icon),
+      el("span", { class: "try-icon" }, icon(page.icon)),
       el("b", {}, t(`sc_${page.name}_title`)), el("span", { class: "sc-pain" }, t(`sc_${page.name}_pain`)),
       el("span", { class: "sc-meta" }, t(`sc_${page.name}_meta`)), el("span", { class: "try-go" }, t("sc_try")))));
     document.title = t("sc_title");
