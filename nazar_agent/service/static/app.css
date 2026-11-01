@@ -137,6 +137,8 @@ main { max-width: 1120px; margin: 0 auto; padding: 8px 28px 56px; }
 .hero h1 .grad { display: block; }
 .grad { background: linear-gradient(90deg, var(--grad-start), var(--violet) 45%, var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .lead { color: var(--muted); max-width: 720px; margin: 10px 0 0; font-size: 16px; line-height: 1.55; }
+.judge-note { margin: 8px 0 0; }
+.judge-note a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .models { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
 
 /* The company strip: faces, whose company, a way in. The whole strip is one button. */

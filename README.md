@@ -7,6 +7,39 @@ with evidence**. Nothing changes without a human pressing the button.
 Built for the Meta AI Developer Hackathon (Oct 26 – Nov 4, 2026), Startup
 track, theme **Build for Your World**.
 
+## For a judge with three minutes
+
+No setup: **https://demo-agent.nazarhr.uz** — the demo company is live, the
+key is ours, and every browser gets a company of its own, so pressing
+buttons disturbs nobody.
+
+1. On the first screen press **Try one** under *"What should I check in the
+   timesheet before payday?"* and watch the agents work (a deep question
+   takes a minute or two). If a line in the feed says the fact checker sent
+   the report back — that is plain code rejecting the model's draft and
+   making it rewrite.
+2. The answer blames the schedule, not the people, and brings a
+   `change_schedule` card with NAZAR's own before → after. Press **Apply**,
+   then **Undo** — nothing changes without a human, and what changes can be
+   taken back.
+3. Open **/scenarios** → *At work, says the GPS* → play the scene (seconds):
+   Muse Spark vision compares the check-in photo's background with the
+   place's earlier selfies and catches a fake-GPS check-in.
+
+The numbers, all scored by plain code — no model grades another model:
+
+| | |
+|---|---|
+| Tests | 553 pass, no network or keys (`pytest`) |
+| [Question bank](#any-question-an-owner-may-ask) | 72 owner questions in 3 languages: **70/72**, $0.017 a question |
+| [Held-out set](#a-held-out-set-the-agent-was-never-tuned-on), written after development froze | **13/15**, published as it came out |
+| [Setting a site up through the chat](#setting-a-site-up-through-the-chat) | 7/7 conversations, 38/38 checks |
+| [Scenarios](#scenarios-the-abilities-coming-to-nazar-next) | 74/74 scene checks against the live models |
+| Prompt injections | 3 live hand-attacks on the employee cabinet; none moved a verdict |
+
+Every model call at runtime goes to a Meta model
+([which one does what](#meta-models)); the git history starts Oct 27.
+
 ## Try it in 5 minutes — no NAZAR needed
 
 The repository carries a demo NAZAR: a construction company with three sites,
