@@ -34,7 +34,7 @@ from nazar_agent.dialog import Dialogs, Turn, brief, previous_answer
 from nazar_agent.engine import RoleRun
 from nazar_agent.errors import WindowLang, owner_message
 from nazar_agent.feedback import about, instructions_text, owner_feedback
-from nazar_agent.findings import Analysis, AnalystReport, analyze
+from nazar_agent.findings import Analysis, AnalystReport, analyze, report_in_uzbek_latin
 from nazar_agent.llm import LLMClient
 from nazar_agent.nazar import NazarClient
 from nazar_agent.onboarding import DraftStore, ImportRow, Site, read_list, review
@@ -292,6 +292,8 @@ class Assistant:
                 model=settings.analyst_model, tools=tools, today=today, feedback=instructions_text(feedback), request=request.hints()
             )
             analysis = await analyze(role, analyst_llm, asked, language=LANGUAGES[request.lang])
+            if request.lang == "uz":  # the model slips into ö/ğ; Uzbek writes o' and g'
+                analysis = replace(analysis, report=report_in_uzbek_latin(analysis.report))
             if photos.input_tokens:
                 log.info("photo inspector: %d/%d tokens on %s", photos.input_tokens, photos.output_tokens, photos.model)
             team = Team(skeptic_llm, settings.skeptic_model, analyst_llm, settings.analyst_model)

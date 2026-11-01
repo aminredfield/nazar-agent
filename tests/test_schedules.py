@@ -128,6 +128,40 @@ async def test_schedule_change_needs_a_seen_site_and_some_confidence():
     assert bad_clock.problems and bad_clock.problems[0].startswith("shift_start")
 
 
+def evidence_with_schedule() -> Evidence:
+    step = ToolStep(
+        call_id="c", name="compare_site_schedules", arguments={},
+        output={"sites": [{"id": SITE, "shift": ["08:00", "18:00"]}]}, error=None, duration_ms=1,
+    )
+    return Evidence.from_steps((step,))
+
+
+async def test_a_schedule_with_one_end_missing_keeps_the_days_length():
+    # The writer sometimes sends only the new start. The day stays as long as it is
+    # now (08:00–18:00 in the evidence), so 09:00 becomes 09:00–19:00 — not a guess.
+    nazar, _, _ = fake_nazar()
+    no_end = {"object_id": SITE, "shift_start": "09:00", "reason": PARAMS["reason"]}
+    no_start = {"object_id": SITE, "shift_end": "19:00", "reason": PARAMS["reason"]}
+
+    filled_end = await validate_action("change_schedule", no_end, context=MEDIUM, evidence=evidence_with_schedule(), nazar=nazar)
+    filled_start = await validate_action("change_schedule", no_start, context=MEDIUM, evidence=evidence_with_schedule(), nazar=nazar)
+
+    assert filled_end.valid and (filled_end.params.shift_start, filled_end.params.shift_end) == ("09:00", "19:00")
+    assert filled_start.valid and (filled_start.params.shift_start, filled_start.params.shift_end) == ("09:00", "19:00")
+
+
+async def test_a_schedule_the_evidence_cannot_complete_still_goes_back_to_the_writer():
+    nazar, _, _ = fake_nazar()
+    no_end = {"object_id": SITE, "shift_start": "09:00", "reason": PARAMS["reason"]}
+    nothing = {"object_id": SITE, "reason": PARAMS["reason"]}
+
+    no_schedule_seen = await validate_action("change_schedule", no_end, context=MEDIUM, evidence=evidence_with_site(), nazar=nazar)
+    both_missing = await validate_action("change_schedule", nothing, context=MEDIUM, evidence=evidence_with_schedule(), nazar=nazar)
+
+    assert no_schedule_seen.fixable and no_schedule_seen.problems[0].startswith("shift_end")
+    assert both_missing.fixable and {problem.split(":")[0] for problem in both_missing.problems} == {"shift_start", "shift_end"}
+
+
 async def test_a_shorter_working_week_needs_a_strong_case_a_shifted_one_does_not():
     # 08:00–18:00 → 09:00–17:00 is two hours a day less for the whole crew: a decision against people.
     strong = Context("high", SkepticView("concern_supported", "r", (), ()))

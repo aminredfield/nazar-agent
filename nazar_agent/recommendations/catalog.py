@@ -20,6 +20,7 @@ human confirmed (``nazar_agent.actions``).
 
 from __future__ import annotations
 
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -212,6 +213,40 @@ def _shorter_week_policy(preview: Preview, context: Context) -> str | None:
             "it needs high confidence and a skeptic who agrees"
         )
     return None
+
+
+def _completed_schedule(raw: dict[str, Any], evidence: Evidence) -> dict[str, Any]:
+    """A proposal that moves the shift but leaves one end out keeps the day's length.
+
+    The writer sometimes writes only the new start. The site's current schedule
+    is in the evidence (a tool returned it), so code fills the other end by
+    keeping the shift as long as it is now: the day moves, its hours are not
+    guessed. Without the current schedule the gap goes back to the writer as is.
+    """
+    start, end = raw.get("shift_start"), raw.get("shift_end")
+    if bool(start) == bool(end):  # both given or both missing: nothing to complete
+        return raw
+    record = evidence.records.get(str(raw.get("object_id", ""))) or {}
+    shift = record.get("shift")
+    current_start, current_end = (
+        shift if isinstance(shift, list) and len(shift) == 2 else (record.get("shift_start"), record.get("shift_end"))
+    )
+    given = [value for value in (start, end, current_start, current_end) if value]
+    if not (current_start and current_end) or any(not isinstance(value, str) or not re.match(CLOCK, value) for value in given):
+        return raw
+    length = (_clock_minutes(current_end) - _clock_minutes(current_start)) % (24 * 60)
+    if start:
+        return {**raw, "shift_end": _as_clock(_clock_minutes(start) + length)}
+    return {**raw, "shift_start": _as_clock(_clock_minutes(end) - length)}
+
+
+def _clock_minutes(clock: str) -> int:
+    return int(clock[:2]) * 60 + int(clock[3:5])
+
+
+def _as_clock(minutes: int) -> str:
+    minutes %= 24 * 60
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
 def _schedule_policy(params: ChangeScheduleParams, context: Context) -> str | None:
@@ -493,6 +528,8 @@ async def validate_action(
     def rejected(*problems: str, params: _Params | None = None, fixable: bool = False) -> ValidatedAction:
         return ValidatedAction(spec.name, spec.level, params, None, problems, fixable=fixable)
 
+    if spec.name == "change_schedule":
+        raw_params = _completed_schedule(raw_params, evidence)
     try:
         params = spec.params.model_validate(raw_params)
     except ValidationError as exc:

@@ -1,6 +1,6 @@
 from nazar_agent.findings.checker import Evidence, Issue, check_report, values_match
 from nazar_agent.findings.models import AnalystReport, Claim, EvidenceRef, Fact, Finding
-from nazar_agent.findings.pipeline import Analysis, Rejected, ReportError, analyze
+from nazar_agent.findings.pipeline import Analysis, Rejected, ReportError, analyze, report_in_uzbek_latin
 
 __all__ = [
     "Analysis",
@@ -15,5 +15,6 @@ __all__ = [
     "ReportError",
     "analyze",
     "check_report",
+    "report_in_uzbek_latin",
     "values_match",
 ]

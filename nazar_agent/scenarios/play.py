@@ -19,6 +19,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from nazar_agent.latin import fix_uzbek_latin
 from nazar_agent.llm import LLMClient
 from nazar_agent.recommendations.wording import WEEKDAYS
 from nazar_agent.usage import count
@@ -81,7 +82,7 @@ async def ask(llm: LLMClient, model: str, case: dict[str, Any], lang: str) -> st
               "Records:\n" + "\n".join(f"- {line}" for line in case["records"])
     answer = await _json(llm, model, ASK.format(language=LANG_NAMES.get(lang, "English")), content,
                          "message", _strict({"message": {"type": "string"}}))
-    return answer["message"].strip()
+    return _said(answer["message"].strip(), lang)
 
 
 VERDICTS = ("consistent", "contradicts", "cannot_tell")
@@ -100,7 +101,12 @@ async def check(llm: LLMClient, model: str, case: dict[str, Any], said: str, lan
     # The verdict picks what the owner may apply: an answer without one of the three is not shown.
     if found.get("verdict") not in VERDICTS or not isinstance(found.get("why"), str):
         raise ScenarioError("The model's answer could not be read — try again.")
-    return found
+    return {**found, "why": _said(found["why"], lang), "next_step": _said(found.get("next_step", ""), lang)}
+
+
+def _said(text: str, lang: str) -> str:
+    """What the person reads, in Uzbek with o' and g' even where the model slipped into ö/ğ."""
+    return fix_uzbek_latin(text) if lang == "uz" else text
 
 
 # --- A company from one picture ----------------------------------------------------

@@ -20,3 +20,17 @@ def to_latin(text: str) -> str:
     """Lower-case Latin letters, Uzbek apostrophes dropped, kh/x/zh folded: "Xo'jaev" and «Хужаев» both give "hojaev"-like words."""
     plain = re.sub(r"[ʻʼ'`’‘]", "", text.lower()).translate(_LATIN)
     return plain.replace("kh", "h").replace("x", "h").replace("zh", "j")
+
+
+# A model writing Uzbek in Latin letters sometimes slips into Turkish-style ö/ğ
+# despite the instruction; Uzbek writes those sounds with an apostrophe.
+_UZBEK_APOSTROPHES = {"ö": "o'", "Ö": "O'", "ō": "o'", "Ō": "O'", "ğ": "g'", "Ğ": "G'", "ǵ": "g'", "Ǵ": "G'"}
+_UZBEK_SLIPS = str.maketrans(_UZBEK_APOSTROPHES)
+
+
+def fix_uzbek_latin(text: str) -> str:
+    """Uzbek Latin as Uzbek writes it: "körsatilgan" → "ko'rsatilgan", "notöğri" → "noto'g'ri".
+
+    "rö'yxat" carries the apostrophe twice after the swap, so one is dropped.
+    """
+    return re.sub(r"([OoGg])''", r"\1'", text.translate(_UZBEK_SLIPS))

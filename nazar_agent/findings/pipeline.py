@@ -28,7 +28,8 @@ from pydantic import ValidationError
 
 from nazar_agent.engine import Role, RoleRun, run_role, tool_schema
 from nazar_agent.findings.checker import Evidence, Issue, check_report, unsupported_numbers
-from nazar_agent.findings.models import AnalystReport, Finding
+from nazar_agent.findings.models import AnalystReport, Fact, Finding
+from nazar_agent.latin import fix_uzbek_latin
 from nazar_agent.llm import LLMClient
 from nazar_agent.progress import emit
 from nazar_agent.usage import count
@@ -104,6 +105,31 @@ class Rejected:
     finding: str
     fact: str | None  # None when the whole finding was rejected
     reasons: tuple[str, ...]
+
+
+def report_in_uzbek_latin(report: AnalystReport) -> AnalystReport:
+    """The owner's text with Uzbek apostrophes where the model slipped into ö/ğ.
+
+    Only what the owner reads is touched; a claim's value and a subject's name
+    stay exactly as the tools returned them.
+    """
+    def fact(item: Fact) -> Fact:
+        return item.model_copy(update={"text": fix_uzbek_latin(item.text)})
+
+    def finding(item: Finding) -> Finding:
+        return item.model_copy(update={
+            "title": fix_uzbek_latin(item.title),
+            "facts": [fact(one) for one in item.facts],
+            "hypothesis": fix_uzbek_latin(item.hypothesis),
+            "alternatives": [fix_uzbek_latin(one) for one in item.alternatives],
+        })
+
+    return report.model_copy(update={
+        "answer": [fact(one) for one in report.answer],
+        "findings": [finding(one) for one in report.findings],
+        "data_gaps": [fix_uzbek_latin(one) for one in report.data_gaps],
+        "summary": fix_uzbek_latin(report.summary),
+    })
 
 
 @dataclass(frozen=True, slots=True)

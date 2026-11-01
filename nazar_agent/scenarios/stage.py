@@ -177,7 +177,9 @@ PLACES: dict[str, dict[str, Any]] = {
              "candidates": [
                  {"file": "place-cafe-new.jpg", "who": "Jake Reynolds", "truth": True},
                  {"file": "place-bedroom.jpg", "who": "Zara Hughes", "truth": False},
-                 {"file": "place-store-1.jpg", "who": "Frank Sullivan", "truth": False},
+                 # The photo is the store's reference selfie (a woman in a vest), so the café
+                 # name it carries is a woman of the café crew, not a man's name over her face.
+                 {"file": "place-store-1.jpg", "who": "Laura Hill", "truth": False},
              ]},
     "store": {"segment": "Store", "place": "Fresh Market, Riverside",
               "references": ["place-store-1.jpg", "place-store-2.jpg", "place-store-3.jpg"],
