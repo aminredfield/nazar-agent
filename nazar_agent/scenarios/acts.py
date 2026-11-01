@@ -80,12 +80,17 @@ class SceneDesk:
         state = self._of(visitor).get((page, scene))
         return list(state.applied) if isinstance(state, _Scene) else []
 
-    def act(self, visitor: str, page: str, scene: str, action: str, undo: bool = False) -> dict[str, Any]:
+    def act(
+        self, visitor: str, page: str, scene: str, action: str, undo: bool = False, confirmed: bool = False
+    ) -> dict[str, Any]:
+        """``confirmed`` — the visitor said yes a second time: an action that changes pay needs it."""
         state = self._of(visitor).get((page, scene))
         if not isinstance(state, _Scene) or not state.verdict:
             raise ActRefused("Play the scene first: there is no verdict to act on.")
         if action not in allowed(page, scene, state.verdict):
             raise ActRefused("This action does not follow from the verdict.")
+        if action in PAYS and not undo and not confirmed:
+            raise ActRefused("This changes pay: confirm it once more.")
         if undo:
             if action not in state.applied:
                 raise ActRefused("Nothing to undo.")

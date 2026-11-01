@@ -191,7 +191,9 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
 
     # The window's stylesheet, script and logo; the page itself is "/". A slim
     # image's Python does not know .xlsx: the Excel sample would go out untyped.
+    # Windows with Excel maps .csv to an Excel type in its registry: the CSV sample is text.
     mimetypes.add_type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx")
+    mimetypes.add_type("text/csv", ".csv")
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
     @app.get("/", include_in_schema=False)
@@ -218,7 +220,11 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
     @app.get("/api/me")
     async def me(current: Caller = Depends(caller)) -> dict[str, Any]:
         # Which model gives the second opinion here, so the window does not claim one it is not using.
-        second = {"second_opinion_open": current.assistant.settings.skeptic_on_open_model}
+        # And whether the analysts run on the contributor tier (Meta learns from it): the window says that too.
+        second = {
+            "second_opinion_open": current.assistant.settings.skeptic_on_open_model,
+            "analysts_contributor": current.assistant.settings.analyst_model.endswith("-contributor"),
+        }
         if current.demo:
             return {"mode": "demo", "full_name": "Demo Owner", "company_name": "Northline Builders", "role": "owner", **second}
         return {**(_person_view(current.person) if current.person else {"mode": "service"}), **second}
@@ -241,7 +247,8 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         analyst = None if request.analyst == "auto" else request.analyst
         if current.assistant.busy:
             raise HTTPException(429, owner_message(AssistantBusy(), request.lang))
-        day = _reserve(http, current, lang=request.lang)
+        # A question holds what a failed one is counted at; its real cost replaces the hold.
+        day = _reserve(http, current, lang=request.lang, hold=FAILED_QUESTION_COST_USD)
         cost = FAILED_QUESTION_COST_USD
         try:
             answer = await current.assistant.ask(
@@ -254,7 +261,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         except Exception as exc:  # logged by the assistant; the owner reads what happened and what to do
             raise HTTPException(503, owner_message(exc, request.lang)) from exc
         finally:
-            _add_cost(http, current, day, cost)
+            _add_cost(http, current, day, cost, held=FAILED_QUESTION_COST_USD)
         return answer.view
 
     @app.get("/api/progress")
@@ -343,8 +350,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
     ) -> dict[str, str]:
         """The window's microphone: speech becomes the question's text, which the owner reads before sending."""
         content = await _read_upload(audio)
-        day = _reserve(http, current, question=False, lang=lang)
-        _add_cost(http, current, day, VOICE_COST_ESTIMATE_USD)
+        _reserve(http, current, question=False, lang=lang, hold=VOICE_COST_ESTIMATE_USD)
         try:
             return {"text": await current.assistant.hear(content or b"", lang)}
         except VoiceError as exc:
@@ -414,8 +420,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         current: Caller = Depends(caller),
     ) -> dict[str, Any]:
         content = await _read_upload(file)
-        day = _reserve(http, current, lang=lang)
-        _add_cost(http, current, day, IMPORT_COST_ESTIMATE_USD)
+        _reserve(http, current, lang=lang, hold=IMPORT_COST_ESTIMATE_USD)
         try:
             rows, sites = await current.assistant.read_list(
                 text=text, file=content, content_type=file.content_type if file else None, nazar=current.nazar, lang=lang
@@ -532,22 +537,25 @@ def _fresh(assistant: Assistant, view: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _reserve(request: Request, current: Caller, *, question: bool = True, lang: str = "en", budget_only: bool = False) -> str:
+def _reserve(
+    request: Request, current: Caller, *, question: bool = True, lang: str = "en", budget_only: bool = False, hold: float = 0.0
+) -> str:
     """Count the question before any model runs. A window opened from NAZAR and a demo browser are limited.
 
-    ``question=False`` — a model call that is not a question (the microphone): checked against the limits, not counted.
+    ``question=False`` — a model call that is not a question (the microphone): checked against the limits, not counted;
+    ``hold`` — what it may cost, put on the day's budget at once (an estimate stays as its cost).
     """
     if current.person is None and not current.demo:
         return ""
     try:
-        return request.app.state.limits.reserve(current.session_id, question=question, budget_only=budget_only)
+        return request.app.state.limits.reserve(current.session_id, question=question, budget_only=budget_only, hold_usd=hold)
     except LimitReached as exc:
         raise HTTPException(429, exc.said(lang)) from None
 
 
-def _add_cost(request: Request, current: Caller, day: str, cost_usd: float) -> None:
+def _add_cost(request: Request, current: Caller, day: str, cost_usd: float, *, held: float = 0.0) -> None:
     if current.person is not None or current.demo:
-        request.app.state.limits.add_cost(current.session_id, day, cost_usd)
+        request.app.state.limits.add_cost(current.session_id, day, cost_usd, held_usd=held)
 
 
 def _person_view(person: Person) -> dict[str, Any]:

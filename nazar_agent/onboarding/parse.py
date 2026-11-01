@@ -26,6 +26,7 @@ MAX_SHEET_ROWS = 500
 MAX_TEXT = 20_000
 IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 SHEET_TYPES = {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+CSV_ALIASES = {"", "application/octet-stream", "application/vnd.ms-excel", "application/csv", "application/x-csv"}
 
 INSTRUCTIONS = """\
 You read a list of employees that a business owner in Uzbekistan wants to add
@@ -167,8 +168,10 @@ def file_type(file: bytes, declared: str) -> str:
         return next(iter(SHEET_TYPES))
     if declared in IMAGE_TYPES or declared in SHEET_TYPES or declared.startswith("text/"):
         return declared
-    unnamed = declared in ("", "application/octet-stream")  # a CSV from a server that does not know .csv
-    return "text/plain" if unnamed and file and b"\x00" not in file[:4096] else declared
+    # A CSV under another name: a server that does not know .csv, or Windows with Excel
+    # installed, which sends .csv as an Excel type. Text has no zero bytes; an old .xls has.
+    maybe_csv = declared in CSV_ALIASES
+    return "text/plain" if maybe_csv and file and b"\x00" not in file[:4096] else declared
 
 
 def sheet_text(file: bytes) -> str:

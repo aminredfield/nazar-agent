@@ -216,10 +216,11 @@ class Assistant:
             await self.spent("import", text or "(file)", meter)
         return review(people, sites, employees, lang), sites
 
-    async def scenario(self, what: str, play: Callable[[LLMClient, str], Awaitable[T]]) -> T:
-        """One scene of the Scenarios page: a model call counted and recorded like a question."""
+    async def scenario(self, what: str, play: Callable[[LLMClient, str], Awaitable[T]], meter: Meter | None = None) -> T:
+        """One scene of the Scenarios page: a model call counted and recorded like a question.
+        ``meter`` — the caller's, to read what the scene cost."""
         llm = self.settings.analyst_llm()
-        meter = Meter()
+        meter = meter if meter is not None else Meter()
         try:
             with metering(meter):
                 return await play(llm, self.settings.analyst_model)

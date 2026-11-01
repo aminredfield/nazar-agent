@@ -238,6 +238,17 @@ def test_a_file_is_known_by_its_first_bytes_not_by_the_type_it_was_sent_with():
     assert file_type(b"\x00\x01binary", "application/octet-stream") == "application/octet-stream"
 
 
+def test_a_csv_is_text_whatever_type_windows_gives_it():
+    from nazar_agent.onboarding.parse import file_type
+
+    csv = "Full name,Site\nJason Taylor,Riverside\n".encode()
+    # Windows with Excel installed sends .csv as an Excel type; other systems as text/csv or application/csv.
+    for declared in ("application/vnd.ms-excel", "application/csv", "text/csv", "text/x-csv"):
+        assert file_type(csv, declared).startswith("text/"), declared
+    # An old binary .xls is not text: it stays unread, not garbled.
+    assert file_type(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1\x00\x00", "application/vnd.ms-excel") == "application/vnd.ms-excel"
+
+
 def test_a_reading_error_is_said_in_the_window_language():
     error = ParseError("format")
 

@@ -301,14 +301,19 @@ function actionBlock(action, card) {
   };
 
   function askAgain(question, confirmLabel, onConfirm, withReason) {
-    const reason = withReason ? el("input", { type: "text", maxlength: "500", placeholder: t("reason_placeholder") }) : null;
+    const reason = withReason
+      ? el("input", { type: "text", maxlength: "500", placeholder: t("reason_placeholder"), "aria-label": question })
+      : null;
     const yes = el("button", { class: "primary", type: "button" }, confirmLabel);
     const back = el("button", { type: "button" }, t("back"));
-    buttons.replaceChildren(el("span", {}, question), reason, yes, back);
+    buttons.replaceChildren(...[el("span", {}, question), reason, yes, back].filter(Boolean));
     yes.onclick = () => {
       if (withReason && !reason.value.trim()) { reason.focus(); return; }
       onConfirm(withReason ? reason.value : undefined);
     };
+    if (reason) reason.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); yes.click(); }
+    });
     back.onclick = () => render("pending");
     (reason || yes).focus();
   }
@@ -462,12 +467,13 @@ async function loadDialog() {
   renderHistory();
 }
 
-$("new-dialog").addEventListener("click", async () => {
+// A new conversation: the next question is read on its own. False when the server could not start one.
+async function startOver() {
   try {
     await api("/api/dialog/reset", {});
   } catch (error) {
     say(error.message, "error");
-    return;
+    return false;
   }
   shownDialog = [];
   shownAnswer = null;
@@ -475,6 +481,11 @@ $("new-dialog").addEventListener("click", async () => {
   $("history").replaceChildren();
   $("run").hidden = true;
   $("new-dialog").hidden = true;
+  return true;
+}
+
+$("new-dialog").addEventListener("click", async () => {
+  if (!(await startOver())) return;
   say(t("dialog_reset"));
   $("question").focus();
 });
@@ -541,8 +552,11 @@ function renderTry() {
       el("span", { class: "try-icon" }, icon(item.i)),
       el("b", {}, item.t), el("span", { class: "try-pain" }, item.p),
       el("span", { class: "try-go" }, t("try_go")));
-    card.addEventListener("click", () => {
+    card.addEventListener("click", async () => {
       if ($("send").disabled) return; // one question at a time: the team is still on the last one
+      // An example is a question of its own, not a follow-up to the one before:
+      // read after "Riverside", "before payday" would be about Riverside only.
+      if (shownDialog.length && !(await startOver())) return;
       watching = index;
       $("question").value = item.q;
       chooseAnalyst("auto");
@@ -552,10 +566,15 @@ function renderTry() {
   }));
   showWatch();
 }
+// The examples the analysts investigate: three weeks of check-ins take a minute or two.
+const SLOW_TRY = new Set([0, 1, 3, 5]);
 function showWatch() {
   const item = watching === null ? null : L().TRY[watching];
   $("watch").hidden = !item;
-  if (item) $("watch").replaceChildren(el("b", {}, t("watch_for")), " ", item.w);
+  if (item) {
+    $("watch").replaceChildren(el("b", {}, t("watch_for")), " ", item.w,
+      SLOW_TRY.has(watching) ? el("span", { class: "muted" }, " ", t("watch_eta")) : "");
+  }
 }
 renderTry();
 
@@ -724,6 +743,8 @@ async function signIn() {
     companyName = me.company_name || "";
     // Without a Baseten key the second opinion is Muse Spark 1.2 on the Meta key: say so.
     if (me.second_opinion_open === false) $("chip-second").dataset.i18n = "chip_fallback";
+    // The synthetic demo may run the analysts on the contributor tier: the same model, Meta learns from the traffic.
+    if (me.analysts_contributor) $("chip-analysts").dataset.i18n = "chip_contributor";
     translatePage();
     if (me.mode === "person") {
       const initials = me.full_name.split(/\s+/).map((part) => part[0] || "").join("").slice(0, 2).toUpperCase();

@@ -110,10 +110,10 @@ function offerCard(page, scene, offer, done, record) {
       el("span", { class: offer.pays ? "level pay" : "level" }, offer.pays ? t("sc_pays") : t("sc_no_pay"))),
     el("div", { class: "what" }, effectText(offer, record)), buttons, status);
 
-  async function decide(undo) {
+  async function decide(undo, confirmed = false) {
     for (const button of buttons.querySelectorAll("button")) button.disabled = true;
     try {
-      const data = await send("/api/scenarios/act", { page, scene, action: offer.action, undo });
+      const data = await send("/api/scenarios/act", { page, scene, action: offer.action, undo, confirmed });
       draw(data.status === "applied", data.status === "undone" ? t("sc_undone") : "");
     } catch (error) {
       draw(false, "");
@@ -146,7 +146,7 @@ function offerCard(page, scene, offer, done, record) {
   function confirmPay() {
     const yes = el("button", { type: "button", class: "primary" }, t("confirm_yes"));
     const no = el("button", { type: "button", class: "ghost" }, t("sc_cancel"));
-    yes.addEventListener("click", () => decide(false));
+    yes.addEventListener("click", () => decide(false, true));
     no.addEventListener("click", () => draw(false, ""));
     buttons.replaceChildren(el("span", { class: "sc-confirm" }, t("sc_confirm_pay")), yes, no);
   }

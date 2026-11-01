@@ -24,6 +24,20 @@ def test_questions_per_session_and_a_shared_daily_budget(tmp_path):
     limits.reserve("judge-1")  # a new day
 
 
+def test_questions_still_running_hold_their_cost_so_a_crowd_cannot_slip_under_the_budget(tmp_path):
+    # Visitors without a cookie ask at once: each is a new session, and no answer has come yet.
+    limits = Limits(tmp_path / "usage.sqlite3", questions_per_session=50, budget_usd_per_day=0.3)
+
+    held = [limits.reserve(f"visitor-{index}", hold_usd=0.1) for index in range(3)]
+    with pytest.raises(LimitReached, match="budget"):
+        limits.reserve("visitor-3", hold_usd=0.1)
+
+    # The answers come in cheaper than held: the difference is given back.
+    for index, day in enumerate(held):
+        limits.add_cost(f"visitor-{index}", day, 0.02, held_usd=0.1)
+    limits.reserve("visitor-4", hold_usd=0.1)
+
+
 def test_a_cost_lands_on_the_day_the_question_was_asked(tmp_path):
     day = [date(2026, 11, 2)]
     limits = Limits(tmp_path / "usage.sqlite3", questions_per_session=0, budget_usd_per_day=0.1, today=lambda: day[0])

@@ -32,7 +32,10 @@ _DMS = r"(\d{1,3})°\s*(\d{1,2})['′’]\s*(\d{1,2}(?:\.\d+)?)(?:\"|″|”|'')
 DMS = re.compile(rf"{_DMS}[\s,;]*{_DMS}")
 GOOGLE_PIN = re.compile(rf"!3d({NUMBER})!4d({NUMBER})")
 GOOGLE_VIEW = re.compile(rf"@({NUMBER}),({NUMBER})")
-GOOGLE_HOSTS = re.compile(r"^(?:www\.|maps\.)?google\.[a-z.]{2,6}$")
+# Google's own domains by name, not "google." and anything: google.ab.io is anyone's to buy.
+GOOGLE_HOSTS = re.compile(
+    r"^(?:www\.|maps\.)?google\.(?:com|ru|uz|kz|kg|tj|by|az|ge|am|de|fr|es|it|pl|ae|co\.uz|co\.uk|com\.tr|com\.ua)$"
+)
 YANDEX_HOSTS = re.compile(r"^(?:www\.)?yandex\.(?:ru|uz|com|kz|by)$")
 TWO_GIS_HOSTS = re.compile(r"^(?:www\.)?2gis\.[a-z]{2,3}$")
 SHORT_HOSTS = frozenset({"maps.app.goo.gl", "goo.gl"})

@@ -5,8 +5,10 @@ limit is per window session (one sign-in from the cabinet), not per person.
 A new sign-in is a new session, so the per-session limit only paces a
 visitor; what protects the credits is the budget in dollars across all
 sessions. A question is reserved before any model runs, in one transaction,
-and its cost is added afterwards even if the run failed. Both reset at local
-midnight. Zero switches a limit off — a real company's assistant has none.
+together with a hold on the budget — what a question may cost — so questions
+still running count against it too; when the answer comes, its real cost
+replaces the hold, even if the run failed. Both reset at local midnight.
+Zero switches a limit off — a real company's assistant has none.
 """
 
 from __future__ import annotations
@@ -80,15 +82,16 @@ class Limits:
     def active(self) -> bool:
         return self.questions_per_session > 0 or self.budget_usd_per_day > 0
 
-    def reserve(self, session_id: str, *, question: bool = True, budget_only: bool = False) -> str:
+    def reserve(self, session_id: str, *, question: bool = True, budget_only: bool = False, hold_usd: float = 0.0) -> str:
         """Count one question for this session, or raise LimitReached; returns the day to add its cost to.
 
         ``question=False`` checks the same limits but counts nothing: a voice
         message turned into text is not a question yet. ``budget_only`` — a
         scene of the Scenarios page, a few cents: only the daily budget applies.
+        ``hold_usd`` is put on the budget at once; ``add_cost`` gives it back.
 
-        Check and count happen in one write transaction, so parallel requests
-        cannot all slip under the limit.
+        Check, count and hold happen in one write transaction, so parallel
+        requests cannot all slip under the limit.
         """
         day = self._today().isoformat()
         if not self.active:
@@ -103,18 +106,20 @@ class Limits:
             if self.budget_usd_per_day and spent >= self.budget_usd_per_day:
                 raise LimitReached("budget", self.budget_usd_per_day)
             connection.execute(
-                "INSERT INTO usage VALUES (?, ?, ?, 0) ON CONFLICT (day, session) DO UPDATE SET questions = questions + excluded.questions",
-                (day, _key(session_id), int(question)),
+                "INSERT INTO usage VALUES (?, ?, ?, ?) ON CONFLICT (day, session) DO UPDATE SET "
+                "questions = questions + excluded.questions, cost_usd = cost_usd + excluded.cost_usd",
+                (day, _key(session_id), int(question), max(hold_usd, 0.0)),
             )
         return day
 
-    def add_cost(self, session_id: str, day: str, cost_usd: float) -> None:
+    def add_cost(self, session_id: str, day: str, cost_usd: float, *, held_usd: float = 0.0) -> None:
+        """The run's real cost in place of what ``reserve`` held for it."""
         if not self.active:
             return
         with self._connect() as connection:
             connection.execute(
                 "INSERT INTO usage VALUES (?, ?, 0, ?) ON CONFLICT (day, session) DO UPDATE SET cost_usd = cost_usd + excluded.cost_usd",
-                (day, _key(session_id), max(cost_usd, 0.0)),
+                (day, _key(session_id), max(cost_usd, 0.0) - max(held_usd, 0.0)),
             )
 
     @contextmanager

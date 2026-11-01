@@ -33,9 +33,10 @@ from nazar_agent.scenarios import (
     same_place,
 )
 from nazar_agent.scenarios.acts import ACTIONS, ActRefused, SceneDesk, effect
+from nazar_agent.usage import Meter
 
 # One scene is a short call: counted at this for the public demo's daily budget.
-SCENE_COST_ESTIMATE_USD = 0.01
+SCENE_HOLD_USD = 0.05
 Lang = Literal["en", "ru", "uz"]
 # The pages of the gallery, one per ability; the window's scenarios.js knows the same names.
 SCENE_PAGES = ("gps", "explain", "headcount", "roster")
@@ -65,6 +66,7 @@ class SceneAct(BaseModel):
     scene: str
     action: Literal[ACTIONS]  # type: ignore[valid-type]
     undo: bool = False
+    confirmed: bool = False  # said yes twice: an action that changes pay needs it
 
 
 def scenario_routes(
@@ -79,16 +81,18 @@ def scenario_routes(
     pictures = static / "scenarios"
 
     async def played(http: Request, current: Any, lang: str, what: str, play: Callable[[LLMClient, str], Awaitable[Any]]) -> Any:
-        # A scene is a few cents and not a question: only the day's budget limits it.
-        day = reserve(http, current, question=False, lang=lang, budget_only=True)
+        # A scene is a few cents and not a question: only the day's budget limits it. It holds
+        # a few cents while it runs; what its calls really cost replaces that, a large photo included.
+        day = reserve(http, current, question=False, lang=lang, budget_only=True, hold=SCENE_HOLD_USD)
+        meter = Meter()
         try:
-            return await current.assistant.scenario(what, play)
+            return await current.assistant.scenario(what, play, meter)
         except ScenarioError as exc:
             raise HTTPException(422, str(exc)) from exc
         except OpenAIError as exc:
             raise HTTPException(502, "The model did not answer — try again in a minute.") from exc
         finally:
-            add_cost(http, current, day, SCENE_COST_ESTIMATE_USD)
+            add_cost(http, current, day, meter.cost, held=SCENE_HOLD_USD)
 
     def picture(name: str) -> bytes:
         return (pictures / name).read_bytes()
@@ -152,7 +156,7 @@ def scenario_routes(
     async def act(body: SceneAct, current: Any = Depends(caller)) -> dict[str, Any]:
         """Apply or undo what the verdict allows, on the scene's own record: nothing here reaches NAZAR."""
         try:
-            return desk.act(current.session_id, body.page, body.scene, body.action, undo=body.undo)
+            return desk.act(current.session_id, body.page, body.scene, body.action, undo=body.undo, confirmed=body.confirmed)
         except ActRefused as exc:
             raise HTTPException(409, str(exc)) from exc
 

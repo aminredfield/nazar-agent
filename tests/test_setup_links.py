@@ -77,6 +77,9 @@ async def test_a_short_yandex_link_follows_relative_redirects():
     ("https://evil.example/steal", "not_a_map"),  # a redirect off the map hosts is not followed
     ("http://www.google.com/maps/place/X", "not_a_map"),  # nor down to plain HTTP
     ("https://127.0.0.1/admin", "not_a_map"),
+    ("https://google.ab.io/maps/place/X", "not_a_map"),  # a domain anyone can buy, named like Google's
+    ("https://maps.google.evil.co/place/X", "not_a_map"),
+    ("https://yandex.ru.evil.example/maps", "not_a_map"),
     ("https://www.google.com/maps/place/Just+a+name", "no_point"),
 ])
 async def test_a_short_link_never_leaves_the_map_hosts(first_hop, kind):

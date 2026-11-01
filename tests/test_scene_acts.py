@@ -30,11 +30,13 @@ def test_an_action_is_applied_once_undone_and_applied_again():
     desk = SceneDesk()
     desk.judged("v1", "explain", "store-screen", "consistent")
 
-    applied = desk.act("v1", "explain", "store-screen", "void_day")
+    with pytest.raises(ActRefused, match="once more"):
+        desk.act("v1", "explain", "store-screen", "void_day")  # pay changes only when confirmed again
+    applied = desk.act("v1", "explain", "store-screen", "void_day", confirmed=True)
     with pytest.raises(ActRefused):
-        desk.act("v1", "explain", "store-screen", "void_day")
+        desk.act("v1", "explain", "store-screen", "void_day", confirmed=True)
     undone = desk.act("v1", "explain", "store-screen", "void_day", undo=True)
-    again = desk.act("v1", "explain", "store-screen", "void_day")
+    again = desk.act("v1", "explain", "store-screen", "void_day", confirmed=True)
 
     assert applied["status"] == "applied" and again["status"] == "applied" and undone["status"] == "undone"
     assert (applied["effect"]["field"], applied["effect"]["before"], applied["effect"]["after"]) == ("paid", 539, 0)
@@ -104,7 +106,10 @@ def test_the_question_reaches_the_cabinet_the_answer_comes_back_with_its_actions
     seen = window.get("/api/scenarios/inbox", params={"scene": "store-screen"}).json()
     replied = window.post("/api/scenarios/inbox/reply", json={"scene": "store-screen", "said": "I didn't come in on Saturday."}).json()
     after = window.get("/api/scenarios/inbox", params={"scene": "store-screen"}).json()
-    void = window.post("/api/scenarios/act", json={"page": "explain", "scene": "store-screen", "action": "void_day"}).json()
+    unconfirmed = window.post("/api/scenarios/act", json={"page": "explain", "scene": "store-screen", "action": "void_day"})
+    void = window.post(
+        "/api/scenarios/act", json={"page": "explain", "scene": "store-screen", "action": "void_day", "confirmed": True}
+    ).json()
     refused = window.post("/api/scenarios/act", json={"page": "explain", "scene": "store-screen", "action": "flag_review"})
 
     assert asked["message"] == seen["message"] == "Hi Owen, what happened on Saturday?"
@@ -112,7 +117,7 @@ def test_the_question_reaches_the_cabinet_the_answer_comes_back_with_its_actions
     assert replied["verdict"] == "consistent" and replied["actions"] == ["void_day"]
     assert after["reply"] == "I didn't come in on Saturday." and after["check"]["verdict"] == "consistent"
     assert void["status"] == "applied" and void["effect"]["after"] == 0
-    assert refused.status_code == 409
+    assert refused.status_code == 409 and unconfirmed.status_code == 409
 
 
 def test_the_cabinet_answers_only_after_the_question(window):
