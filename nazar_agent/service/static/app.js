@@ -70,7 +70,12 @@ function startRun(question, alreadyFor = 0) {
   for (const node of $("roster").children) node.className = "";
   $("analyst-name").textContent = t("analyst");
   clearInterval(run.clock);
-  run.clock = setInterval(() => { $("run-timer").textContent = seconds((performance.now() - run.started) / 1000); }, 100);
+  run.clock = setInterval(() => {
+    const elapsed = (performance.now() - run.started) / 1000;
+    $("run-timer").textContent = seconds(elapsed);
+    // A deep question means the analysts really read the records; say so instead of looking stuck.
+    if (elapsed > 15 && !run.finished) $("run-title").textContent = t("run_working_long");
+  }, 100);
   clearInterval(run.poll);
   run.poll = setInterval(pollProgress, 700);
   pollProgress();

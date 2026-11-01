@@ -27,6 +27,7 @@ from nazar_agent.assistant import Assistant
 from nazar_agent.cli import json_default
 from nazar_agent.config import Settings
 from nazar_agent.evals.checks import Run
+from nazar_agent.evals.heldout import HELDOUT
 from nazar_agent.evals.questions import BANK, BANK_NOW, INTENTS, Question
 from nazar_agent.evals.truth import Truth
 from nazar_agent.nazar.connect import NazarLink, connect
@@ -128,7 +129,7 @@ async def main_async(questions: list[Question], parallel: int, folder: Path) -> 
 def rescore(folder: Path) -> list[dict[str, Any]]:
     """The saved answers of a run, checked again with the checks as they are now."""
     truth = Truth(connect(bank_settings(folder)).demo.world)  # type: ignore[union-attr]
-    by_id = {question.id: question for question in BANK}
+    by_id = {question.id: question for question in BANK + HELDOUT}
     results = []
     for path in sorted(folder.glob("[A-N][0-9][0-9].json")):
         saved = json.loads(path.read_text(encoding="utf-8"))
@@ -143,12 +144,17 @@ def rescore(folder: Path) -> list[dict[str, Any]]:
 
 
 def main() -> int:
+    # A Windows console defaults to cp1251/cp866, which cannot print the Uzbek questions.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(prog="nazar_agent.evals.bank", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--intent", nargs="+", choices=sorted(INTENTS), help="only these kinds of question")
     parser.add_argument("--id", nargs="+", help="only these questions")
     parser.add_argument("--parallel", type=int, default=4)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--rescore", type=Path, help="check the answers saved in this folder again; ask nothing")
+    parser.add_argument("--heldout", action="store_true", help="the held-out set (evals/heldout.py) instead of the bank")
     args = parser.parse_args()
     if args.rescore:
         results = rescore(args.rescore)
@@ -159,10 +165,10 @@ def main() -> int:
         return 0
 
     questions = [
-        question for question in BANK
+        question for question in (HELDOUT if args.heldout else BANK)
         if (not args.intent or question.intent in args.intent) and (not args.id or question.id in args.id)
     ]
-    folder = args.out / f"bank-{datetime.now().strftime('%Y-%m-%d-%H%M%S')}"
+    folder = args.out / f"{'heldout' if args.heldout else 'bank'}-{datetime.now().strftime('%Y-%m-%d-%H%M%S')}"
     folder.mkdir(parents=True, exist_ok=True)
     print(f"{len(questions)} questions on the demo company at {BANK_NOW.isoformat()}", file=sys.stderr)
     results = sorted(asyncio.run(main_async(questions, args.parallel, folder)), key=lambda result: result["id"])
