@@ -10,6 +10,7 @@ one with a field left empty goes back once, with code's reasons (``corrections``
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, Literal
@@ -55,7 +56,8 @@ For each case:
   the action lists; set the others to null.
 - A case about several people in the same way — check-ins from one phone,
   the same photo of a screen — gives each of them the same action, one per
-  person: the owner decides about every one, not about two of four.
+  person, each on that person's own record (see "whose" in the facts'
+  records): the owner decides about every one, not about two of four.
 - When the facts show that a site's schedule does not match the real working
   day — people there start and end later or earlier every day — propose
   change_schedule with the hours from the facts, rounded to the nearest whole
@@ -165,16 +167,19 @@ CORRECTIONS = """
 Code rejected some actions of your previous plan:
 {problems}
 Return the whole plan again with these actions fixed: fill every field the action
-lists, and take ids from the records the facts cite ("records": kind and id).
+lists, and take ids from the records the facts cite ("records": kind, id and whose
+it is) — each person's action on their own record, never one record for several people.
 Leave out an action you cannot fill from the facts.
 """
 
 
 async def compose(
-    llm: LLMClient, model: str, cases: list[CaseInput], today: date, question: str = "", corrections: list[str] | None = None
+    llm: LLMClient, model: str, cases: list[CaseInput], today: date, question: str = "",
+    corrections: list[str] | None = None, names: Mapping[str, str] | None = None,
 ) -> ComposerResult:
     """``question`` — what the owner asked, so an action they spelled out is proposed as they said it;
-    ``corrections`` — what code rejected in the previous plan, for a second try."""
+    ``corrections`` — what code rejected in the previous plan, for a second try;
+    ``names`` — whose each record is, so an action for Grace takes Grace's check-in, not Tom's."""
     if not cases:
         return ComposerResult({}, None, 0, 0)
 
@@ -185,7 +190,7 @@ async def compose(
             max_actions=MAX_ACTIONS_PER_CASE,
             catalog="\n".join(f"- {spec.name}: {spec.description}" for spec in CATALOG.values()),
         ),
-        input=(OWNER_ASKED.format(question=question) if question else "") + cases_text(cases)
+        input=(OWNER_ASKED.format(question=question) if question else "") + cases_text(cases, names or {})
         + (CORRECTIONS.format(problems="\n".join(f"- {line}" for line in corrections)) if corrections else ""),
         tools=[],
         text_format=COMPOSER_FORMAT,
@@ -205,7 +210,8 @@ async def compose(
     return ComposerResult(plans, None, turn.input_tokens, turn.output_tokens)
 
 
-def cases_text(cases: list[CaseInput]) -> str:
+def cases_text(cases: list[CaseInput], names: Mapping[str, str] | None = None) -> str:
+    names = names or {}
     return json.dumps(
         {
             "cases": [
@@ -215,7 +221,10 @@ def cases_text(cases: list[CaseInput]) -> str:
                     "facts": [
                         {
                             "text": fact.text,
-                            "records": [{"kind": ref.kind, "id": ref.id} for ref in fact.evidence],
+                            "records": [
+                                {"kind": ref.kind, "id": ref.id, **({"whose": names[ref.id]} if ref.id in names else {})}
+                                for ref in fact.evidence
+                            ],
                             "values": [
                                 {"record": f"{claim.ref.kind}:{claim.ref.id}", "field": claim.field, "value": claim.value}
                                 for claim in fact.claims

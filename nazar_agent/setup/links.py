@@ -153,7 +153,11 @@ def _check_allowed(url: str) -> None:
     """Only HTTPS to a map host by name: no other site, no address of the agent's own network."""
     parts = urlsplit(url)
     host = (parts.hostname or "").lower()
-    if parts.scheme != "https" or parts.username or parts.password or parts.port not in (None, 443):
+    try:
+        port = parts.port
+    except ValueError:  # "maps.app.goo.gl:abc"
+        raise LinkError("not_a_map") from None
+    if parts.scheme != "https" or parts.username or parts.password or port not in (None, 443):
         raise LinkError("not_a_map")
     try:
         ipaddress.ip_address(host)

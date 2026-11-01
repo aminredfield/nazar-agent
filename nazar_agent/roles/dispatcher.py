@@ -30,7 +30,7 @@ Lang = Literal["ru", "uz", "uz-cyrl", "en"]
 DEFAULT_ANALYST: Analyst = "timesheet"
 MAX_PERIOD_DAYS = 31  # one read of NAZAR at most; a longer period is cut to its last days
 WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
-LANGUAGES = {"ru": "Russian", "uz": "Uzbek in Latin letters", "uz-cyrl": "Uzbek in Cyrillic letters", "en": "English"}
+LANGUAGES = {"ru": "Russian", "uz": "Uzbek in Latin letters, with o' and g' as Uzbek writes them (so'rab, bo'ldi), never ö or ğ", "uz-cyrl": "Uzbek in Cyrillic letters", "en": "English"}
 log = logging.getLogger(__name__)
 
 INSTRUCTIONS = """\

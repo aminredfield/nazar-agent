@@ -132,3 +132,12 @@ def test_degrees_minutes_seconds_as_google_copies_them():
     assert near(point_in_text('Open a site at 41°17\'08.2"N 69°12\'12.2"E, shift 8 to 5'), 4) == (41.2856, 69.2034)
     assert near(point_in('41°17\'08.2"N 69°12\'12.2"E'), 4) == (41.2856, 69.2034)
     assert near(point_in("33°51′54″S 151°12′35″E"), 3) == (-33.865, 151.21)  # south, and the other quote marks
+
+
+async def test_a_pasted_link_with_a_port_that_is_not_a_number_is_said_not_a_crash():
+    seen: list[str] = []
+    async with redirects({}, seen) as client:
+        with pytest.raises(LinkError, match="not_a_map"):
+            await resolve("https://maps.app.goo.gl:abc/x", client)
+
+    assert seen == []  # refused before anything was fetched

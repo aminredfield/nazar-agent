@@ -128,6 +128,26 @@ async def test_schedule_change_needs_a_seen_site_and_some_confidence():
     assert bad_clock.problems and bad_clock.problems[0].startswith("shift_start")
 
 
+async def test_a_shorter_working_week_needs_a_strong_case_a_shifted_one_does_not():
+    # 08:00–18:00 → 09:00–17:00 is two hours a day less for the whole crew: a decision against people.
+    strong = Context("high", SkepticView("concern_supported", "r", (), ()))
+    shorter = {**PARAMS, "shift_start": "09:00", "shift_end": "17:00"}
+    fewer_days = {**PARAMS, "shift_start": "08:00", "shift_end": "18:00", "working_days": [1, 2, 3, 4, 5]}
+    night = {**PARAMS, "shift_start": "22:00", "shift_end": "08:00"}  # over midnight: ten hours, as before
+
+    async def checked(params, context=MEDIUM):
+        nazar, _, _ = fake_nazar()
+        return await validate_action("change_schedule", params, context=context, evidence=evidence_with_site(), nazar=nazar)
+
+    cut, days_cut, moved, at_night, allowed = (
+        await checked(shorter), await checked(fewer_days), await checked(PARAMS), await checked(night), await checked(shorter, strong)
+    )
+
+    assert "shorter working week" in cut.problems[0] and "60 → 48 h" in cut.problems[0]
+    assert "shorter working week" in days_cut.problems[0]
+    assert moved.valid and at_night.valid and allowed.valid
+
+
 async def test_schedule_change_keeps_the_rest_of_the_site_and_undoes_cleanly():
     nazar, site, seen = fake_nazar()
     spec = CATALOG["change_schedule"]

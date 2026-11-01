@@ -71,7 +71,9 @@ async def test_policy_guards_verdicts_and_unpaid_days():
     unsure, _ = await validate("review_event", {**confirm, "status": "insufficient_data"}, WEAK)
 
     assert "high confidence" in weak_confirm.problems[0]
-    assert strong_confirm.valid and strong_confirm.preview is None
+    assert strong_confirm.valid
+    # The review as it is now: confirmation refuses if someone reviews the check-in by hand meanwhile.
+    assert strong_confirm.preview.before == {"review_status": "not_reviewed", "review_comment": None}
     assert "not paying a day" in weak_void.problems[0]
     assert unsure.valid
 

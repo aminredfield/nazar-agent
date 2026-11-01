@@ -74,7 +74,7 @@ def action_text(action: dict[str, Any], index: int) -> str:
     preview = action.get("preview")
     if action["name"] == "change_schedule" and preview and preview.get("before") and preview.get("after"):
         lines.extend(_schedule_change(preview["before"], preview["after"]))
-    elif preview and preview.get("before") and preview.get("after"):
+    elif action["name"] != "review_event" and preview and preview.get("before") and preview.get("after"):
         for field, label in DAY_FIELDS.items():
             before, after = preview["before"].get(field), preview["after"].get(field)
             if before != after:

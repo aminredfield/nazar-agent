@@ -47,6 +47,9 @@ REPORT_REQUEST = """\
 Now write your report for the owner, as JSON matching the schema.
 
 - Use only what the tools returned in this conversation.
+- Durations of an hour or more in hours and minutes, as the owner pays
+  them: "60 h 27 min", never "3627 minutes"; minutes only for lateness and
+  other short times.
 - answer: the direct answer to what the owner asked, one fact per person,
   time or number — who was late and by how much, who is absent, who is on
   site, how many hours. Name every person the question asks about; a

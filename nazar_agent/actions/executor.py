@@ -88,8 +88,12 @@ class Executor:
                 fresh = await spec.preview(self.nazar, params)
             except ToolExecutionError as exc:
                 return self._fail(proposal_id, actor, "executing", "pending", str(exc))
+            except Exception as exc:  # a bug must not leave the proposal "executing" for ever
+                log.exception("previewing %s %s", proposal.action, proposal_id)
+                return self._fail(proposal_id, actor, "executing", "pending", f"{type(exc).__name__}: {exc}")
             seen_before = (proposal.preview or {}).get("before")
-            if fresh.before != seen_before:
+            # A review proposed before reviews had a preview carries none: nothing to compare it with.
+            if (seen_before is not None or proposal.level == "changes_pay") and fresh.before != seen_before:
                 self.store.transition(
                     proposal_id,
                     expected="executing",
@@ -132,6 +136,9 @@ class Executor:
             await spec.undo(self.nazar, spec.params.model_validate(proposal.params), proposal.result or {})
         except ToolExecutionError as exc:
             return self._fail(proposal_id, actor, "undoing", "executed", str(exc))
+        except Exception as exc:  # back to "executed": the owner can try Undo again, the audit says why
+            log.exception("undoing %s %s", proposal.action, proposal_id)
+            return self._fail(proposal_id, actor, "undoing", "executed", f"{type(exc).__name__}: {exc}")
         return self._move(proposal_id, "undoing", "undone", ("undone", actor, {}))
 
     def _get(self, proposal_id: str) -> Proposal:

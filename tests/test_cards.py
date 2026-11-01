@@ -93,6 +93,30 @@ async def test_a_stock_explanation_the_analyst_pasted_into_every_finding_is_left
     assert jasur.alternatives == (stock,)  # nothing better: a card is never left without one
 
 
+async def test_two_people_s_actions_on_one_record_go_back_and_never_reach_the_owner():
+    # Live, Nov 1: four reviews — for Tom, Grace, Megan, Fiona — all carried Tom's check-in id.
+    # "Apply" on Grace's would have written her comment into Tom's record.
+    def review(comment):
+        return action("review_event", event_id=factories.EVENT, status="insufficient_data", comment_or_reason=comment)
+
+    writer = ScriptedLLM([
+        turn(text=json.dumps({"plans": [{"case": 1, "check_steps": [], "why": "w",
+                                         "actions": [review("Зарина: check presence"), review("Grace: check presence")]}]})),
+        turn(text=json.dumps({"plans": [{"case": 1, "check_steps": [], "why": "w",
+                                         "actions": [review("Зарина: check presence")]}]})),
+    ])
+    team = Team(skeptic_says(opinion(1, "concern_supported")), "open", writer, "spark")
+    nazar, _ = factories.nazar()
+
+    result = await recommend(analysis(factories.finding(confidence="medium")), team, nazar, date(2026, 10, 27))
+
+    [card] = result.cards
+    assert [item.params.comment for item in card.actions] == ["Зарина: check presence"]
+    first, second = (request["input"] for request in writer.requests)
+    assert "Зарина Хакимова" in first  # each record the writer may act on comes with whose it is
+    assert "the same record as another action" in second
+
+
 async def test_an_action_with_a_missing_field_goes_back_to_the_writer_once():
     # Live: all four reviews of the Riverside card came back without event_id,
     # and the owner got a card with nothing to apply.

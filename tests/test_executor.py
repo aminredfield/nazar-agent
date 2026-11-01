@@ -145,6 +145,34 @@ async def test_undo_deactivates_the_adjustment(store):
     assert writes(seen)[-1] == ("DELETE", f"/timesheet/adjustments/{factories.ADJUSTMENT}")
 
 
+async def test_a_review_refuses_when_someone_reviewed_the_check_in_since_it_was_proposed(store):
+    # NAZAR says the check-in is not reviewed; the owner was shown it as reviewed by someone — it changed.
+    nazar, _ = factories.nazar()
+    as_seen = {"review_status": "not_reviewed", "review_comment": None}
+    changed = {"review_status": "no_violation", "review_comment": "checked by the foreman"}
+
+    def proposed(before):
+        return store.add(
+            action="review_event", level="record_only", params=REVIEW, preview={"before": before, "after": None},
+            context={"confidence": "medium", "skeptic_verdict": "inconclusive"},
+            card={"title": "t", "subject": {"name": "Зарина"}}, question="q", actor="nazar-agent",
+        )
+
+    done = await Executor(store, nazar).confirm(proposed(as_seen).id, "Шерзод")
+    with pytest.raises(ExecutionError) as stale:
+        await Executor(store, nazar).confirm(proposed(changed).id, "Шерзод")
+
+    assert done.status == "executed" and stale.value.code == "stale"
+
+
+async def test_a_review_proposed_before_it_had_a_preview_still_runs(store):
+    nazar, _ = factories.nazar()
+
+    done = await Executor(store, nazar).confirm(propose(store, "review_event", REVIEW, level="record_only").id, "Шерзод")
+
+    assert done.status == "executed"
+
+
 async def test_review_undo_restores_the_previous_status(store):
     nazar, seen = factories.nazar()
     executor = Executor(store, nazar)

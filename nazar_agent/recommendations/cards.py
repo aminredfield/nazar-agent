@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
 from nazar_agent.findings import Analysis, Evidence, Finding
@@ -21,7 +21,7 @@ from nazar_agent.findings.models import Confidence
 from nazar_agent.llm import LLMClient
 from nazar_agent.nazar import NazarClient
 from nazar_agent.progress import emit
-from nazar_agent.recommendations.catalog import Context, ValidatedAction, validate_action
+from nazar_agent.recommendations.catalog import CATALOG, Context, ValidatedAction, validate_action
 from nazar_agent.recommendations.composer import CaseInput, CasePlan, compose
 from nazar_agent.recommendations.skeptic import SkepticView, merge_confidence, run_skeptic
 
@@ -106,7 +106,8 @@ async def recommend(
     ]
     log.info("writer: recommendations on %s", team.writer_model)
     emit("writer", status="start", model=team.writer_model, cases=len(cases))
-    writer = await compose(team.writer_llm, team.writer_model, cases, today, question)
+    names = record_names(evidence)
+    writer = await compose(team.writer_llm, team.writer_model, cases, today, question, names=names)
     emit("writer", status="done", model=team.writer_model, actions=sum(len(plan.actions) for plan in writer.plans.values()))
     plans = dict(writer.plans)
     checked = {index: await _validated(plan, cases[index], evidence, nazar) for index, plan in plans.items()}
@@ -122,12 +123,15 @@ async def recommend(
     ]
     if fixable:
         emit("writer", status="start", model=team.writer_model, cases=len(cases), retry=True)
-        again = await compose(team.writer_llm, team.writer_model, cases, today, question, corrections=fixable)
+        again = await compose(team.writer_llm, team.writer_model, cases, today, question, corrections=fixable, names=names)
         writer_tokens = [writer_tokens[0] + again.input_tokens, writer_tokens[1] + again.output_tokens]
         retried = {index for index, actions in checked.items() if any(action.fixable for action in actions)}
         for index in retried & again.plans.keys():
             plans[index] = again.plans[index]
-            checked[index] = await _validated(plans[index], cases[index], evidence, nazar)
+            fresh = await _validated(plans[index], cases[index], evidence, nazar)
+            # What passed the first time stays, unless the second plan acts on the same record again.
+            kept = [action for action in checked[index] if action.valid]
+            checked[index] = _one_per_record(fresh + kept, drop_repeats=True)
         emit("writer", status="done", model=team.writer_model, actions=sum(len(plan.actions) for plan in plans.values()))
 
     stock = _stock_alternatives(findings)
@@ -162,7 +166,7 @@ async def recommend(
 
 
 async def _validated(plan: CasePlan, case: CaseInput, evidence: Evidence, nazar: NazarClient) -> list[ValidatedAction]:
-    return [
+    return _one_per_record([
         await validate_action(
             proposal.action,
             proposal.raw_params(),
@@ -171,7 +175,42 @@ async def _validated(plan: CasePlan, case: CaseInput, evidence: Evidence, nazar:
             nazar=nazar,
         )
         for proposal in plan.actions
-    ]
+    ])
+
+
+SAME_RECORD = "acts on the same record as another action in this case: each person needs their own record's id"
+
+
+def _one_per_record(actions: list[ValidatedAction], *, drop_repeats: bool = False) -> list[ValidatedAction]:
+    """One action of a kind per record in a card. Live, the writer gave four people's reviews one
+    person's check-in id; each passed alone, and "Apply" on Grace's would have written into Tom's.
+
+    A repeat goes back to the writer (``fixable``); ``drop_repeats`` — after the second try, the
+    same action said twice is left out quietly."""
+    seen: set[tuple[str, tuple[str, ...]]] = set()
+    kept: list[ValidatedAction] = []
+    for action in actions:
+        if not action.valid or action.params is None:
+            kept.append(action)
+            continue
+        key = (action.name, tuple(CATALOG[action.name].targets(action.params)))
+        if key in seen:
+            if not drop_repeats:
+                kept.append(replace(action, preview=None, problems=(SAME_RECORD,), fixable=True))
+            continue
+        seen.add(key)
+        kept.append(action)
+    return kept
+
+
+def record_names(evidence: Evidence) -> dict[str, str]:
+    """Whose each record is, as the tools named it: the writer picks a person's own record by it."""
+    names = {}
+    for record_id, record in evidence.records.items():
+        name = record.get("employee_name") or record.get("full_name") or record.get("object_name") or record.get("name")
+        if isinstance(name, str) and name:
+            names[record_id] = name
+    return names
 
 
 def _key(text: str) -> str:

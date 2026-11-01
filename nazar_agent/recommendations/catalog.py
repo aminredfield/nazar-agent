@@ -195,6 +195,25 @@ def _pay_cut_policy(preview: Preview, context: Context) -> str | None:
     return None
 
 
+def _week_minutes(schedule: dict[str, Any] | None) -> int | None:
+    """The hours a schedule pays in a week: a shift over midnight ends the next day."""
+    if not schedule or not schedule.get("shift_start") or not schedule.get("shift_end"):
+        return None
+    start, end = (int(part[:2]) * 60 + int(part[3:5]) for part in (schedule["shift_start"], schedule["shift_end"]))
+    return ((end - start) % (24 * 60)) * len(schedule.get("working_days") or [])
+
+
+def _shorter_week_policy(preview: Preview, context: Context) -> str | None:
+    """A schedule that moves the day is about the setting; one that pays a crew fewer hours is against people."""
+    before, after = _week_minutes(preview.before), _week_minutes(preview.after)
+    if before is not None and after is not None and after < before and not _strong_case(context):
+        return (
+            f"a shorter working week for everyone on the site ({before // 60} → {after // 60} h): "
+            "it needs high confidence and a skeptic who agrees"
+        )
+    return None
+
+
 def _schedule_policy(params: ChangeScheduleParams, context: Context) -> str | None:
     if context.confidence == "low":
         return "changing a site's schedule needs at least medium confidence"
@@ -265,6 +284,19 @@ async def _void_preview(nazar: NazarClient, params: VoidShiftParams) -> Preview:
 
 def _day_fields(row: dict[str, Any] | None) -> dict[str, Any] | None:
     return {field: row.get(field) for field in DAY_FIELDS} if row is not None else None
+
+
+REVIEW_FIELDS = ("review_status", "review_comment")
+
+
+async def _review_preview(nazar: NazarClient, params: ReviewEventParams) -> Preview:
+    """The check-in's review as the owner sees it now: if someone reviews it by hand before "Apply",
+    the executor finds the change and refuses rather than overwrite their decision."""
+    event = await call_nazar(nazar.get(f"/attendance/events/{params.event_id}"))
+    return Preview(
+        before={field: event.get(field) for field in REVIEW_FIELDS},
+        after={"review_status": params.status, "review_comment": params.comment},
+    )
 
 
 async def _review_execute(nazar: NazarClient, params: ReviewEventParams) -> dict[str, Any]:
@@ -390,7 +422,7 @@ CATALOG: dict[str, ActionSpec] = {
             params=ReviewEventParams,
             targets=lambda params: [str(params.event_id)],
             policy=_review_policy,
-            preview=None,
+            preview=_review_preview,
             execute=_review_execute,
             undo=_review_undo,
         ),
@@ -440,6 +472,7 @@ CATALOG: dict[str, ActionSpec] = {
             preview=_schedule_preview,
             execute=_schedule_execute,
             undo=_schedule_undo,
+            preview_policy=_shorter_week_policy,
         ),
     )
 }
