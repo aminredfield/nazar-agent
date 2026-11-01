@@ -74,7 +74,8 @@ def test_the_plan_is_built_by_code_a_location_per_workplace_a_shift_per_group():
         "Shift 07:00–15:00, Mon–Fri: Frank.",
         "Create the location “Fresh Market”.",
         "Shift 09:00–18:00, Mon, Wed, Fri: Andy.",
-        "Ask where they work — the picture does not say: Emma.",
+        # Her shift was in the picture: only the place is asked, the hours are kept.
+        "Ask where they work — the picture does not say: Emma (09:00–13:00, Mon).",
         "Add 5 people — each waits for a face photo before NAZAR creates them.",
     ]
 

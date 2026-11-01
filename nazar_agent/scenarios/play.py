@@ -24,7 +24,7 @@ from nazar_agent.recommendations.wording import WEEKDAYS
 from nazar_agent.usage import count
 
 ROLE = "scenario"
-LANG_NAMES = {"en": "English", "ru": "Russian", "uz": "Uzbek (Latin letters)"}
+LANG_NAMES = {"en": "English", "ru": "Russian", "uz": "Uzbek in Latin letters, with o' and g' as Uzbek writes them (so'rab, bo'ldi), never ö or ğ"}
 Verdict = Literal["consistent", "contradicts", "cannot_tell"]
 
 
@@ -137,7 +137,8 @@ async def read_roster(llm: LLMClient, model: str, picture: bytes, mime: str, lan
 def roster_plan(people: list[dict[str, Any]]) -> list[str]:
     """The plan in words, by code: a location per workplace, a shift per group working it alike."""
     places: dict[str, dict[tuple[str, str, tuple[int, ...]], list[str]]] = defaultdict(lambda: defaultdict(list))
-    nowhere = [person["name"].strip() for person in people if not person["workplace"].strip()]
+    # Only the place is missing: the hours the picture gave stay with the name, not lost.
+    nowhere = [_with_shift(person) for person in people if not person["workplace"].strip()]
     for person in people:
         if not person["workplace"].strip():
             continue
@@ -152,6 +153,14 @@ def roster_plan(people: list[dict[str, Any]]) -> list[str]:
         plan.append(f"Ask where they work — the picture does not say: {', '.join(nowhere)}.")
     plan.append(f"Add {len(people)} people — each waits for a face photo before NAZAR creates them.")
     return plan
+
+
+def _with_shift(person: dict[str, Any]) -> str:
+    name = person["name"].strip()
+    if not (person.get("shift_start") and person.get("shift_end")):
+        return name
+    days = _days(tuple(sorted(set(person.get("days") or []))))
+    return f"{name} ({person['shift_start']}–{person['shift_end']}{', ' + days if days else ''})"
 
 
 def _days(days: tuple[int, ...]) -> str:

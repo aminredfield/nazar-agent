@@ -281,7 +281,8 @@ function actionBlock(action, card) {
     el("div", { class: "title" }, L().ACTIONS[action.name] || action.name,
       el("span", { class: pays ? "level pay" : "level" }, pays ? t("pays") : t("no_pay"))),
     el("div", { class: "what" }, action.text),
-    previewTable(action.preview, action.name === "change_schedule" ? L().SCHEDULE_FIELDS : L().DAY_FIELDS),
+    action.name === "review_event" ? null
+      : previewTable(action.preview, action.name === "change_schedule" ? L().SCHEDULE_FIELDS : L().DAY_FIELDS),
     action.reason ? el("div", { class: "muted" }, t("reason_written", action.reason)) : null,
     card ? el("div", { class: "muted from" }, t("why", card.title, card.subject.name)) : null,
     buttons, result);

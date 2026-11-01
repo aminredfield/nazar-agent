@@ -32,7 +32,7 @@ def window(tmp_path, monkeypatch):
     with TestClient(app) as client:
         client.get("/api/me")  # the demo visitor's session
         assert client.post("/api/ask", json={"question": ASK}).status_code == 200
-        yield client, app.state.link.demo
+        yield client, app.state.assistants.world_of(client.cookies.get("nazar_agent_demo"))  # this browser's company
 
 
 def people(demo, name: str) -> str:

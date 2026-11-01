@@ -47,11 +47,17 @@ def test_without_its_own_key_the_skeptic_runs_on_meta(tmp_path):
     assert (own.skeptic_model, own.skeptic_api) == ("meta-models/muse-spark-open-1026", "chat_completions")
 
 
+def own_demo(client):
+    """The demo company of this browser: every visitor gets their own."""
+    client.get("/api/me")
+    return client.app.state.assistants.world_of(client.cookies.get("nazar_agent_demo"))
+
+
 @pytest.fixture
 def demo_window(tmp_path):
     app = create_app(settings(tmp_path, demo_mode=True, require_sign_in=True))
     with TestClient(app) as client:
-        yield client, app.state.link.demo
+        yield client, own_demo(client)
 
 
 def test_the_demo_window_opens_at_once_as_the_demo_owner(demo_window):
@@ -121,18 +127,21 @@ async def test_the_demo_day_fills_in_with_the_clock_and_a_new_day_starts_over():
     assert all(event.review_status == "not_reviewed" for event in demo.world.events)
 
 
-def test_every_demo_browser_asks_on_its_own_over_one_company(demo_window):
-    client, _ = demo_window
+def test_every_demo_browser_has_its_own_company_and_its_reset_touches_no_one_else(demo_window):
+    # Several judges at once: one presses "Reset demo" or "Apply" while another is mid-question.
+    client, mine = demo_window
     other = TestClient(client.app)
-
-    client.get("/api/me")
-    other.get("/api/me")
+    theirs = own_demo(other)
     assistants = client.app.state.assistants
     first = assistants.for_visitor(client.cookies.get("nazar_agent_demo"))
     second = assistants.for_visitor(other.cookies.get("nazar_agent_demo"))
+    theirs.world.events[0].review_status = "confirmed"  # the other visitor applied a review
 
-    assert first is not second
-    assert first.store is second.store  # one company, one audit trail
+    client.post("/api/demo/reset", json={})
+
+    assert first is not second and mine is not theirs
+    assert first.store.path != second.store.path  # proposals and the audit trail are each visitor's own
+    assert theirs.world.events[0].review_status == "confirmed"
 
 
 def test_the_one_command_demo_says_what_is_missing(monkeypatch, capsys):

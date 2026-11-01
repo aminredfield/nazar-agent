@@ -21,7 +21,7 @@ import contextlib
 import logging
 import mimetypes
 import secrets
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import date
@@ -52,7 +52,7 @@ from nazar_agent.errors import owner_message
 from nazar_agent.feedback import agreement
 from nazar_agent.limits import LimitReached, Limits
 from nazar_agent.nazar import NazarClient
-from nazar_agent.nazar.connect import NazarLink, connect
+from nazar_agent.nazar.connect import NazarLink, connect, demo_link
 from nazar_agent.onboarding import Draft, ImportRow, ParseError, PhotoRejected
 from nazar_agent.scenarios.acts import SceneDesk
 from nazar_agent.service.scenarios import PAGE_HEADERS, scenario_routes
@@ -129,7 +129,10 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         service = link.client() if link.has_service_account else None
         ledger = Ledger(Path(active.agent_db_path).with_name("usage.sqlite3"))
         reporter = NazarUsageReport(base_url=link.base_url, agent_key=link.agent_key, transport=link.transport)
-        assistants = Assistants(active, service=service, ledger=ledger, reporter=reporter)
+        assistants = Assistants(
+            active, service=service, ledger=ledger, reporter=reporter,
+            visitor_world=_visitor_world(active) if active.demo_mode and nazar_transport is None else None,
+        )
         sessions = Sessions(
             nazar_base_url=link.base_url,
             agent_key=link.agent_key,
@@ -235,12 +238,14 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         link: NazarLink = app.state.link
         if not current.demo or link.demo is None:
             raise HTTPException(404, "Not a demo.")
+        # This browser's own company: another visitor's, mid-question, is not touched.
+        demo = app.state.assistants.world_of(current.session_id) or link.demo
         if current.assistant.busy:
             raise HTTPException(429, "The agent is working on a question. Wait for it to finish.")
-        link.demo.reset()
+        demo.reset()
         current.assistant.forget()
         app.state.scene_desk.forget(current.session_id)
-        return {"reset": True, "now": link.demo.world.now.isoformat()}
+        return {"reset": True, "now": demo.world.now.isoformat()}
 
     @app.post("/api/ask")
     async def ask(http: Request, request: AskRequest, current: Caller = Depends(caller)) -> dict[str, Any]:
@@ -535,6 +540,16 @@ def _fresh(assistant: Assistant, view: dict[str, Any]) -> dict[str, Any]:
             for card in view["cards"]
         ],
     }
+
+
+def _visitor_world(settings: Settings) -> Callable[[], tuple[NazarClient, Any]]:
+    """A demo company of its own for each browser: built in a tenth of a second, under a megabyte."""
+
+    def build() -> tuple[NazarClient, Any]:
+        link = demo_link(settings)
+        return link.client(), link.demo
+
+    return build
 
 
 def _reserve(

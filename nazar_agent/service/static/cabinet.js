@@ -108,6 +108,14 @@ function showPrefs() {
 for (const button of $("lang-seg").children) {
   button.addEventListener("click", () => { setLang(button.dataset.lang); showPrefs(); if (shown) draw(shown); });
 }
+// The language switched on the scene's page (or in another tab) reaches the cabinet too:
+// its ready answers were left in English when the page around them turned Russian.
+window.addEventListener("storage", (event) => {
+  if (event.key !== "lang" || event.newValue === LANG) return;
+  setLang(event.newValue);
+  showPrefs();
+  if (shown) draw(shown);
+});
 document.body.classList.toggle("cab-embedded", embedded);
 // Inside the scene's page the frame grows with the conversation, so there is one scroll, the page's.
 if (embedded) {

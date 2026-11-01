@@ -64,7 +64,9 @@ sample face fills the photo queue.
 sites with their shifts and people, groups, everyone's status today, a week of the timesheet and
 today's check-ins. Press **Apply** on a card (or **Apply all** on a setup plan)
 and the tab marks what changed — a site's new shift, a new site and group,
-people put on it, a check-in's review; **Undo** puts it back. **Reset the
+people put on it, a check-in's review; **Undo** puts it back. Every browser
+has a demo company of its own, so what one visitor applies or resets nobody
+else sees. **Reset the
 demo** (top right) returns the company to this morning; it also starts over
 every night.
 
@@ -152,11 +154,13 @@ Design rules:
 - **Code counts, models interpret.** Which phones several people check in
   from, and since when, is counted by code over every check-in of the
   period; the analyst reads the summary instead of paging through events.
-- **Photos of people go only to open weights.** The analyst cannot see
-  images; it names check-ins, and the photo inspector — Muse Spark Open, a
-  model a company can run in its own country — describes what is in them.
-  It describes; it does not judge, and its words are cited as what another
-  model saw, not as proof.
+- **The analyst never sees a check-in photo.** It names check-ins, and the
+  photo inspector — Muse Spark Open, a model a company can run in its own
+  country — describes what is in them. It describes; it does not judge, and
+  its words are cited as what another model saw, not as proof. Two other
+  pictures go to Muse Spark 1.3 vision: a list of names to import (a notebook,
+  a sheet) and the staged pictures of the Scenarios page, drawn by Muse Image.
+  Without a Baseten key the inspector, too, runs on Muse Spark 1.2.
 
 ## How a fact gets checked
 
@@ -188,10 +192,10 @@ explanation likely, the card is low confidence whatever the analyst thought;
 without a skeptic's opinion it never goes above medium.
 
 A recommendation writer then picks actions from a fixed catalog — one per
-person a case is about, at most six. Code validates each one: typed
+person a case is about, each on that person's own record, at most six. Code validates each one: typed
 parameters, only records a tool actually returned, policy (recording a
-confirmed violation, not paying a day, or new hours that lower what a day
-pays need high confidence *and* a skeptic who agrees — the last one judged on
+confirmed violation, not paying a day, new hours that lower what a day
+pays, or a site schedule that gives the crew a shorter week need high confidence *and* a skeptic who agrees — the last one judged on
 NAZAR's own numbers, at proposal and again at confirmation), and for anything
 that changes pay, NAZAR's own preview of the day before and after. An action
 with a field left empty or an id from nowhere goes back to the writer once
@@ -367,8 +371,8 @@ changes pay is refused by the server unless the visitor confirmed it twice.
 
 | Role | Model |
 |---|---|
-| Dispatcher, analysts, recommendation writer | Muse Spark 1.3 — tool calling, structured output, vision |
-| Skeptic, nightly scan, anything with photos or personal data | Muse Spark Open (open weights) — on Baseten here, self-hosted later. Without a Baseten key (`SKEPTIC_API_KEY`, as in a plain `docker compose up`) they fall back to Muse Spark 1.2 on the Meta key, and the window says so |
+| Dispatcher, analysts, recommendation writer; reading a list to import and the Scenarios' pictures | Muse Spark 1.3 — tool calling, structured output, vision |
+| Skeptic, nightly scan, the photo inspector (check-in selfies) | Muse Spark Open (open weights) — on Baseten here, self-hosted later. Without a Baseten key (`SKEPTIC_API_KEY`, as in a plain `docker compose up`) they fall back to Muse Spark 1.2 on the Meta key, and the window says so |
 | Voice messages (Russian, Uzbek) | Muse Spark 1.2 audio input (Muse Voice Transcribe does not cover Russian or Uzbek) |
 | Faces of the demo companies' employees | Muse Image 1.0, web and image search off |
 
@@ -546,8 +550,8 @@ unexcused absence before paying is right.
 
 Two ways in. **Without NAZAR**: the demo above runs as a container next to
 NAZAR ([`deploy/docker-compose.demo.yml`](deploy/docker-compose.demo.yml)) at
-its own address; every browser asks on its own, visitors share the demo
-company, and it starts over every day. **Through NAZAR**: everyone who tries
+its own address; every browser asks on its own and gets a demo company of
+its own (built in a tenth of a second), and it starts over every day. **Through NAZAR**: everyone who tries
 it signs in to the same NAZAR demo company and opens the assistant from its
 cabinet. Each window session may ask a limited
 number of questions, and all sessions together have a daily budget in

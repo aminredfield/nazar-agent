@@ -17,6 +17,7 @@ it (``nazar_agent.dialog``).
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
@@ -55,7 +56,7 @@ from nazar_agent.views import answer_view
 from nazar_agent.voice import transcribe
 
 ANALYSTS = {"attendance": attendance_analyst, "timesheet": timesheet_analyst}
-MAX_VISITORS = 500  # demo browsers kept in memory; the oldest idle one goes first
+MAX_VISITORS = 300  # demo browsers kept in memory, each with its own demo company; the oldest idle one goes first
 log = logging.getLogger(__name__)
 T = TypeVar("T")
 
@@ -377,12 +378,16 @@ class Assistants:
         service: NazarClient | None = None,
         ledger: Ledger | None = None,
         reporter: NazarUsageReport | None = None,
+        visitor_world: Callable[[], tuple[NazarClient, Any]] | None = None,
     ) -> None:
+        """``visitor_world`` — in the demo, a new demo company and its client for each browser."""
         self._settings = settings
         self._ledger = ledger
         self._reporter = reporter
+        self._visitor_world = visitor_world
         self._by_company: dict[str, Assistant] = {}
         self._visitors: dict[str, Assistant] = {}
+        self._worlds: dict[str, Any] = {}
         self.service = (
             Assistant(settings, ProposalStore(settings.agent_db_path), service=service, ledger=ledger, reporter=reporter)
             if service is not None
@@ -392,8 +397,8 @@ class Assistants:
     def for_visitor(self, session_id: str) -> Assistant:
         """A demo browser's own assistant: its own question at a time and last answer.
 
-        Visitors share the demo company, its proposals and audit trail, but one
-        visitor's question does not keep another waiting.
+        With ``visitor_world`` each browser also has its own demo company, proposals and
+        audit trail: one judge's "Reset demo" or "Apply" never changes what another sees.
         """
         if self.service is None:
             raise RuntimeError("a demo visitor needs the service account")
@@ -401,11 +406,30 @@ class Assistants:
             if len(self._visitors) >= MAX_VISITORS:
                 idle = next((key for key, item in self._visitors.items() if not item.busy), None)
                 if idle is not None:
-                    del self._visitors[idle]  # the oldest idle one: dicts keep insertion order
+                    self._forget_visitor(idle)  # the oldest idle one: dicts keep insertion order
+            store, client = self.service.store, self.service.service
+            if self._visitor_world is not None:
+                client, self._worlds[session_id] = self._visitor_world()
+                store = ProposalStore(self._visitor_path(session_id))
             self._visitors[session_id] = Assistant(
-                self._settings, self.service.store, service=self.service.service, ledger=self._ledger, reporter=self._reporter
+                self._settings, store, service=client, ledger=self._ledger, reporter=self._reporter
             )
         return self._visitors[session_id]
+
+    def world_of(self, session_id: str) -> Any | None:
+        """This browser's demo company, to reset; None outside the demo."""
+        return self._worlds.get(session_id)
+
+    def _visitor_path(self, session_id: str) -> Path:
+        key = hashlib.sha256(session_id.encode()).hexdigest()[:24]  # the session id is a credential: only a hash on disk
+        return Path(self._settings.agent_db_path).with_name(f"visitor-{key}.sqlite3")
+
+    def _forget_visitor(self, session_id: str) -> None:
+        del self._visitors[session_id]
+        if self._worlds.pop(session_id, None) is not None:
+            path = self._visitor_path(session_id)
+            for stale in path.parent.glob(f"{path.name}*"):
+                stale.unlink(missing_ok=True)
 
     def for_company(self, company_id: str) -> Assistant:
         if company_id not in self._by_company:

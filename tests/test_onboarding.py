@@ -234,14 +234,14 @@ def test_a_file_is_known_by_its_first_bytes_not_by_the_type_it_was_sent_with():
 
     assert file_type(xlsx.getvalue(), "application/octet-stream") in SHEET_TYPES
     assert file_type(b"\xff\xd8\xff\xe0jpeg", "") == "image/jpeg"
-    assert file_type("name,site\nUmida,".encode(), "application/octet-stream") == "text/plain"
+    assert file_type(b"name,site\nUmida,", "application/octet-stream") == "text/plain"
     assert file_type(b"\x00\x01binary", "application/octet-stream") == "application/octet-stream"
 
 
 def test_a_csv_is_text_whatever_type_windows_gives_it():
     from nazar_agent.onboarding.parse import file_type
 
-    csv = "Full name,Site\nJason Taylor,Riverside\n".encode()
+    csv = b"Full name,Site\nJason Taylor,Riverside\n"
     # Windows with Excel installed sends .csv as an Excel type; other systems as text/csv or application/csv.
     for declared in ("application/vnd.ms-excel", "application/csv", "text/csv", "text/x-csv"):
         assert file_type(csv, declared).startswith("text/"), declared
