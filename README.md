@@ -331,6 +331,29 @@ The first run found a real gap: coordinates written inside a sentence were
 not read (only a message that was nothing but two numbers). Fixed, and the
 run above is the second.
 
+## Scenarios: the abilities coming to NAZAR next
+
+`/scenarios` is a gallery of four problems beyond the demo company — a café,
+a store, a cleaning crew, a factory — each on its own page with why it
+matters, what the agent does and three steps. The records of each scene are
+written for it (the page says so); the models are live.
+
+| Page | The problem | What the model does | What the agent then proposes |
+|---|---|---|---|
+| At work, says the GPS (`/scenarios/gps`) | a fake-GPS app checks someone in from home | compares the new check-in's background with the place's earlier selfies (Muse Spark 1.3 vision) | not the place → flag for the manager's review, ask for a live selfie; the same place → close with no violation |
+| Ask before you fine (`/scenarios/explain`) | a fine on a wrong reading starts a dispute | writes to the employee in their language, then checks their answer against the records: fits, contradicts, cannot tell | fits → close with no violation (Owen, who says he did not come: don't count the day — asked once more, it changes pay); otherwise → flag for review |
+| Who is really on shift (`/scenarios/headcount`) | one person checks in friends who are not there | counts the people in one team photo and compares with the check-ins — no face recognition | fewer in the photo → ask everyone who checked in for a live selfie; all there → close |
+| Set up from a picture (`/scenarios/roster`) | typing every person and shift into a new system | reads a spreadsheet or a chat message in two languages into a plan; what the picture does not say is left empty and asked | the plan, applied in NAZAR with Apply all |
+
+The actions are picked by code from the verdict, from four — flag for review,
+close with no violation, don't count the day, ask for a live selfie — and
+nothing else ([`scenarios/acts.py`](nazar_agent/scenarios/acts.py)); the
+visitor applies, skips or undoes each, on the scene's own record. In "Ask
+before you fine" the question arrives in a test **employee cabinet**
+(`/scenarios/explain/cabinet`, also inside the page): the employee answers by
+a tap or in their own words and never sees the verdict; the owner's window
+gets the answer, the verdict and the actions.
+
 ## Meta models
 
 | Role | Model |
@@ -552,6 +575,7 @@ visitor applied is gone by morning. Deployment next to NAZAR:
 | Every model call recorded: role, model, tokens, price (an estimate where no price is published); spend today, this week and in all in the window and `/usage` in the bot | done |
 | Public demo: limits per session and per day, nightly reset, container next to NAZAR, always a working morning | done |
 | The window explains itself: one line on the first screen, the company's faces, six one-click cards, import samples, a Company tab that marks what Apply changed, a page per scenario with why it matters | done |
+| Scenarios: four pages, actions picked by code from each verdict with Apply / Undo, a test employee cabinet the question arrives in | done (every scene, verdict and action checked against the live model: 74/74) |
 | Demo NAZAR in the repository: the demo company in memory, every route checked against recorded real answers, `DEMO_MODE`, one-command start | done |
 
 ## Run it against NAZAR
