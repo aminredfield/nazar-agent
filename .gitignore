@@ -18,7 +18,11 @@ htmlcov/
 .vscode/
 .DS_Store
 
-evals-results/
+# Eval runs: the summaries are kept, so the numbers in the README can be checked;
+# the full answers and their databases stay local.
+evals-results/*/*
+!evals-results/*/summary.md
+!evals-results/setup-*/S*.json
 
 deploy/.env
 deploy/demo.env

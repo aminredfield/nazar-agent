@@ -1,0 +1,24 @@
+{
+ "id": "S07",
+ "lang": "ru",
+ "messages": [
+  "Удали объект «Sergeli warehouse»"
+ ],
+ "passed": false,
+ "failed": {
+  "read as unsupported": "got []",
+  "error": "APIConnectionError: Connection error."
+ },
+ "checks": 2,
+ "cost_usd": 0.0,
+ "seconds": 0,
+ "outcome": {
+  "replies": [],
+  "setup": null,
+  "applied": null,
+  "before": null,
+  "after_apply": null,
+  "after_undo": null,
+  "error": "APIConnectionError: Connection error."
+ }
+}

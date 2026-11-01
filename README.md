@@ -164,8 +164,11 @@ An analyst investigates with its tools, then writes its report with
 structured output: findings made of facts, a hypothesis and innocent
 alternatives. Every value a fact relies on is also stated as a claim — record
 id, field, value. The fact checker, plain code, looks each claim up in what
-the tools actually returned in this run. Problems go back to the model as a
-list; what still fails after two rounds is removed and shown separately.
+the tools actually returned in this run, and every number the owner reads —
+in a fact's own words, the summary, a hypothesis — must be one a tool
+returned (the digits of an id do not count). Problems go back to the model as
+a list; what still fails after two rounds is removed and shown separately. A
+number in a hypothesis alone costs no extra round: its sentence is cut.
 
 A real example from development: the model wrote that an earlier check-in
 was "also 6.6 km from the shop". 6.6 km was the distance *between* the two
@@ -184,12 +187,16 @@ confidence comes from fixed rules in code: if the skeptic finds an innocent
 explanation likely, the card is low confidence whatever the analyst thought;
 without a skeptic's opinion it never goes above medium.
 
-A recommendation writer then picks at most two actions per card from a fixed
-catalog. Code validates each one: typed parameters, only records a tool
-actually returned, policy (recording a confirmed violation or not paying a
-day needs high confidence *and* a skeptic who agrees), and for anything that
-changes pay, NAZAR's own preview of the day before and after. Actions in the
-employee's favour — counting a shift from the real arrival — are encouraged.
+A recommendation writer then picks actions from a fixed catalog — one per
+person a case is about, at most six. Code validates each one: typed
+parameters, only records a tool actually returned, policy (recording a
+confirmed violation, not paying a day, or new hours that lower what a day
+pays need high confidence *and* a skeptic who agrees — the last one judged on
+NAZAR's own numbers, at proposal and again at confirmation), and for anything
+that changes pay, NAZAR's own preview of the day before and after. An action
+with a field left empty or an id from nowhere goes back to the writer once
+with the reasons; a policy refusal does not. Actions in the employee's
+favour — counting a shift from the real arrival — are encouraged.
 
 ## Applying an action
 
@@ -352,14 +359,16 @@ visitor applies, skips or undoes each, on the scene's own record. In "Ask
 before you fine" the question arrives in a test **employee cabinet**
 (`/scenarios/explain/cabinet`, also inside the page): the employee answers by
 a tap or in their own words and never sees the verdict; the owner's window
-gets the answer, the verdict and the actions.
+gets the answer, the verdict and the actions. The answer reaches the model
+between markers, as data to check, never as an instruction; an action that
+changes pay is refused by the server unless the visitor confirmed it twice.
 
 ## Meta models
 
 | Role | Model |
 |---|---|
 | Dispatcher, analysts, recommendation writer | Muse Spark 1.3 — tool calling, structured output, vision |
-| Skeptic, nightly scan, anything with photos or personal data | Muse Spark Open (open weights) — on Baseten here, self-hosted later |
+| Skeptic, nightly scan, anything with photos or personal data | Muse Spark Open (open weights) — on Baseten here, self-hosted later. Without a Baseten key (`SKEPTIC_API_KEY`, as in a plain `docker compose up`) they fall back to Muse Spark 1.2 on the Meta key, and the window says so |
 | Voice messages (Russian, Uzbek) | Muse Spark 1.2 audio input (Muse Voice Transcribe does not cover Russian or Uzbek) |
 | Faces of the demo companies' employees | Muse Image 1.0, web and image search off |
 
@@ -421,6 +430,7 @@ money, no false accusation, no forbidden action.
 
 ```bash
 python -m nazar_agent.evals.bank                 # all 72; --intent I J or --id A03 for some
+# every run's summary.md is kept in evals-results/ (the full answers stay local)
 python -m nazar_agent.evals.bank --rescore DIR   # check saved answers again, ask nothing
 ```
 
@@ -453,6 +463,15 @@ in Uzbek Cyrillic, the answer named Mike Turner as «Майк Тернер». Th
 now keeps people's and sites' names in the letters NAZAR has them in, so the
 owner can find them there; with that, both passed, and so did the other 14
 questions that name someone in Russian or Uzbek.
+
+After a review the evening of Nov 1 — every number in a fact's own words
+checked, an action with an empty field sent back to the writer, an example
+asked as a new conversation — the kinds most touched by it were asked again:
+A, B, C, D and N, **27/27**, $0.025 a question; and the three planted cases
+twice each, 6/6, no one falsely accused
+([`evals-results/bank-2026-11-01-213634`](evals-results/bank-2026-11-01-213634/summary.md),
+[`2026-11-01-213633`](evals-results/2026-11-01-213633/summary.md)). Every
+run's `summary.md` is kept in [`evals-results/`](evals-results/).
 
 What moved the numbers:
 - **A dispatcher that reads the request.** One structured call gives the
@@ -533,9 +552,11 @@ it signs in to the same NAZAR demo company and opens the assistant from its
 cabinet. Each window session may ask a limited
 number of questions, and all sessions together have a daily budget in
 dollars (`DEMO_QUESTIONS_PER_SESSION`, `DEMO_BUDGET_USD_PER_DAY`); the
-window says so when a limit is reached. A question is counted before any
-model runs and its cost is added even if it fails; a model without a known
-price is counted at a high one. Signing in again gives a new session, so the
+window says so when a limit is reached. A question is counted, and what it
+may cost is held on the budget, before any model runs — so questions still
+running count too, and a crowd asking at once cannot slip under it; its real
+cost replaces the hold even if it fails, a scene's too; a model without a
+known price is counted at a high one. Signing in again gives a new session, so the
 per-session limit only paces a visitor — the daily budget is what protects
 the credits. What a visitor types when disagreeing reaches the models only
 as a short quoted line, marked as data. Every night the demo company is

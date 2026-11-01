@@ -1,0 +1,169 @@
+{
+ "id": "S05",
+ "lang": "ru",
+ "messages": [
+  "Открой новый объект Northside Depot"
+ ],
+ "passed": true,
+ "failed": {},
+ "checks": 3,
+ "cost_usd": 0.0003,
+ "seconds": 9,
+ "outcome": {
+  "replies": [
+   "setup"
+  ],
+  "setup": {
+   "sites": [
+    {
+     "id": "a3d13788-fed6-583b-b06d-67f1e8d68601",
+     "name": "Riverside Tower, block 3",
+     "latitude": 41.28032,
+     "longitude": 69.19115
+    },
+    {
+     "id": "b87f589a-60ce-5ab9-a2b9-aa17dc4c3f63",
+     "name": "Eastgate warehouse",
+     "latitude": 41.22681,
+     "longitude": 69.21904
+    },
+    {
+     "id": "3dc17ae2-3b9a-5b75-b9c1-f0f2054c7229",
+     "name": "Maple Court residential, finishing",
+     "latitude": 41.30692,
+     "longitude": 69.33641
+    }
+   ],
+   "groups": [
+    {
+     "id": "d14ad909-fb2c-5e2b-af78-b9ce5ba0394e",
+     "name": "Riverside crew"
+    },
+    {
+     "id": "e685aea3-4128-5629-bf20-b38c4e7375e7",
+     "name": "Eastgate crew"
+    },
+    {
+     "id": "1885b3a7-9438-56c2-889a-56a3d17505ae",
+     "name": "Maple Court finishing crew"
+    }
+   ],
+   "employees": [
+    {
+     "id": "e46b1f5f-887d-5832-a49a-a470ded6e90d",
+     "name": "Mike Turner"
+    },
+    {
+     "id": "40bd4aea-8c11-5125-a1c2-7afa5b662885",
+     "name": "Adam Novak"
+    },
+    {
+     "id": "fb68f4d9-de05-5415-8da8-98fda8694a6f",
+     "name": "Ben Carter"
+    },
+    {
+     "id": "f86f9cfa-5efc-5e93-8317-5d36a319d646",
+     "name": "Ian Foster"
+    },
+    {
+     "id": "29d5797d-e721-569b-942b-3fe8bb7e93f3",
+     "name": "Nora Sanders"
+    },
+    {
+     "id": "f45d4bc2-b62b-571d-a798-f61e7f87b05f",
+     "name": "Sam Ellis"
+    },
+    {
+     "id": "91660528-51b5-5512-a4c8-3197b251c9e1",
+     "name": "Tom Harris"
+    },
+    {
+     "id": "099a0cf9-610a-5201-9ce9-ce797a418dc3",
+     "name": "Grace Ingram"
+    },
+    {
+     "id": "d30c3445-8429-505f-83b8-6055edaaaa6f",
+     "name": "Megan Young"
+    },
+    {
+     "id": "2e147c0d-6b0c-5d15-ab8c-6486dcb680dc",
+     "name": "Fiona Carter"
+    },
+    {
+     "id": "54507611-7336-5b4a-a916-b5eaba28af93",
+     "name": "Daniel Morgan"
+    },
+    {
+     "id": "213cc95b-d1cf-5d4e-9b39-9f31268880f8",
+     "name": "Henry Ross"
+    },
+    {
+     "id": "c4028767-c3ec-5619-9c38-4224a062b166",
+     "name": "Alex Baker"
+    },
+    {
+     "id": "7b4e03dd-a747-5dde-9d84-6837f75404ad",
+     "name": "Zoe Nash"
+    },
+    {
+     "id": "204bb795-096f-5756-a03b-555901a6c167",
+     "name": "Kate Palmer"
+    },
+    {
+     "id": "8eeff3f4-bd1a-5bd2-abfd-2edfdb230d56",
+     "name": "Diana Evans"
+    }
+   ],
+   "draft": {
+    "id": "6a934fc2cc78",
+    "lang": "ru",
+    "site": {
+     "name": "Northside Depot",
+     "address": "",
+     "latitude": null,
+     "longitude": null,
+     "point_source": "",
+     "radius_meters": 100,
+     "existing_id": "",
+     "state": "keep"
+    },
+    "shift": {
+     "start": "",
+     "end": "",
+     "days": [],
+     "state": "keep"
+    },
+    "group": {
+     "name": "",
+     "existing_id": "",
+     "state": "keep"
+    },
+    "people": [],
+    "link_problem": ""
+   },
+   "steps": [],
+   "missing": [
+    {
+     "kind": "point",
+     "about": "",
+     "text": "Где объект? Поставьте точку на карте, вставьте ссылку Яндекс или Google Карт или нажмите «Я здесь»."
+    },
+    {
+     "kind": "shift",
+     "about": "",
+     "text": "Какая смена на объекте: с какого до какого часа и в какие дни?"
+    }
+   ],
+   "clashes": [],
+   "unknown_schedules": "",
+   "link_problem": "",
+   "preview": [],
+   "ready": false
+  },
+  "applied": null,
+  "before": null,
+  "after_apply": null,
+  "after_undo": null,
+  "error": null
+ }
+}

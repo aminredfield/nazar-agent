@@ -1,0 +1,564 @@
+{
+ "id": "S04",
+ "lang": "uz",
+ "messages": [
+  "Yashnobod obyektiga ikkinchi smena guruhini qo'y: soat 14:00 dan 22:00 gacha, dushanbadan jumagacha"
+ ],
+ "passed": true,
+ "failed": {},
+ "checks": 6,
+ "cost_usd": 0.0011,
+ "seconds": 40,
+ "outcome": {
+  "replies": [
+   "setup"
+  ],
+  "setup": {
+   "sites": [
+    {
+     "id": "3c70743f-fb44-57eb-bfd7-9b13a90816d0",
+     "name": "Chilonzor City, block 3",
+     "latitude": 41.28032,
+     "longitude": 69.19115
+    },
+    {
+     "id": "43d2ce82-76bc-519d-a984-f2ac9f355fa2",
+     "name": "Sergeli warehouse",
+     "latitude": 41.22681,
+     "longitude": 69.21904
+    },
+    {
+     "id": "37598566-6e0e-5415-85ee-288eb18be4f0",
+     "name": "Yashnobod residential, finishing",
+     "latitude": 41.30692,
+     "longitude": 69.33641
+    }
+   ],
+   "groups": [
+    {
+     "id": "8b2eebba-6c38-51fc-9f37-77cb4d6424c0",
+     "name": "Chilonzor crew"
+    },
+    {
+     "id": "d4973295-790a-516f-9917-26d9dd056926",
+     "name": "Sergeli crew"
+    },
+    {
+     "id": "1eb63e5b-6d41-5c12-a0c9-c503fba3e37c",
+     "name": "Yashnobod finishing crew"
+    }
+   ],
+   "employees": [
+    {
+     "id": "c3fc10bc-a9b5-56be-b921-1a9a16590ec8",
+     "name": "Rustam Yuldashev"
+    },
+    {
+     "id": "b7facda8-f50c-5a99-a897-a19284dcecb8",
+     "name": "Azamat Normatov"
+    },
+    {
+     "id": "cd76d506-ac73-50a2-90f6-871f5a017cdb",
+     "name": "Bobur Karimov"
+    },
+    {
+     "id": "b6b91675-e35e-5b56-93ab-4c1b06746c83",
+     "name": "Ilhom Turaev"
+    },
+    {
+     "id": "c48e186b-e3a0-5660-9571-c83e467d5b1b",
+     "name": "Nodira Safarova"
+    },
+    {
+     "id": "f2709a1f-7b47-5916-8e12-7c698ff33a13",
+     "name": "Sherzod Alimov"
+    },
+    {
+     "id": "2bda8eb6-ac73-56b9-8c30-11e8adfe2f23",
+     "name": "Timur Hasanov"
+    },
+    {
+     "id": "6377a1ec-053f-5ebe-a837-9dce18f68676",
+     "name": "Gulchehra Ibragimova"
+    },
+    {
+     "id": "8439310c-c53a-5f08-8c3d-25cc071b753e",
+     "name": "Mohira Yunusova"
+    },
+    {
+     "id": "cea64ea6-cee2-5d64-ac4e-be727e3145be",
+     "name": "Feruza Karimova"
+    },
+    {
+     "id": "3c3547c3-a79d-5895-8dc3-c4463d4d24ab",
+     "name": "Dilshod Mirzaev"
+    },
+    {
+     "id": "bad88efe-d053-5913-bf5e-3fafea1e5ade",
+     "name": "Hurshid Rahmonov"
+    },
+    {
+     "id": "5eefa0a3-ede4-5068-85d3-5bdfb084a676",
+     "name": "Anvar Bakirov"
+    },
+    {
+     "id": "ba91b475-c70e-518f-b12d-ec86998ed85f",
+     "name": "Zuhra Nabieva"
+    },
+    {
+     "id": "d4231e20-de99-505c-886c-b07eaa56a9a2",
+     "name": "Kamola Tashpulatova"
+    },
+    {
+     "id": "b7769a22-7ba3-5ee4-a65a-2227c243eb08",
+     "name": "Dilfuza Ergasheva"
+    }
+   ],
+   "draft": {
+    "id": "b0a36edbcd61",
+    "lang": "uz",
+    "site": {
+     "name": "Yashnobod residential, finishing",
+     "address": "",
+     "latitude": null,
+     "longitude": null,
+     "point_source": "",
+     "radius_meters": 100,
+     "existing_id": "37598566-6e0e-5415-85ee-288eb18be4f0",
+     "state": "keep"
+    },
+    "shift": {
+     "start": "14:00",
+     "end": "22:00",
+     "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "state": "keep"
+    },
+    "group": {
+     "name": "Ikkinchi smena guruhi",
+     "existing_id": "",
+     "state": "keep"
+    },
+    "people": [],
+    "link_problem": ""
+   },
+   "steps": [
+    {
+     "kind": "create_group",
+     "text": "«Ikkinchi smena guruhi» guruhini yaratish."
+    },
+    {
+     "kind": "group_on_site",
+     "text": "«Ikkinchi smena guruhi» guruhini «Yashnobod residential, finishing» obyektiga o'z smenasi bilan qo'yish: 14:00–22:00, Du–Ju."
+    }
+   ],
+   "missing": [],
+   "clashes": [],
+   "unknown_schedules": "",
+   "link_problem": "",
+   "preview": [
+    {
+     "date": "2026-10-28",
+     "working": true,
+     "from": "14:00",
+     "to": "22:00"
+    },
+    {
+     "date": "2026-10-29",
+     "working": true,
+     "from": "14:00",
+     "to": "22:00"
+    },
+    {
+     "date": "2026-10-30",
+     "working": true,
+     "from": "14:00",
+     "to": "22:00"
+    },
+    {
+     "date": "2026-10-31",
+     "working": false,
+     "from": null,
+     "to": null
+    },
+    {
+     "date": "2026-11-01",
+     "working": false,
+     "from": null,
+     "to": null
+    },
+    {
+     "date": "2026-11-02",
+     "working": true,
+     "from": "14:00",
+     "to": "22:00"
+    },
+    {
+     "date": "2026-11-03",
+     "working": true,
+     "from": "14:00",
+     "to": "22:00"
+    }
+   ],
+   "ready": true
+  },
+  "applied": {
+   "id": "78f32908d3ee",
+   "status": "applied",
+   "steps": [
+    {
+     "text": "«Ikkinchi smena guruhi» guruhini yaratish.",
+     "done": true,
+     "undone": false
+    },
+    {
+     "text": "«Ikkinchi smena guruhi» guruhini «Yashnobod residential, finishing» obyektiga o'z smenasi bilan qo'yish: 14:00–22:00, Du–Ju.",
+     "done": true,
+     "undone": false
+    }
+   ],
+   "error": null
+  },
+  "before": {
+   "sites": [
+    "Chilonzor City, block 3",
+    "Sergeli warehouse",
+    "Yashnobod residential, finishing"
+   ],
+   "groups": [
+    [
+     "Chilonzor crew",
+     [
+      "2bda8eb6-ac73-56b9-8c30-11e8adfe2f23",
+      "6377a1ec-053f-5ebe-a837-9dce18f68676",
+      "8439310c-c53a-5f08-8c3d-25cc071b753e",
+      "b6b91675-e35e-5b56-93ab-4c1b06746c83",
+      "b7facda8-f50c-5a99-a897-a19284dcecb8",
+      "c3fc10bc-a9b5-56be-b921-1a9a16590ec8",
+      "c48e186b-e3a0-5660-9571-c83e467d5b1b",
+      "cd76d506-ac73-50a2-90f6-871f5a017cdb",
+      "cea64ea6-cee2-5d64-ac4e-be727e3145be",
+      "f2709a1f-7b47-5916-8e12-7c698ff33a13"
+     ]
+    ],
+    [
+     "Sergeli crew",
+     [
+      "3c3547c3-a79d-5895-8dc3-c4463d4d24ab",
+      "5eefa0a3-ede4-5068-85d3-5bdfb084a676",
+      "bad88efe-d053-5913-bf5e-3fafea1e5ade"
+     ]
+    ],
+    [
+     "Yashnobod finishing crew",
+     [
+      "b7769a22-7ba3-5ee4-a65a-2227c243eb08",
+      "ba91b475-c70e-518f-b12d-ec86998ed85f",
+      "d4231e20-de99-505c-886c-b07eaa56a9a2"
+     ]
+    ]
+   ],
+   "at_sites": [],
+   "extra": [],
+   "homes": [
+    [
+     "2bda8eb6-ac73-56b9-8c30-11e8adfe2f23",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "3c3547c3-a79d-5895-8dc3-c4463d4d24ab",
+     "43d2ce82-76bc-519d-a984-f2ac9f355fa2"
+    ],
+    [
+     "5eefa0a3-ede4-5068-85d3-5bdfb084a676",
+     "43d2ce82-76bc-519d-a984-f2ac9f355fa2"
+    ],
+    [
+     "6377a1ec-053f-5ebe-a837-9dce18f68676",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "8439310c-c53a-5f08-8c3d-25cc071b753e",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "b6b91675-e35e-5b56-93ab-4c1b06746c83",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "b7769a22-7ba3-5ee4-a65a-2227c243eb08",
+     "37598566-6e0e-5415-85ee-288eb18be4f0"
+    ],
+    [
+     "b7facda8-f50c-5a99-a897-a19284dcecb8",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "ba91b475-c70e-518f-b12d-ec86998ed85f",
+     "37598566-6e0e-5415-85ee-288eb18be4f0"
+    ],
+    [
+     "bad88efe-d053-5913-bf5e-3fafea1e5ade",
+     "43d2ce82-76bc-519d-a984-f2ac9f355fa2"
+    ],
+    [
+     "c3fc10bc-a9b5-56be-b921-1a9a16590ec8",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "c48e186b-e3a0-5660-9571-c83e467d5b1b",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "cd76d506-ac73-50a2-90f6-871f5a017cdb",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "cea64ea6-cee2-5d64-ac4e-be727e3145be",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "d4231e20-de99-505c-886c-b07eaa56a9a2",
+     "37598566-6e0e-5415-85ee-288eb18be4f0"
+    ],
+    [
+     "f2709a1f-7b47-5916-8e12-7c698ff33a13",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ]
+   ]
+  },
+  "after_apply": {
+   "sites": [
+    "Chilonzor City, block 3",
+    "Sergeli warehouse",
+    "Yashnobod residential, finishing"
+   ],
+   "groups": [
+    [
+     "Chilonzor crew",
+     [
+      "2bda8eb6-ac73-56b9-8c30-11e8adfe2f23",
+      "6377a1ec-053f-5ebe-a837-9dce18f68676",
+      "8439310c-c53a-5f08-8c3d-25cc071b753e",
+      "b6b91675-e35e-5b56-93ab-4c1b06746c83",
+      "b7facda8-f50c-5a99-a897-a19284dcecb8",
+      "c3fc10bc-a9b5-56be-b921-1a9a16590ec8",
+      "c48e186b-e3a0-5660-9571-c83e467d5b1b",
+      "cd76d506-ac73-50a2-90f6-871f5a017cdb",
+      "cea64ea6-cee2-5d64-ac4e-be727e3145be",
+      "f2709a1f-7b47-5916-8e12-7c698ff33a13"
+     ]
+    ],
+    [
+     "Ikkinchi smena guruhi",
+     []
+    ],
+    [
+     "Sergeli crew",
+     [
+      "3c3547c3-a79d-5895-8dc3-c4463d4d24ab",
+      "5eefa0a3-ede4-5068-85d3-5bdfb084a676",
+      "bad88efe-d053-5913-bf5e-3fafea1e5ade"
+     ]
+    ],
+    [
+     "Yashnobod finishing crew",
+     [
+      "b7769a22-7ba3-5ee4-a65a-2227c243eb08",
+      "ba91b475-c70e-518f-b12d-ec86998ed85f",
+      "d4231e20-de99-505c-886c-b07eaa56a9a2"
+     ]
+    ]
+   ],
+   "at_sites": [
+    [
+     "37598566-6e0e-5415-85ee-288eb18be4f0",
+     [
+      "ddb10c83-ae65-419a-a8ba-ffdfbdac2368"
+     ]
+    ]
+   ],
+   "extra": [],
+   "homes": [
+    [
+     "2bda8eb6-ac73-56b9-8c30-11e8adfe2f23",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "3c3547c3-a79d-5895-8dc3-c4463d4d24ab",
+     "43d2ce82-76bc-519d-a984-f2ac9f355fa2"
+    ],
+    [
+     "5eefa0a3-ede4-5068-85d3-5bdfb084a676",
+     "43d2ce82-76bc-519d-a984-f2ac9f355fa2"
+    ],
+    [
+     "6377a1ec-053f-5ebe-a837-9dce18f68676",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "8439310c-c53a-5f08-8c3d-25cc071b753e",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "b6b91675-e35e-5b56-93ab-4c1b06746c83",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "b7769a22-7ba3-5ee4-a65a-2227c243eb08",
+     "37598566-6e0e-5415-85ee-288eb18be4f0"
+    ],
+    [
+     "b7facda8-f50c-5a99-a897-a19284dcecb8",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "ba91b475-c70e-518f-b12d-ec86998ed85f",
+     "37598566-6e0e-5415-85ee-288eb18be4f0"
+    ],
+    [
+     "bad88efe-d053-5913-bf5e-3fafea1e5ade",
+     "43d2ce82-76bc-519d-a984-f2ac9f355fa2"
+    ],
+    [
+     "c3fc10bc-a9b5-56be-b921-1a9a16590ec8",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "c48e186b-e3a0-5660-9571-c83e467d5b1b",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "cd76d506-ac73-50a2-90f6-871f5a017cdb",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "cea64ea6-cee2-5d64-ac4e-be727e3145be",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "d4231e20-de99-505c-886c-b07eaa56a9a2",
+     "37598566-6e0e-5415-85ee-288eb18be4f0"
+    ],
+    [
+     "f2709a1f-7b47-5916-8e12-7c698ff33a13",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ]
+   ]
+  },
+  "after_undo": {
+   "sites": [
+    "Chilonzor City, block 3",
+    "Sergeli warehouse",
+    "Yashnobod residential, finishing"
+   ],
+   "groups": [
+    [
+     "Chilonzor crew",
+     [
+      "2bda8eb6-ac73-56b9-8c30-11e8adfe2f23",
+      "6377a1ec-053f-5ebe-a837-9dce18f68676",
+      "8439310c-c53a-5f08-8c3d-25cc071b753e",
+      "b6b91675-e35e-5b56-93ab-4c1b06746c83",
+      "b7facda8-f50c-5a99-a897-a19284dcecb8",
+      "c3fc10bc-a9b5-56be-b921-1a9a16590ec8",
+      "c48e186b-e3a0-5660-9571-c83e467d5b1b",
+      "cd76d506-ac73-50a2-90f6-871f5a017cdb",
+      "cea64ea6-cee2-5d64-ac4e-be727e3145be",
+      "f2709a1f-7b47-5916-8e12-7c698ff33a13"
+     ]
+    ],
+    [
+     "Sergeli crew",
+     [
+      "3c3547c3-a79d-5895-8dc3-c4463d4d24ab",
+      "5eefa0a3-ede4-5068-85d3-5bdfb084a676",
+      "bad88efe-d053-5913-bf5e-3fafea1e5ade"
+     ]
+    ],
+    [
+     "Yashnobod finishing crew",
+     [
+      "b7769a22-7ba3-5ee4-a65a-2227c243eb08",
+      "ba91b475-c70e-518f-b12d-ec86998ed85f",
+      "d4231e20-de99-505c-886c-b07eaa56a9a2"
+     ]
+    ]
+   ],
+   "at_sites": [],
+   "extra": [],
+   "homes": [
+    [
+     "2bda8eb6-ac73-56b9-8c30-11e8adfe2f23",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "3c3547c3-a79d-5895-8dc3-c4463d4d24ab",
+     "43d2ce82-76bc-519d-a984-f2ac9f355fa2"
+    ],
+    [
+     "5eefa0a3-ede4-5068-85d3-5bdfb084a676",
+     "43d2ce82-76bc-519d-a984-f2ac9f355fa2"
+    ],
+    [
+     "6377a1ec-053f-5ebe-a837-9dce18f68676",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "8439310c-c53a-5f08-8c3d-25cc071b753e",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "b6b91675-e35e-5b56-93ab-4c1b06746c83",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "b7769a22-7ba3-5ee4-a65a-2227c243eb08",
+     "37598566-6e0e-5415-85ee-288eb18be4f0"
+    ],
+    [
+     "b7facda8-f50c-5a99-a897-a19284dcecb8",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "ba91b475-c70e-518f-b12d-ec86998ed85f",
+     "37598566-6e0e-5415-85ee-288eb18be4f0"
+    ],
+    [
+     "bad88efe-d053-5913-bf5e-3fafea1e5ade",
+     "43d2ce82-76bc-519d-a984-f2ac9f355fa2"
+    ],
+    [
+     "c3fc10bc-a9b5-56be-b921-1a9a16590ec8",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "c48e186b-e3a0-5660-9571-c83e467d5b1b",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "cd76d506-ac73-50a2-90f6-871f5a017cdb",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "cea64ea6-cee2-5d64-ac4e-be727e3145be",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ],
+    [
+     "d4231e20-de99-505c-886c-b07eaa56a9a2",
+     "37598566-6e0e-5415-85ee-288eb18be4f0"
+    ],
+    [
+     "f2709a1f-7b47-5916-8e12-7c698ff33a13",
+     "3c70743f-fb44-57eb-bfd7-9b13a90816d0"
+    ]
+   ]
+  },
+  "error": null
+ }
+}

@@ -1,0 +1,23 @@
+{
+ "id": "S07",
+ "lang": "ru",
+ "messages": [
+  "Удали объект «Склад-ангар, Сергели»"
+ ],
+ "passed": true,
+ "failed": {},
+ "checks": 2,
+ "cost_usd": 0.0005,
+ "seconds": 18,
+ "outcome": {
+  "replies": [
+   "unsupported"
+  ],
+  "setup": null,
+  "applied": null,
+  "before": null,
+  "after_apply": null,
+  "after_undo": null,
+  "error": null
+ }
+}

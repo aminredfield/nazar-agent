@@ -1,0 +1,27 @@
+{
+ "id": "S06",
+ "lang": "ru",
+ "messages": [
+  "Поставь Каримова на Сергели"
+ ],
+ "passed": false,
+ "failed": {
+  "read as setup": "got []",
+  "Sergeli found": "not there: 'site'",
+  "asks which Karimov": "got {}",
+  "asks choose_person": "not there: 'NoneType' object is not subscriptable",
+  "error": "APIConnectionError: Connection error."
+ },
+ "checks": 4,
+ "cost_usd": 0.0,
+ "seconds": 1,
+ "outcome": {
+  "replies": [],
+  "setup": null,
+  "applied": null,
+  "before": null,
+  "after_apply": null,
+  "after_undo": null,
+  "error": "APIConnectionError: Connection error."
+ }
+}

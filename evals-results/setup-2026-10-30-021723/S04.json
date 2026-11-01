@@ -1,0 +1,29 @@
+{
+ "id": "S04",
+ "lang": "uz",
+ "messages": [
+  "Yashnobod obyektiga ikkinchi smena guruhini qo'y: soat 14:00 dan 22:00 gacha, dushanbadan jumagacha"
+ ],
+ "passed": false,
+ "failed": {
+  "read as setup": "got []",
+  "the existing site": "not there: 'site'",
+  "shift 14:00–22:00 [1, 2, 3, 4, 5]": "not there: 'shift'",
+  "steps create_group, group_on_site": "not there: 'NoneType' object is not subscriptable",
+  "its own shift there": "not there: 'NoneType' object is not subscriptable",
+  "applied, then undone back": "got None",
+  "error": "APIConnectionError: Connection error."
+ },
+ "checks": 6,
+ "cost_usd": 0.0,
+ "seconds": 1,
+ "outcome": {
+  "replies": [],
+  "setup": null,
+  "applied": null,
+  "before": null,
+  "after_apply": null,
+  "after_undo": null,
+  "error": "APIConnectionError: Connection error."
+ }
+}

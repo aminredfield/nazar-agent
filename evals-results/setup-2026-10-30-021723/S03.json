@@ -1,0 +1,30 @@
+{
+ "id": "S03",
+ "lang": "en",
+ "messages": [
+  "Open a new site Sergeli Warehouse 2 at 41.2268, 69.2190, shift 9 to 18 Monday to Friday, and put Dilshod Mirzaev there"
+ ],
+ "passed": false,
+ "failed": {
+  "read as setup": "got []",
+  "shift 09:00–18:00 [1, 2, 3, 4, 5]": "not there: 'shift'",
+  "Dilshod: add": "got {}",
+  "point from two numbers": "not there: 'site'",
+  "steps in English": "not there: 'NoneType' object is not subscriptable",
+  "clash Dilshod Mirzaev": "not there: 'NoneType' object is not subscriptable",
+  "applied, then undone back": "got None",
+  "error": "APIConnectionError: Connection error."
+ },
+ "checks": 7,
+ "cost_usd": 0.0,
+ "seconds": 0,
+ "outcome": {
+  "replies": [],
+  "setup": null,
+  "applied": null,
+  "before": null,
+  "after_apply": null,
+  "after_undo": null,
+  "error": "APIConnectionError: Connection error."
+ }
+}

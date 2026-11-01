@@ -1,0 +1,349 @@
+{
+ "id": "S02",
+ "lang": "ru",
+ "messages": [
+  "Открываем новый объект ЖК Олмазор на Чиланзаре, вот точка https://yandex.uz/maps/10335/tashkent/?ll=69.203411%2C41.285612&z=17. Смена с 8 до 5, шестидневка. Туда бригаду Рустама: Рустам, Bobur Karimov и новенький Жасур Тоиров",
+  "Смену сделай с 9 до 18, а Бобура не надо"
+ ],
+ "passed": false,
+ "failed": {
+  "shift 09:00–18:00 [1, 2, 3, 4, 5, 6]": "got {'start': '08:00', 'end': '17:00', 'days': (1, 2, 3, 4, 5, 6), 'state': 'keep'}",
+  "Bobur Karimov: skip": "got {'written': 'Bobur Karimov', 'employee_id': 'cd76d506-ac73-50a2-90f6-871f5a017cdb', 'full_name': 'Bobur Karimov', 'choices': (), 'state': 'add', 'from_site_id': ''}",
+  "only Rustam assigned": "got [{'kind': 'create_site', 'text': 'Создать объект «ЖК Олмазор», Чиланзар: точка 41.28561, 69.20341, радиус 100 м; смена 08:00–17:00, пн–сб.'}, {'kind': 'create_group', 'text': 'Создать группу «Бригада Рустама».'}, {'kind': 'group_on_site', 'text': 'Поставить группу «Бригада Рустама» на объект «ЖК Олмазор» — по графику объекта.'}, {'kind': 'add_to_group', 'text': 'Добавить в группу «Бригада Рустама»: Rustam Yuldashev, Bobur Karimov.'}, {'kind': 'assign', 'text': 'Назначить на объект «ЖК Олмазор» с 28.10: Rustam Yuldashev, Bobur Karimov.'}, {'kind': 'wait_for_photo', 'text': 'Добавить в «Ждут фото»: Жасур Тоиров — NAZAR создаст каждого после фото лица.'}]",
+  "error": "APIConnectionError: Connection error."
+ },
+ "checks": 5,
+ "cost_usd": 0.0012,
+ "seconds": 113,
+ "outcome": {
+  "replies": [
+   "setup"
+  ],
+  "setup": {
+   "sites": [
+    {
+     "id": "3c70743f-fb44-57eb-bfd7-9b13a90816d0",
+     "name": "Chilonzor City, block 3",
+     "latitude": 41.28032,
+     "longitude": 69.19115
+    },
+    {
+     "id": "43d2ce82-76bc-519d-a984-f2ac9f355fa2",
+     "name": "Sergeli warehouse",
+     "latitude": 41.22681,
+     "longitude": 69.21904
+    },
+    {
+     "id": "37598566-6e0e-5415-85ee-288eb18be4f0",
+     "name": "Yashnobod residential, finishing",
+     "latitude": 41.30692,
+     "longitude": 69.33641
+    }
+   ],
+   "groups": [
+    {
+     "id": "8b2eebba-6c38-51fc-9f37-77cb4d6424c0",
+     "name": "Chilonzor crew"
+    },
+    {
+     "id": "d4973295-790a-516f-9917-26d9dd056926",
+     "name": "Sergeli crew"
+    },
+    {
+     "id": "1eb63e5b-6d41-5c12-a0c9-c503fba3e37c",
+     "name": "Yashnobod finishing crew"
+    }
+   ],
+   "employees": [
+    {
+     "id": "c3fc10bc-a9b5-56be-b921-1a9a16590ec8",
+     "name": "Rustam Yuldashev"
+    },
+    {
+     "id": "b7facda8-f50c-5a99-a897-a19284dcecb8",
+     "name": "Azamat Normatov"
+    },
+    {
+     "id": "cd76d506-ac73-50a2-90f6-871f5a017cdb",
+     "name": "Bobur Karimov"
+    },
+    {
+     "id": "b6b91675-e35e-5b56-93ab-4c1b06746c83",
+     "name": "Ilhom Turaev"
+    },
+    {
+     "id": "c48e186b-e3a0-5660-9571-c83e467d5b1b",
+     "name": "Nodira Safarova"
+    },
+    {
+     "id": "f2709a1f-7b47-5916-8e12-7c698ff33a13",
+     "name": "Sherzod Alimov"
+    },
+    {
+     "id": "2bda8eb6-ac73-56b9-8c30-11e8adfe2f23",
+     "name": "Timur Hasanov"
+    },
+    {
+     "id": "6377a1ec-053f-5ebe-a837-9dce18f68676",
+     "name": "Gulchehra Ibragimova"
+    },
+    {
+     "id": "8439310c-c53a-5f08-8c3d-25cc071b753e",
+     "name": "Mohira Yunusova"
+    },
+    {
+     "id": "cea64ea6-cee2-5d64-ac4e-be727e3145be",
+     "name": "Feruza Karimova"
+    },
+    {
+     "id": "3c3547c3-a79d-5895-8dc3-c4463d4d24ab",
+     "name": "Dilshod Mirzaev"
+    },
+    {
+     "id": "bad88efe-d053-5913-bf5e-3fafea1e5ade",
+     "name": "Hurshid Rahmonov"
+    },
+    {
+     "id": "5eefa0a3-ede4-5068-85d3-5bdfb084a676",
+     "name": "Anvar Bakirov"
+    },
+    {
+     "id": "ba91b475-c70e-518f-b12d-ec86998ed85f",
+     "name": "Zuhra Nabieva"
+    },
+    {
+     "id": "d4231e20-de99-505c-886c-b07eaa56a9a2",
+     "name": "Kamola Tashpulatova"
+    },
+    {
+     "id": "b7769a22-7ba3-5ee4-a65a-2227c243eb08",
+     "name": "Dilfuza Ergasheva"
+    }
+   ],
+   "draft": {
+    "id": "28f35669fc8b",
+    "lang": "ru",
+    "site": {
+     "name": "ЖК Олмазор",
+     "address": "Чиланзар",
+     "latitude": 41.285612,
+     "longitude": 69.203411,
+     "point_source": "yandex",
+     "radius_meters": 100,
+     "existing_id": "",
+     "state": "keep"
+    },
+    "shift": {
+     "start": "08:00",
+     "end": "17:00",
+     "days": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "state": "keep"
+    },
+    "group": {
+     "name": "Бригада Рустама",
+     "existing_id": "",
+     "state": "keep"
+    },
+    "people": [
+     {
+      "written": "Рустам",
+      "employee_id": "c3fc10bc-a9b5-56be-b921-1a9a16590ec8",
+      "full_name": "Rustam Yuldashev",
+      "choices": [],
+      "state": "add",
+      "from_site_id": ""
+     },
+     {
+      "written": "Bobur Karimov",
+      "employee_id": "cd76d506-ac73-50a2-90f6-871f5a017cdb",
+      "full_name": "Bobur Karimov",
+      "choices": [],
+      "state": "add",
+      "from_site_id": ""
+     },
+     {
+      "written": "Жасур Тоиров",
+      "employee_id": "",
+      "full_name": "",
+      "choices": [],
+      "state": "new",
+      "from_site_id": ""
+     }
+    ],
+    "link_problem": ""
+   },
+   "steps": [
+    {
+     "kind": "create_site",
+     "text": "Создать объект «ЖК Олмазор», Чиланзар: точка 41.28561, 69.20341, радиус 100 м; смена 08:00–17:00, пн–сб."
+    },
+    {
+     "kind": "create_group",
+     "text": "Создать группу «Бригада Рустама»."
+    },
+    {
+     "kind": "group_on_site",
+     "text": "Поставить группу «Бригада Рустама» на объект «ЖК Олмазор» — по графику объекта."
+    },
+    {
+     "kind": "add_to_group",
+     "text": "Добавить в группу «Бригада Рустама»: Rustam Yuldashev, Bobur Karimov."
+    },
+    {
+     "kind": "assign",
+     "text": "Назначить на объект «ЖК Олмазор» с 28.10: Rustam Yuldashev, Bobur Karimov."
+    },
+    {
+     "kind": "wait_for_photo",
+     "text": "Добавить в «Ждут фото»: Жасур Тоиров — NAZAR создаст каждого после фото лица."
+    }
+   ],
+   "missing": [],
+   "clashes": [
+    {
+     "employee_id": "c3fc10bc-a9b5-56be-b921-1a9a16590ec8",
+     "name": "Rustam Yuldashev",
+     "site_id": "3c70743f-fb44-57eb-bfd7-9b13a90816d0",
+     "text": "Rustam Yuldashev уже работает на объекте «Chilonzor City, block 3» 08:00–18:00 — смены пересекаются по пн–сб (08:00–17:00).",
+     "options": [
+      {
+       "kind": "shift",
+       "shift": {
+        "start": "18:00",
+        "end": "03:00",
+        "days": [
+         1,
+         2,
+         3,
+         4,
+         5,
+         6
+        ]
+       }
+      },
+      {
+       "kind": "shift",
+       "shift": {
+        "start": "23:00",
+        "end": "08:00",
+        "days": [
+         1,
+         2,
+         3,
+         4,
+         5,
+         6
+        ]
+       }
+      },
+      {
+       "kind": "skip",
+       "shift": null
+      }
+     ]
+    },
+    {
+     "employee_id": "cd76d506-ac73-50a2-90f6-871f5a017cdb",
+     "name": "Bobur Karimov",
+     "site_id": "3c70743f-fb44-57eb-bfd7-9b13a90816d0",
+     "text": "Bobur Karimov уже работает на объекте «Chilonzor City, block 3» 08:00–18:00 — смены пересекаются по пн–сб (08:00–17:00).",
+     "options": [
+      {
+       "kind": "shift",
+       "shift": {
+        "start": "18:00",
+        "end": "03:00",
+        "days": [
+         1,
+         2,
+         3,
+         4,
+         5,
+         6
+        ]
+       }
+      },
+      {
+       "kind": "shift",
+       "shift": {
+        "start": "23:00",
+        "end": "08:00",
+        "days": [
+         1,
+         2,
+         3,
+         4,
+         5,
+         6
+        ]
+       }
+      },
+      {
+       "kind": "skip",
+       "shift": null
+      }
+     ]
+    }
+   ],
+   "unknown_schedules": "",
+   "link_problem": "",
+   "preview": [
+    {
+     "date": "2026-10-28",
+     "working": true,
+     "from": "08:00",
+     "to": "17:00"
+    },
+    {
+     "date": "2026-10-29",
+     "working": true,
+     "from": "08:00",
+     "to": "17:00"
+    },
+    {
+     "date": "2026-10-30",
+     "working": true,
+     "from": "08:00",
+     "to": "17:00"
+    },
+    {
+     "date": "2026-10-31",
+     "working": true,
+     "from": "08:00",
+     "to": "17:00"
+    },
+    {
+     "date": "2026-11-01",
+     "working": false,
+     "from": null,
+     "to": null
+    },
+    {
+     "date": "2026-11-02",
+     "working": true,
+     "from": "08:00",
+     "to": "17:00"
+    },
+    {
+     "date": "2026-11-03",
+     "working": true,
+     "from": "08:00",
+     "to": "17:00"
+    }
+   ],
+   "ready": true
+  },
+  "applied": null,
+  "before": null,
+  "after_apply": null,
+  "after_undo": null,
+  "error": "APIConnectionError: Connection error."
+ }
+}

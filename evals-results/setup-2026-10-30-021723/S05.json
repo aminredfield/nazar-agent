@@ -1,0 +1,26 @@
+{
+ "id": "S05",
+ "lang": "ru",
+ "messages": [
+  "Открой новый объект Склад Юнусабад"
+ ],
+ "passed": false,
+ "failed": {
+  "read as setup": "got []",
+  "asks point, shift": "not there: 'NoneType' object is not subscriptable",
+  "not ready": "not there: 'NoneType' object is not subscriptable",
+  "error": "APIConnectionError: Connection error."
+ },
+ "checks": 3,
+ "cost_usd": 0.0,
+ "seconds": 1,
+ "outcome": {
+  "replies": [],
+  "setup": null,
+  "applied": null,
+  "before": null,
+  "after_apply": null,
+  "after_undo": null,
+  "error": "APIConnectionError: Connection error."
+ }
+}
