@@ -109,6 +109,7 @@ def _people(
             "id": person["id"],
             "name": person["full_name"],
             "code": person.get("employee_id"),
+            "photo": person.get("preview_image_url") or "",  # NAZAR's path; the window asks /api/photo for it
             "sites": sites_of.get(person["id"], []),
             "groups": [group["name"] for group in person.get("departments") or []],
             "status": now.get("status"),

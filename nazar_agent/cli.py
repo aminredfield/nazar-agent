@@ -1,6 +1,6 @@
 """Ask the agent team a question from the terminal and get recommendation cards.
 
-    python -m nazar_agent "Who did not show up on the Chilonzor site yesterday?"
+    python -m nazar_agent "Who did not show up on the Riverside site yesterday?"
     python -m nazar_agent --analyst timesheet "Anything to check before paying for last week?"
     python -m nazar_agent --trace "..."       # also print tool calls and the fact checker's rounds
     python -m nazar_agent --no-review "..."   # analyst only: no skeptic, no actions

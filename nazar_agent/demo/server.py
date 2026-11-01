@@ -640,7 +640,7 @@ def _new_person(nazar: DemoNazar, full_name: str, picture: bytes) -> dict[str, A
     number = len(world.people) + 1
     now = nazar.clock()
     person = Person(
-        id=stable_id("person", full_name, number), name=full_name, code=f"MQ-{number:03d}", site_id=None,
+        id=stable_id("person", full_name, number), name=full_name, code=f"NB-{number:03d}", site_id=None,
         kind="worker", face="", created_at=now, assigned_from=world.today,
     )
     world.people[person.id] = person

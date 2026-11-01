@@ -27,24 +27,24 @@ def test_the_bank_covers_every_kind_of_question_in_every_language():
 def test_the_truth_at_the_bank_moment(truth):
     assert truth.absent(truth.today) == []  # everyone came on Wednesday
     assert truth.late(truth.today) == sorted(WRONG_SCHEDULE_CREW)
-    assert truth.absent(truth.yesterday) == ["Ilhom Turaev"]
+    assert truth.absent(truth.yesterday) == ["Ian Foster"]
     assert len(truth.on_site_now()) == 16
-    assert truth.worked_minutes("Rustam Yuldashev", *truth.last_week()) == 3700
+    assert truth.worked_minutes("Mike Turner", *truth.last_week()) == 3700
     assert truth.last(6).isoformat() == "2026-10-24" and truth.last(1).isoformat() == "2026-10-26"
 
 
 @pytest.mark.parametrize(("name", "text"), [
-    ("Zuhra Nabieva", "У Зухры Набиевой опоздание"),
-    ("Zuhra Nabieva", "Zukhra Nabieva was late"),
-    ("Ilhom Turaev", "Ilhom To'raev kelmadi"),
-    ("Timur Hasanov", "Тимура"),
+    ("Zoe Nash", "У Zoe Nash опоздание"),
+    ("Zoe Nash", "zoe nash was late"),
+    ("Ian Foster", "Ian Fosterning belgisi yo'q"),
+    ("Tom Harris", "Tom Harrisning"),
 ])
 def test_a_name_is_found_in_any_case_and_script(name, text):
     assert mentioned(name, text)
 
 
 def test_a_name_is_not_found_where_it_is_not():
-    assert not mentioned("Timur Hasanov", "Rustam Yuldashev и Azamat Normatov")
+    assert not mentioned("Tom Harris", "Mike Turner и Adam Novak")
 
 
 @pytest.mark.parametrize("text", ["3700 минут", "61 ч 40 мин", "61,7 часа", "около 62 часов"])

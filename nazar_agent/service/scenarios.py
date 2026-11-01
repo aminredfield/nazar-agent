@@ -34,6 +34,10 @@ from nazar_agent.scenarios import (
 # One scene is a short call: counted at this for the public demo's daily budget.
 SCENE_COST_ESTIMATE_USD = 0.01
 Lang = Literal["en", "ru", "uz"]
+# The pages of the gallery, one per ability; the window's scenarios.js knows the same names.
+SCENE_PAGES = ("gps", "explain", "headcount", "roster")
+# A page asks the server every time: after a release no one is left on the old one.
+PAGE_HEADERS = {"Cache-Control": "no-cache"}
 
 
 class ExplainAsk(BaseModel):
@@ -74,7 +78,14 @@ def scenario_routes(
 
     @router.get("/scenarios", include_in_schema=False)
     async def page() -> FileResponse:
-        return FileResponse(static / "scenarios.html")
+        return FileResponse(static / "scenarios.html", headers=PAGE_HEADERS)
+
+    # One scene on its own page: the same file, the script reads which from the address.
+    @router.get("/scenarios/{scene}", include_in_schema=False)
+    async def scene_page(scene: str) -> FileResponse:
+        if scene not in SCENE_PAGES:
+            raise HTTPException(404, "No such scenario.")
+        return FileResponse(static / "scenarios.html", headers=PAGE_HEADERS)
 
     @router.get("/api/scenarios")
     async def scenes(current: Any = Depends(caller)) -> dict[str, Any]:

@@ -11,7 +11,7 @@ NEW_SITE = {
 
 async def test_a_second_site_is_added_to_the_first_one_not_instead_of_it():
     state = demo()
-    rustam = people(state, "Rustam Yuldashev")
+    rustam = people(state, "Mike Turner")
     home = state.world.people[rustam].site_id
     async with signed_in(state) as client:
         site = (await client.post("/objects", json=NEW_SITE)).json()["data"]
@@ -31,7 +31,7 @@ async def test_a_second_site_is_added_to_the_first_one_not_instead_of_it():
 
 async def test_a_group_counts_its_members_who_work_at_the_site():
     state = demo()
-    rustam, bobur = people(state, "Rustam Yuldashev"), people(state, "Bobur Karimov")
+    rustam, bobur = people(state, "Mike Turner"), people(state, "Ben Carter")
     async with signed_in(state) as client:
         site = (await client.post("/objects", json=NEW_SITE)).json()["data"]["id"]
         group = (await client.post("/departments", json={"name": "Бригада Рустама"})).json()["data"]["id"]
@@ -47,7 +47,7 @@ async def test_a_group_counts_its_members_who_work_at_the_site():
     assert twice.status_code == 409 and added["data"]["changed_count"] == 2
     assert groups[0]["employee_count"] == 1 and groups[0]["shift_start"] == "09:00" and groups[0]["schedule_type"] == "weekly"
     assert card["departments"] == [
-        {"id": stable_id("group", "chilonzor"), "name": "Chilonzor crew", "color": "blue"},
+        {"id": stable_id("group", "riverside"), "name": "Riverside crew", "color": "blue"},
         {"id": group, "name": "Бригада Рустама", "color": "blue"},
     ]
 

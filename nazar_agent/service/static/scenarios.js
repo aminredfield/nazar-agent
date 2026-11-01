@@ -224,7 +224,40 @@ $("place-file").addEventListener("change", (event) => {
   if (file) judgePlace({ scene: place.key, file });
 });
 
-// ---- The page --------------------------------------------------------------------
+// ---- The page: the gallery, or one scenario ---------------------------------------
+// /scenarios shows a card per problem; /scenarios/<name> shows that one scene with
+// why it matters and its three steps. The names are the server's SCENE_PAGES.
+
+const PAGES = [
+  { name: "gps", part: "place", icon: "📍" },
+  { name: "explain", part: "explain", icon: "💬" },
+  { name: "headcount", part: "headcount", icon: "👥" },
+  { name: "roster", part: "roster", icon: "📋" },
+];
+const opened = PAGES.find((page) => page.name === location.pathname.split("/")[2]) || null;
+
+function drawPage() {
+  $("gallery").hidden = Boolean(opened);
+  $("scene-intro").hidden = !opened;
+  for (const page of PAGES) $(page.part).hidden = page !== opened;
+  if (!opened) {
+    $("sc-cards").replaceChildren(...PAGES.map((page) => el("a", { class: "sc-card-link", href: `/scenarios/${page.name}` },
+      el("span", { class: "try-icon", "aria-hidden": "true" }, page.icon),
+      el("b", {}, t(`sc_${page.name}_title`)), el("span", { class: "sc-pain" }, t(`sc_${page.name}_pain`)),
+      el("span", { class: "sc-meta" }, t(`sc_${page.name}_meta`)), el("span", { class: "try-go" }, t("sc_try")))));
+    document.title = t("sc_title");
+    return;
+  }
+  const key = (part) => t(`sc_${opened.name}_${part}`);
+  $("scene-title").textContent = key("title");
+  $("scene-why").textContent = key("why");
+  $("scene-does").textContent = key("does");
+  $("scene-steps").replaceChildren(...[1, 2, 3].map((step) => el("li", {}, key(`s${step}`))));
+  $(opened.part).append($("scene-nazar"));
+  $("scene-nazar").textContent = key("nazar");
+  $("scene-nazar").hidden = false;
+  document.title = `NAZAR · ${key("title")}`;
+}
 
 function drawScenes() {
   sceneChips($("explain-scenes"), scenes.explain, (scene) => [segment(scene), scene.employee], showExplain, explain.key);
@@ -236,14 +269,14 @@ function drawScenes() {
 function showPrefs() {
   for (const button of $("lang-seg").children) button.setAttribute("aria-checked", String(button.dataset.lang === LANG));
   $("theme-toggle").textContent = document.documentElement.dataset.theme === "dark" ? "☀" : "☾";
-  document.title = t("sc_title");
 }
 for (const button of $("lang-seg").children) {
-  button.addEventListener("click", () => { setLang(button.dataset.lang); showPrefs(); if (scenes) drawScenes(); });
+  button.addEventListener("click", () => { setLang(button.dataset.lang); showPrefs(); drawPage(); if (scenes) drawScenes(); });
 }
 $("theme-toggle").addEventListener("click", () => { toggleTheme(); showPrefs(); });
 translatePage();
 showPrefs();
+drawPage();
 
 fetch("/api/scenarios").then((response) => response.json()).then((data) => {
   scenes = data;

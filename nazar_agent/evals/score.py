@@ -242,16 +242,17 @@ def _about_crew_or_site(card: CardView) -> bool:
 
 
 def score_import(rows: list[dict[str, Any]], expected: dict[str, str]) -> dict[str, Any]:
-    """``expected`` maps a name to the issue it must get: duplicate, twice, surname; others need none."""
+    """``expected`` maps a name to the issue it must get: duplicate, twice, surname; others need none.
+    The review speaks the window's language: Russian or English."""
     checks = {
-        "duplicate": "похож на действующего",
-        "twice": "встречается в списке дважды",
-        "surname": "одно слово",
+        "duplicate": ("похож на действующего", "looks like the current employee"),
+        "twice": ("встречается в списке дважды", "listed twice"),
+        "surname": ("одно слово", "one word only"),
     }
     caught, missed, false_flags = [], [], []
     for name, issue in expected.items():
         rows_for = [row for row in rows if _same(row["full_name"], name)]
-        if any(checks[issue] in text for row in rows_for for text in row["issues"]):
+        if any(said in text for said in checks[issue] for row in rows_for for text in row["issues"]):
             caught.append(f"{name}: {issue}")
         else:
             missed.append(f"{name}: {issue}")

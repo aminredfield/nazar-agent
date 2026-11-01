@@ -78,7 +78,9 @@ Now write your report for the owner, as JSON matching the schema.
 - Write the summary, titles, facts, hypothesis, alternatives and data gaps
   in {language}, with no internal codes or field names. Status values from
   the tools (absent, late, excused, on_time…) are codes too: say them in
-  {language} words.
+  {language} words. Names of people and sites are not words to translate:
+  write them exactly as the tools return them, in the same letters — the
+  owner finds people in NAZAR by these names.
 """
 
 

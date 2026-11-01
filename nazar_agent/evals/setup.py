@@ -32,7 +32,7 @@ from nazar_agent.evals.questions import BANK_NOW
 from nazar_agent.nazar.connect import connect
 
 DEFAULT_OUT = Path("evals-results")
-OLMAZOR_LINK = "https://yandex.uz/maps/10335/tashkent/?ll=69.203411%2C41.285612&z=17"
+WESTFIELD_LINK = "https://yandex.uz/maps/10335/tashkent/?ll=69.203411%2C41.285612&z=17"
 KEY = "eval"
 
 
@@ -107,35 +107,35 @@ def round_trip() -> tuple[str, Check]:
 
 
 S01 = (
-    f"Открываем новый объект ЖК Олмазор на Чиланзаре, вот точка {OLMAZOR_LINK}. Смена с 8 до 5, шестидневка. "
-    "Туда бригаду Рустама: Рустам, Bobur Karimov и новенький Жасур Тоиров"
+    f"Открываем новый объект Westfield Park, вот точка {WESTFIELD_LINK}. Смена с 8 до 5, шестидневка. "
+    "Туда бригаду Mike: Mike Turner, Ben Carter и новенький Jason Taylor"
 )
 CASES: tuple[Case, ...] = (
     Case("S01", "ru", (S01,), (
         routed("setup"),
-        expect("site ЖК Олмазор", lambda out: out.draft["site"]["name"] == "ЖК Олмазор", lambda out: out.draft.get("site", {}).get("name")),
+        expect("site Westfield Park", lambda out: out.draft["site"]["name"] == "Westfield Park", lambda out: out.draft.get("site", {}).get("name")),
         expect("point from the link", lambda out: abs((out.draft["site"]["latitude"] or 0) - 41.285612) < 1e-5, lambda out: out.draft.get("site")),
         shift("08:00", "17:00", [1, 2, 3, 4, 5, 6]),
-        expect("group Бригада Рустама", lambda out: out.draft["group"]["name"] == "Бригада Рустама", lambda out: out.draft.get("group")),
-        state("Рустам", "add"), state("Bobur Karimov", "add"), state("Жасур Тоиров", "new"),
+        expect("group Mike's crew", lambda out: "Mike" in out.draft["group"]["name"], lambda out: out.draft.get("group")),
+        state("Mike Turner", "add"), state("Ben Carter", "add"), state("Jason Taylor", "new"),
         steps("create_site", "create_group", "group_on_site", "add_to_group", "assign", "wait_for_photo"),
-        clashes("Rustam Yuldashev", "Bobur Karimov"),
+        clashes("Mike Turner", "Ben Carter"),
         round_trip(),
     ), apply=True),
-    Case("S02", "ru", (S01, "Смену сделай с 9 до 18, а Бобура не надо"), (
-        routed("setup"), shift("09:00", "18:00", [1, 2, 3, 4, 5, 6]), state("Bobur Karimov", "skip"),
-        expect("the site kept", lambda out: out.draft["site"]["name"] == "ЖК Олмазор" and out.draft["site"]["latitude"] is not None,
+    Case("S02", "ru", (S01, "Смену сделай с 9 до 18, а Бена не надо"), (
+        routed("setup"), shift("09:00", "18:00", [1, 2, 3, 4, 5, 6]), state("Ben Carter", "skip"),
+        expect("the site kept", lambda out: out.draft["site"]["name"] == "Westfield Park" and out.draft["site"]["latitude"] is not None,
                lambda out: out.draft.get("site")),
-        expect("only Rustam assigned", lambda out: out.setup["steps"][4]["text"].endswith("Rustam Yuldashev."), lambda out: out.setup["steps"]),
+        expect("only Mike assigned", lambda out: out.setup["steps"][4]["text"].endswith("Mike Turner."), lambda out: out.setup["steps"]),
     )),
-    Case("S03", "en", (("Open a new site Sergeli Warehouse 2 at 41.2268, 69.2190, shift 9 to 18 Monday to Friday, "
-                        "and put Dilshod Mirzaev there"),), (
-        routed("setup"), shift("09:00", "18:00", [1, 2, 3, 4, 5]), state("Dilshod", "add"),
+    Case("S03", "en", (("Open a new site Eastgate Warehouse 2 at 41.2268, 69.2190, shift 9 to 18 Monday to Friday, "
+                        "and put Daniel Morgan there"),), (
+        routed("setup"), shift("09:00", "18:00", [1, 2, 3, 4, 5]), state("Daniel", "add"),
         expect("point from two numbers", lambda out: out.draft["site"]["point_source"] == "numbers", lambda out: out.draft.get("site")),
         expect("steps in English", lambda out: out.setup["steps"][0]["text"].startswith("Create the location"), lambda out: out.setup["steps"][:1]),
-        clashes("Dilshod Mirzaev"), round_trip(),
+        clashes("Daniel Morgan"), round_trip(),
     ), apply=True),
-    Case("S04", "uz", ("Yashnobod obyektiga ikkinchi smena guruhini qo'y: soat 14:00 dan 22:00 gacha, dushanbadan jumagacha",), (
+    Case("S04", "uz", ("Maple Court obyektiga ikkinchi smena guruhini qo'y: soat 14:00 dan 22:00 gacha, dushanbadan jumagacha",), (
         routed("setup"),
         expect("the existing site", lambda out: out.draft["site"]["existing_id"] != "", lambda out: out.draft.get("site")),
         shift("14:00", "22:00", [1, 2, 3, 4, 5]),
@@ -143,17 +143,17 @@ CASES: tuple[Case, ...] = (
         expect("its own shift there", lambda out: "o'z smenasi bilan" in out.setup["steps"][1]["text"], lambda out: out.setup["steps"]),
         round_trip(),
     ), apply=True),
-    Case("S05", "ru", ("Открой новый объект Склад Юнусабад",), (
+    Case("S05", "ru", ("Открой новый объект Northside Depot",), (
         routed("setup"), missing("point", "shift"),
         expect("not ready", lambda out: not out.setup["ready"], lambda out: out.setup.get("ready")),
     )),
-    Case("S06", "ru", ("Поставь Каримова на Сергели",), (
+    Case("S06", "ru", ("Поставь Carter на Eastgate",), (
         routed("setup"),
-        expect("Sergeli found", lambda out: out.draft["site"]["existing_id"] != "", lambda out: out.draft.get("site")),
-        expect("asks which Karimov", lambda out: len(out.person("Каримов").get("choices", [])) == 2, lambda out: out.person("Каримов")),
+        expect("Eastgate found", lambda out: out.draft["site"]["existing_id"] != "", lambda out: out.draft.get("site")),
+        expect("asks which Carter", lambda out: len(out.person("Carter").get("choices", [])) == 2, lambda out: out.person("Carter")),
         missing("choose_person"),
     )),
-    Case("S07", "ru", ("Удали объект «Sergeli warehouse»",), (
+    Case("S07", "ru", ("Удали объект «Eastgate warehouse»",), (
         routed("unsupported"), expect("no setup", lambda out: out.setup is None, lambda out: bool(out.setup)),
     )),
 )

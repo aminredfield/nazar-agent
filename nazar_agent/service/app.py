@@ -40,7 +40,7 @@ from fastapi import (
     Response,
     UploadFile,
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -54,12 +54,13 @@ from nazar_agent.limits import LimitReached, Limits
 from nazar_agent.nazar import NazarClient
 from nazar_agent.nazar.connect import NazarLink, connect
 from nazar_agent.onboarding import Draft, ImportRow, ParseError, PhotoRejected
-from nazar_agent.service.scenarios import scenario_routes
+from nazar_agent.service.scenarios import PAGE_HEADERS, scenario_routes
 from nazar_agent.sessions import COOKIE, Person, SessionError, Sessions
 from nazar_agent.setup.apply import SetupRefused
 from nazar_agent.setup.edits import EditError, SetupEdit
 from nazar_agent.telegram import Bot, TelegramApi
 from nazar_agent.telegram.schedule import parse_brief_time, run_daily
+from nazar_agent.tools.common import call_nazar
 from nazar_agent.usage import Ledger, NazarUsageReport
 from nazar_agent.views import audit_view, proposal_view
 from nazar_agent.voice import VoiceError
@@ -194,7 +195,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
 
     @app.get("/", include_in_schema=False)
     async def window() -> FileResponse:
-        return FileResponse(STATIC / "index.html")
+        return FileResponse(STATIC / "index.html", headers=PAGE_HEADERS)
 
     @app.post("/api/session")
     async def open_session(request: SessionRequest, response: Response) -> dict[str, Any]:
@@ -218,7 +219,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         # Which model gives the second opinion here, so the window does not claim one it is not using.
         second = {"second_opinion_open": current.assistant.settings.skeptic_on_open_model}
         if current.demo:
-            return {"mode": "demo", "full_name": "Demo Owner", "company_name": "Mustahkam Qurilish", "role": "owner", **second}
+            return {"mode": "demo", "full_name": "Demo Owner", "company_name": "Northline Builders", "role": "owner", **second}
         return {**(_person_view(current.person) if current.person else {"mode": "service"}), **second}
 
     @app.post("/api/demo/reset")
@@ -390,6 +391,17 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
             return await current.assistant.company_now(nazar=current.nazar)
         except ToolExecutionError as exc:  # NAZAR refused: say so, not "Internal Server Error"
             raise HTTPException(502, str(exc)) from exc
+
+    @app.get("/api/photo")
+    async def person_photo(path: str, current: Caller = Depends(caller)) -> Response:
+        """A person's photo for the avatars: only NAZAR's media, read with the caller's own session."""
+        if not path.startswith("/media/") or ".." in path:
+            raise HTTPException(404, "No such photo.")
+        try:
+            picture = await call_nazar(current.nazar_or_service.get_bytes(path))
+        except ToolExecutionError as exc:
+            raise HTTPException(404, "No such photo.") from exc
+        return Response(picture, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=600"})
 
     @app.post("/api/import/read")
     async def read_import(

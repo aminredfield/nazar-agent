@@ -44,17 +44,17 @@ Today is {weekday}, {today} (Asia/Tashkent).
 intent:
 - data — anything about the company's employees, sites, check-ins, hours,
   lateness, absences, overtime, schedules, the timesheet or pay for worked
-  time; a general "how are things", a follow-up like "and Rustam?"; a
-  question about someone by name ("who is Timur Hasanov?", "tell me about
-  Sherzod") — the owner asks about an employee, typos and all; and an
+  time; a general "how are things", a follow-up like "and Mike?"; a
+  question about someone by name ("who is Tom Harris?", "tell me about
+  Sam") — the owner asks about an employee, typos and all; and an
   action the assistant can propose for one person or site: mark a check-in
   as reviewed, correct or void a shift, change a site's schedule, look into
   deleting some of someone's check-ins.
 - setup — setting the company up: open a new site, put a group or people
   to work on a site, set a group's shift there, make a group, add people to
   it, move someone to another site; and changing such a plan being made
-  ("make the shift from 9", "not Bobur"). Changing the hours of a site the
-  company already has ("set Yashnobod to 9–19") is data: an action the
+  ("make the shift from 9", "not Ben"). Changing the hours of a site the
+  company already has ("set Maple Court to 9–19") is data: an action the
   analyst checks against the real day.
 - greeting — hello, thanks, who are you, what can you do.
 - off_topic — not about the company's people and work time: weather, poems,
@@ -135,7 +135,7 @@ class Request:
     people: tuple[str, ...] = ()
     sites: tuple[str, ...] = ()
     clipped: bool = False  # the period asked for was longer than MAX_PERIOD_DAYS
-    resolved: tuple[str, ...] = ()  # "Rustam → Rustam Yuldashev (employee id …)", found by code
+    resolved: tuple[str, ...] = ()  # "Mike → Mike Turner (employee id …)", found by code
     meant: str = ""  # a follow-up written out in full; "" when the message stands alone
     earlier: str = ""  # the previous answer in this conversation, for a follow-up
 

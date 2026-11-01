@@ -9,12 +9,16 @@
 // the other scripts call goes on window, at the end.
 (() => {
   let companySeen = null; // key → what it looked like the last time the tab was shown
+  let lastCompany = null; // the last snapshot read: the strip on the first screen is drawn from it
+  let photoOf = {}; // a person's name → NAZAR's path to their photo
+  const STRIP_FACES = 7;
 
   // ``toChange``: bring the first marked change into view (from "See it in Company").
   async function loadCompany(toChange = false) {
     try {
       const data = await api("/api/company");
       const now = signatures(data);
+      remember(data);
       renderCompany(data, companySeen || now);
       companySeen = now;
       const first = toChange === true ? $("company").querySelector(".mark-changed, .mark-new") : null;
@@ -28,11 +32,42 @@
   // The company as the window opened, so the first look after an "Apply" already marks it.
   async function companyBaseline() {
     try {
-      companySeen = companySeen || signatures(await api("/api/company"));
+      const data = await api("/api/company");
+      companySeen = companySeen || signatures(data);
+      remember(data);
     } catch {
       // Not reachable now: the tab says why when it is opened.
     }
   }
+
+  function remember(data) {
+    lastCompany = data;
+    photoOf = Object.fromEntries(data.people.filter((person) => person.photo).map((person) => [person.name, person.photo]));
+    renderStrip();
+  }
+
+  // A face from NAZAR, or the initials when there is no photo.
+  function face(name) {
+    const path = photoOf[name];
+    if (path) return el("img", { class: "face", src: `/api/photo?path=${encodeURIComponent(path)}`, alt: "", loading: "lazy" });
+    return el("span", { class: "face initials", "aria-hidden": "true" }, name.split(/\s+/).map((part) => part[0] || "").join("").slice(0, 2));
+  }
+  const named = (name) => el("span", { class: "named" }, face(name), name);
+
+  // The first screen: whose company this is, its people's faces — a click opens the Company tab.
+  function renderStrip() {
+    if (!lastCompany) return;
+    const people = lastCompany.people;
+    const shown = people.slice(0, STRIP_FACES);
+    $("strip").replaceChildren(
+      el("span", { class: "faces" }, shown.map((person) => face(person.name)),
+        people.length > shown.length ? el("span", { class: "face more" }, `+${people.length - shown.length}`) : null),
+      el("span", { class: "strip-text" }, el("b", {}, t("strip_company", companyName)),
+        el("small", {}, t("strip_facts", lastCompany.sites.length, people.length))),
+      el("span", { class: "strip-go" }, t("strip_open")));
+    $("strip").hidden = false;
+  }
+  $("strip").addEventListener("click", () => showTab("company"));
 
   // After "Apply" or "Undo": the tab, if open, shows the change at once.
   function companyChanged() {
@@ -100,7 +135,9 @@
       site.late_grace_minutes != null ? el("div", { class: "muted small" }, t("company_grace", site.late_grace_minutes)) : null,
       site.groups.map((group) => el("div", { class: "small" }, group.shift_start
         ? t("company_group_shift", group.name, group.shift_start, group.shift_end) : group.name)),
-      el("div", { class: "small people-list" }, site.people.length ? `${site.people.length}: ${site.people.join(", ")}` : t("company_nobody")));
+      site.people.length
+        ? el("div", { class: "faces small" }, site.people.map(face), el("span", { class: "people-list" }, site.people.join(", ")))
+        : el("div", { class: "small people-list" }, t("company_nobody")));
   }
 
   function groupItem(group, state) {
@@ -121,7 +158,7 @@
       people.map((person) => {
         const changed = state(person.id);
         return el("tr", { class: marked(changed) },
-          el("td", {}, person.name, " ", badge(changed)), el("td", { class: "muted" }, person.code || ""),
+          el("td", {}, named(person.name), " ", badge(changed)), el("td", { class: "muted" }, person.code || ""),
           el("td", {}, person.sites.join(", ")), el("td", {}, person.groups.join(", ")),
           el("td", { class: person.late_minutes ? "late" : "" }, today(person)));
       })));
@@ -144,7 +181,7 @@
           el("th", { class: "num" }, t("th_hours")), el("th", { class: "num" }, t("th_late_days"))),
         week.rows.map((row) => {
           const changed = state(row.id);
-          return el("tr", { class: marked(changed) }, el("td", {}, row.name, " ", badge(changed)), row.days.map(weekCell),
+          return el("tr", { class: marked(changed) }, el("td", {}, named(row.name), " ", badge(changed)), row.days.map(weekCell),
             el("td", { class: "num" }, hours(row.worked_minutes)), el("td", { class: "num" }, row.late_days || ""));
         }))),
       el("p", { class: "muted small" }, t("company_legend")));
@@ -156,11 +193,11 @@
       const changed = state(item.id);
       const review = item.review && item.review !== "not_reviewed" ? L().REVIEW[item.review] || item.review : "";
       return el("li", { class: marked(changed) },
-        el("span", { class: "mono" }, item.time), " ", el("b", {}, item.name), ` · ${item.site} · ${t(item.type === "check_in" ? "company_in" : "company_out")}`,
+        el("span", { class: "mono" }, item.time), " ", face(item.name), el("b", {}, item.name), ` · ${item.site} · ${t(item.type === "check_in" ? "company_in" : "company_out")}`,
         item.flags.length ? el("span", { class: "issue" }, ` · ${item.flags.join(", ").replaceAll("_", " ")}`) : null,
         review ? el("span", { class: "reviewed" }, ` · ${review}`) : null, " ", badge(changed));
     }));
   }
 
-  Object.assign(window, { loadCompany, companyBaseline, companyChanged, seeCompany });
+  Object.assign(window, { loadCompany, companyBaseline, companyChanged, seeCompany, renderStrip });
 })();

@@ -37,27 +37,27 @@ def asked(*people: str) -> Request:
 
 
 async def test_two_karimovs_are_asked_back_with_a_button_each(nazar):
-    found = await resolve(asked("Каримовым"), "Что с Каримовым?", nazar)
+    found = await resolve(asked("Carter"), "Что с Carter?", nazar)
 
     assert isinstance(found, Clarification) and found.found
-    assert {choice.label for choice in found.choices} == {"Bobur Karimov", "Feruza Karimova"}
-    assert all(choice.question.startswith("Что с Каримовым? — ") for choice in found.choices)
+    assert {choice.label for choice in found.choices} == {"Ben Carter", "Fiona Carter"}
+    assert all(choice.question.startswith("Что с Carter? — ") for choice in found.choices)
     text = clarification(found, "ru")
-    assert "Bobur Karimov" in text and "Feruza Karimova" in text
+    assert "Ben Carter" in text and "Fiona Carter" in text
 
 
 async def test_a_pressed_choice_is_not_asked_again(nazar):
-    request = asked("Каримовым", "Bobur Karimov")
+    request = asked("Carter", "Ben Carter")
 
-    assert await resolve(request, "Что с Каримовым? — Bobur Karimov", nazar) is request
+    assert await resolve(request, "Что с Carter? — Ben Carter", nazar) is request
 
 
 async def test_one_match_is_handed_to_the_analyst_with_its_id(nazar):
-    found = await resolve(asked("Rustam aka"), "Rustam aka bugun soat nechada keldi?", nazar)
+    found = await resolve(asked("Mike aka"), "Mike aka bugun soat nechada keldi?", nazar)
 
     assert isinstance(found, Request)
     [line] = found.resolved
-    assert line.startswith("Rustam aka → Rustam Yuldashev (employee id ") and "found in NAZAR" in found.hints()
+    assert line.startswith("Mike aka → Mike Turner (employee id ") and "found in NAZAR" in found.hints()
 
 
 async def test_no_one_by_that_name_is_said_at_once(nazar):
@@ -68,9 +68,9 @@ async def test_no_one_by_that_name_is_said_at_once(nazar):
 
 
 async def test_a_site_taken_for_a_person_is_left_to_the_analyst(nazar):
-    request = asked("Яшнабад")
+    request = asked("Maple Court")
 
-    assert await resolve(request, "Кто опоздал на Яшнабаде?", nazar) is request
+    assert await resolve(request, "Кто опоздал на Maple Court?", nazar) is request
 
 
 async def test_an_unclear_name_goes_to_the_analyst_when_nazar_does_not_answer(nazar):
@@ -78,23 +78,23 @@ async def test_an_unclear_name_goes_to_the_analyst_when_nazar_does_not_answer(na
         raise httpx.ConnectError("refused")
 
     nazar.get = down
-    request = asked("Каримовым")
+    request = asked("Carter")
 
-    assert await resolve(request, "Что с Каримовым?", nazar) is request
+    assert await resolve(request, "Что с Carter?", nazar) is request
 
 
 async def test_the_assistant_asks_back_without_the_analyst(tmp_path, monkeypatch):
-    llm = ScriptedLLM([turn(text=reading(people=["Каримовым"]).model_dump_json())])  # one turn: the analyst would fail
+    llm = ScriptedLLM([turn(text=reading(people=["Carter"]).model_dump_json())])  # one turn: the analyst would fail
     monkeypatch.setattr(Settings, "analyst_llm", lambda self: llm)
     monkeypatch.setattr(Settings, "skeptic_llm", lambda self: ScriptedLLM([]))
     current = settings(tmp_path)
     link = connect(current)
     assistant = Assistant(current, ProposalStore(tmp_path / "a.sqlite3"), service=link.client())
 
-    answer = await assistant.ask("Что с Каримовым?")
+    answer = await assistant.ask("Что с Carter?")
 
     assert answer.view["reply"] == "clarify" and answer.view["cards"] == []
-    assert len(answer.view["choices"]) == 2 and "Feruza Karimova" in answer.view["summary"]
+    assert len(answer.view["choices"]) == 2 and "Fiona Carter" in answer.view["summary"]
 
 
 @pytest.mark.parametrize("intent", ["greeting", "unclear", "off_topic"])

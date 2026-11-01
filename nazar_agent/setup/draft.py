@@ -2,7 +2,7 @@
 
 Nothing in it exists in NAZAR until the owner applies the plan. Each message
 of the conversation changes the same draft ("make the shift from 9", "not
-Bobur"); the window's cards change it too. Cards are immutable: every change
+Ben"); the window's cards change it too. Cards are immutable: every change
 gives a new draft.
 """
 

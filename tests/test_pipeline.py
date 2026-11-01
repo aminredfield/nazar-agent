@@ -35,7 +35,7 @@ def report_json(distance: str, *, alternatives=("weak GPS",)) -> str:
             "subject_kind": "employee",
             "concern": "people",
             "subject_id": "emp-1",
-            "subject_name": "Jasur",
+            "subject_name": "Jason",
             "facts": [
                 {
                     "text": "Checked in far from the site",
@@ -166,7 +166,7 @@ async def test_a_second_empty_report_stands():
 def answer_report(minutes: str, summary: str) -> str:
     return json.dumps({
         "answer": [{
-            "text": f"Jasur was {minutes} minutes late",
+            "text": f"Jason was {minutes} minutes late",
             "evidence": [{"kind": "count", "id": "today:emp-1"}],
             "claims": [{"ref": {"kind": "count", "id": "today:emp-1"}, "field": "late_minutes", "value": minutes}],
         }],
@@ -177,7 +177,7 @@ def answer_report(minutes: str, summary: str) -> str:
 
 
 async def today(params: NoParams) -> dict:
-    return {"people": [{"id": "today:emp-1", "employee_id": "emp-1", "name": "Jasur", "late_minutes": 62}]}
+    return {"people": [{"id": "today:emp-1", "employee_id": "emp-1", "name": "Jason", "late_minutes": 62}]}
 
 
 TODAY_ROLE = Role(name="analyst", instructions="Analyse.", tools=(Tool("get_today", "Today.", NoParams, today),), model="m")
@@ -193,23 +193,23 @@ async def test_a_direct_answer_is_checked_like_a_finding():
     analysis = await analyze(TODAY_ROLE, llm, "Who was late today?")
 
     assert "answer, fact 1: count:today:emp-1.late_minutes is 62, not '45'" in llm.requests[3]["input"][-1]["content"]
-    assert [fact.text for fact in analysis.report.answer] == ["Jasur was 62 minutes late"]
+    assert [fact.text for fact in analysis.report.answer] == ["Jason was 62 minutes late"]
     assert len(llm.requests) == 4  # an answer without findings is not asked for again
 
 
 async def test_a_number_no_tool_returned_is_cut_from_the_summary():
-    invented = answer_report("62", "Jasur was 62 minutes late. That is 54 hours this month.")
+    invented = answer_report("62", "Jason was 62 minutes late. That is 54 hours this month.")
     llm = ScriptedLLM([*asked_today(), *(turn(text=invented) for _ in range(2))])
 
     analysis = await analyze(TODAY_ROLE, llm, "Who was late today?", max_corrections=1)
 
     assert "summary: it says 54" in llm.requests[3]["input"][-1]["content"]
-    assert analysis.report.summary == "Jasur was 62 minutes late."
+    assert analysis.report.summary == "Jason was 62 minutes late."
     assert [(item.finding, item.fact) for item in analysis.rejected] == [("summary", "That is 54 hours this month.")]
 
 
 async def test_a_wrong_answer_is_removed_and_the_summary_falls_back_to_what_is_verified():
-    wrong = answer_report("45", "Jasur was 45 minutes late.")
+    wrong = answer_report("45", "Jason was 45 minutes late.")
     llm = ScriptedLLM([*asked_today(), *(turn(text=wrong) for _ in range(2))])
 
     analysis = await analyze(TODAY_ROLE, llm, "Who was late today?", max_corrections=1)

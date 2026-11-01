@@ -12,15 +12,15 @@ from nazar_agent.service import create_app
 from nazar_agent.setup import apply as applying
 from tests.fakes import ScriptedLLM, turn
 from tests.test_dispatcher import reading as dispatcher_reading
-from tests.test_setup_plan import OLMAZOR, OPEN_OLMAZOR
+from tests.test_setup_plan import WESTFIELD, OPEN_WESTFIELD
 
 NOW = datetime(2026, 10, 28, 11, 30, tzinfo=ZoneInfo("Asia/Tashkent"))
-ASK = f"Открываем ЖК Олмазор {OLMAZOR}, смена с 8 до 17 пн–сб, бригада Рустама: Рустам, Bobur Karimov и Жасур Тоиров"
+ASK = f"Открываем ЖК Олмазор {WESTFIELD}, смена с 8 до 17 пн–сб, бригада Рустама: Mike, Ben Carter и Жасур Тоиров"
 
 
 @pytest.fixture
 def window(tmp_path, monkeypatch):
-    reading = OPEN_OLMAZOR.model_copy(update={"people": ["Рустам", "Bobur Karimov", "Жасур Тоиров"]})
+    reading = OPEN_WESTFIELD.model_copy(update={"people": ["Mike", "Ben Carter", "Жасур Тоиров"]})
     script = [turn(text=dispatcher_reading(intent="setup").model_dump_json()), turn(text=reading.model_dump_json())]
     monkeypatch.setattr(Settings, "analyst_llm", lambda self: ScriptedLLM([script.pop(0)]))
     monkeypatch.setattr(Settings, "skeptic_llm", lambda self: ScriptedLLM([]))
@@ -43,10 +43,10 @@ def test_a_plan_is_applied_step_by_step_and_undone_back_to_how_it_was(window):
     client, demo = window
     shown = client.get("/api/setup").json()["setup"]
     draft = shown["draft"]["id"]
-    rustam = people(demo, "Rustam Yuldashev")
+    rustam = people(demo, "Mike Turner")
     home = demo.world.people[rustam].site_id
 
-    client.patch("/api/setup", json={"draft_id": draft, "person": {"written": "Bobur Karimov", "state": "skip"}})
+    client.patch("/api/setup", json={"draft_id": draft, "person": {"written": "Ben Carter", "state": "skip"}})
     applied = client.post("/api/setup/apply", json={"draft_id": draft}).json()
 
     run = applied["run"]
@@ -93,7 +93,7 @@ def test_a_step_that_fails_stops_the_plan_and_undo_takes_back_what_was_done(wind
     client.post(f"/api/setup/runs/{run['id']}/undo", json={})
 
     assert not any(item.name == "ЖК Олмазор" for item in demo.world.sites.values())
-    assert sorted(item.name for item in demo.setup.departments.values()) == ["Chilonzor crew", "Sergeli crew", "Yashnobod finishing crew"]
+    assert sorted(item.name for item in demo.setup.departments.values()) == ["Eastgate crew", "Maple Court finishing crew", "Riverside crew"]
 
 
 def test_a_pasted_link_puts_the_point_or_says_why_not(window):

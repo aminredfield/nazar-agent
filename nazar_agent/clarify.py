@@ -1,6 +1,6 @@
 """Names the owner wrote, checked by code before anyone investigates.
 
-"Что с Каримовым?" in a company with two Karimovs is a question to ask back,
+"What about Carter?" in a company with two Carters is a question to ask back,
 not to answer about one of them; a name no one has is answered at once. Each
 choice is a question to send again, with the full name, as a button.
 """

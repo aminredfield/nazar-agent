@@ -261,7 +261,7 @@ def test_schedule_change_reads_as_hours_before_and_after():
 async def test_a_question_asked_back_comes_with_buttons_that_ask_again(setup):
     bot, api, assistant, _, _ = setup
     assistant.cards = []
-    choices = [{"label": "Bobur Karimov", "question": "Что с Каримовым? — Bobur Karimov"}]
+    choices = [{"label": "Ben Carter", "question": "Что с Каримовым? — Ben Carter"}]
     plain = assistant.ask
 
     async def asked_back(question, analyst=None, **kwargs):
@@ -271,11 +271,11 @@ async def test_a_question_asked_back_comes_with_buttons_that_ask_again(setup):
     assistant.ask = asked_back
     await bot.handle(message("Что с Каримовым?"))
     [button] = [row[0] for _, _, keyboard in api.sent if keyboard for row in keyboard]
-    assert button["text"] == "Bobur Karimov" and button["callback_data"].startswith("c:")
+    assert button["text"] == "Ben Carter" and button["callback_data"].startswith("c:")
 
     await bot.handle(press(button["callback_data"]))
 
-    assert assistant.questions == ["Что с Каримовым?", "Что с Каримовым? — Bobur Karimov"]
+    assert assistant.questions == ["Что с Каримовым?", "Что с Каримовым? — Ben Carter"]
     await bot.handle(press("c:gone"))
     assert api.answers[-1].startswith("Эта кнопка устарела")
 

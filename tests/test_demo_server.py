@@ -46,7 +46,7 @@ async def signed_in(state: DemoNazar) -> AsyncIterator[httpx.AsyncClient]:
 
 def face_jpeg(size: int = 480) -> bytes:
     buffer = io.BytesIO()
-    Image.open(FACES / "azamat_normatov.jpg").convert("RGB").resize((size, size)).save(buffer, "JPEG")
+    Image.open(FACES / "adam_novak.jpg").convert("RGB").resize((size, size)).save(buffer, "JPEG")
     return buffer.getvalue()
 
 
@@ -255,7 +255,7 @@ async def test_a_handoff_pass_works_once():
 
 async def test_the_timesheet_counts_the_late_crew_as_late_every_day():
     state = demo()
-    zuhra = people(state, "Zuhra Nabieva")
+    zuhra = people(state, "Zoe Nash")
     async with signed_in(state) as client:
         rows = (await client.get("/timesheet", params={
             "date_from": "2026-10-19", "date_to": "2026-10-27", "employee_id": zuhra,
@@ -284,14 +284,14 @@ async def test_the_setup_check_finds_the_wrong_schedule_and_no_false_weekday():
     findings = {finding["code"]: finding for finding in check["findings"]}
 
     assert set(findings) == {"mass_lateness"}
-    assert [site["object_name"] for site in findings["mass_lateness"]["details"]["objects"]] == ["Yashnobod residential, finishing"]
-    assert set(findings["mass_lateness"]["employee_names"]) == {"Zuhra Nabieva", "Kamola Tashpulatova", "Dilfuza Ergasheva"}
+    assert [site["object_name"] for site in findings["mass_lateness"]["details"]["objects"]] == ["Maple Court residential, finishing"]
+    assert set(findings["mass_lateness"]["employee_names"]) == {"Zoe Nash", "Kate Palmer", "Diana Evans"}
     assert check["date_to"] == "2026-10-27"
 
 
 async def test_a_preview_is_what_applying_gives_and_undo_puts_the_day_back():
     state = demo()
-    azamat = people(state, "Azamat Normatov")
+    azamat = people(state, "Adam Novak")
     day = {"employee_id": azamat, "work_date": "2026-10-26"}
     async with signed_in(state) as client:
         before = (await client.get("/timesheet/day/detail", params=day)).json()["data"]["day"]
@@ -312,7 +312,7 @@ async def test_a_preview_is_what_applying_gives_and_undo_puts_the_day_back():
 
 async def test_a_voided_day_is_absent_and_comes_back():
     state = demo()
-    timur = people(state, "Timur Hasanov")
+    timur = people(state, "Tom Harris")
     day = {"employee_id": timur, "work_date": "2026-10-27"}
     async with signed_in(state) as client:
         before = (await client.get("/timesheet/day/detail", params=day)).json()["data"]["day"]
@@ -332,7 +332,7 @@ async def test_a_voided_day_is_absent_and_comes_back():
 
 async def test_an_adjustment_must_name_the_employees_own_shift():
     state = demo()
-    azamat, zuhra = people(state, "Azamat Normatov"), people(state, "Zuhra Nabieva")
+    azamat, zuhra = people(state, "Adam Novak"), people(state, "Zoe Nash")
     async with signed_in(state) as client:
         foreign = await client.post("/timesheet/adjustments/void", json={
             "employee_id": azamat, "work_date": "2026-10-26", "object_id": state.world.people[zuhra].site_id, "reason": "x",
@@ -348,15 +348,15 @@ async def test_an_adjustment_must_name_the_employees_own_shift():
 
 async def test_a_schedule_change_applies_from_today_and_the_past_stays():
     state = demo()
-    yashnobod = next(site for site in state.world.sites.values() if site.key == "yashnobod")
-    zuhra = people(state, "Zuhra Nabieva")
+    maple = next(site for site in state.world.sites.values() if site.key == "maple")
+    zuhra = people(state, "Zoe Nash")
     async with signed_in(state) as client:
-        updated = (await client.patch(f"/objects/{yashnobod.id}", json={
+        updated = (await client.patch(f"/objects/{maple.id}", json={
             "shift_start": "09:00", "shift_end": "19:00", "work_schedule_mode": "custom",
         })).json()["data"]
         past = (await client.get("/timesheet/day/detail", params={"employee_id": zuhra, "work_date": "2026-10-27"})).json()["data"]["day"]
         today = (await client.get("/timesheet/day/detail", params={"employee_id": zuhra, "work_date": "2026-10-28"})).json()["data"]["day"]
-        bad = await client.patch(f"/objects/{yashnobod.id}", json={"shift_start": "25:00"})
+        bad = await client.patch(f"/objects/{maple.id}", json={"shift_start": "25:00"})
 
     assert (updated["shift_start"], updated["shift_end"], updated["work_schedule_mode"]) == ("09:00", "19:00", "custom")
     assert past["late_minutes"] > 45
@@ -393,7 +393,7 @@ async def test_presence_today_shows_who_is_on_site():
 
 async def test_logs_filter_and_page_newest_first():
     state = demo()
-    sherzod = people(state, "Sherzod Alimov")
+    sherzod = people(state, "Sam Ellis")
     async with signed_in(state) as client:
         flagged = (await client.get("/attendance/logs", params={"suspicious_only": "true", "limit": 500})).json()["data"]
         first = (await client.get("/attendance/logs", params={"limit": 5})).json()["data"]
@@ -407,20 +407,20 @@ async def test_logs_filter_and_page_newest_first():
 
 async def test_a_new_employee_joins_a_site_from_today():
     state = demo()
-    chilonzor = next(site for site in state.world.sites.values() if site.key == "chilonzor")
+    riverside = next(site for site in state.world.sites.values() if site.key == "riverside")
     client_ = NazarClient(
         base_url=BASE, email=DEMO_EMAIL, password=DEMO_PASSWORD, agent_key=DEMO_AGENT_KEY,
         transport=httpx.ASGITransport(app=create_app(state)),
     )
     picture = face_jpeg()
     created = await client_.post_form("/employees", {"full_name": "Нилуфар Рахимова"}, [("photos", ("p.jpg", picture, "image/jpeg"))])
-    current = await client_.get(f"/objects/{chilonzor.id}/assignments")
+    current = await client_.get(f"/objects/{riverside.id}/assignments")
     ids = [item["employee_id"] for item in current["assignments"]] + [created["id"]]
-    after = await client_.post(f"/objects/{chilonzor.id}/assignments", {"employee_ids": ids, "start_date": "2026-10-28"})
+    after = await client_.post(f"/objects/{riverside.id}/assignments", {"employee_ids": ids, "start_date": "2026-10-28"})
     rows = (await client_.get("/timesheet", {"date_from": "2026-10-27", "date_to": "2026-10-28", "employee_id": created["id"]}))["days"]
     photo_back = await client_.get_bytes(created["preview_image_url"])
 
-    assert created["employee_id"] == "MQ-017"
+    assert created["employee_id"] == "NB-017"
     assert created["id"] in {item["employee_id"] for item in after["assignments"]}
     assert [row["day_code"] for row in rows] == ["day_off", "pending"]
     assert photo_back == picture

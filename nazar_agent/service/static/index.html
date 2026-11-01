@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="/static/app.css?v=27">
-<script src="/static/i18n.js?v=27"></script>
+<link rel="stylesheet" href="/static/app.css?v=28">
+<script src="/static/i18n.js?v=28"></script>
 </head>
 <body>
 <div class="backdrop" aria-hidden="true"></div>
@@ -19,7 +19,13 @@
     <img src="/static/logo.png" alt="" width="34" height="34">
     <div><strong>NAZAR</strong> <span class="brand-sub" data-i18n="brand_sub">Помощник</span></div>
   </div>
-  <div class="team-pill" id="team-pill"><span class="dot"></span><span id="team-status" data-i18n="team_idle">Команда на месте</span></div>
+  <!-- One row of places to go: the same four everywhere, the one you are in underlined. -->
+  <nav class="tabs" role="tablist">
+    <button type="button" id="tab-ask-button" role="tab" aria-selected="true" data-i18n="tab_ask"></button>
+    <button type="button" id="tab-company-button" role="tab" aria-selected="false" data-i18n="tab_company"></button>
+    <button type="button" id="tab-import-button" role="tab" aria-selected="false" data-i18n="tab_import"></button>
+    <a class="tab-link" href="/scenarios" data-i18n="tab_scenarios"></a>
+  </nav>
   <div id="who" class="who"></div>
   <div class="prefs">
     <div class="seg lang" id="lang-seg" role="radiogroup" data-i18n-aria="language">
@@ -34,37 +40,13 @@
 <div id="sign-in-notice" class="notice" hidden></div>
 
 <main>
-  <section class="hero">
-    <h1><span data-i18n="hero_title">Команда ИИ-агентов проверяет учёт.</span> <span class="grad" data-i18n="hero_grad">Решаете вы.</span></h1>
-    <p class="lead" data-i18n="hero_lead"></p>
-    <ul class="powers">
-      <li><b data-i18n="p1_t"></b><span data-i18n="p1"></span></li>
-      <li><b data-i18n="p2_t"></b><span data-i18n="p2"></span></li>
-      <li><b data-i18n="p3_t"></b><span data-i18n="p3"></span></li>
-      <li><b data-i18n="p4_t"></b><span data-i18n="p4"></span></li>
-    </ul>
-    <p class="demo-line" id="demo-line" hidden data-i18n="hero_demo"></p>
-    <p class="demo-line"><a class="scenarios-link" href="/scenarios" data-i18n="hero_scenarios"></a></p>
-    <div class="models">
-      <span class="chip"><i class="m-a"></i><span data-i18n="chip_analysts"></span></span>
-      <span class="chip"><i class="m-o"></i><span id="chip-second" data-i18n="chip_open"></span></span>
-      <span class="chip"><i class="m-c"></i><span data-i18n="chip_code"></span></span>
-    </div>
-  </section>
-
-  <nav class="tabs" role="tablist">
-    <button type="button" id="tab-ask-button" role="tab" aria-selected="true" data-i18n="tab_ask"></button>
-    <button type="button" id="tab-import-button" role="tab" aria-selected="false" data-i18n="tab_import"></button>
-    <button type="button" id="tab-company-button" role="tab" aria-selected="false" data-i18n="tab_company"></button>
-    <a class="tab-link" href="/scenarios" data-i18n="tab_scenarios"></a>
-  </nav>
-
   <section id="tab-ask">
-    <section class="try" aria-labelledby="try-title">
-      <h2 id="try-title" data-i18n="try_title"></h2>
-      <p class="muted try-note" data-i18n="try_note"></p>
-      <div class="try-grid" id="try-list"></div>
+    <section class="hero">
+      <h1><span data-i18n="hero_title"></span> <span class="grad" data-i18n="hero_grad"></span></h1>
+      <p class="lead" data-i18n="hero_lead"></p>
     </section>
+    <!-- Whose company this is, with its people's faces: a click opens it. -->
+    <button type="button" class="strip" id="strip" hidden></button>
     <form class="ask glass" id="ask">
       <textarea id="question" maxlength="500" required data-i18n-placeholder="question_placeholder"></textarea>
       <div class="row">
@@ -81,6 +63,12 @@
       <div class="status" id="status"></div>
     </form>
 
+    <section class="try" aria-labelledby="try-title">
+      <h2 id="try-title" data-i18n="try_title"></h2>
+      <div class="try-grid" id="try-list"></div>
+    </section>
+
+    <p class="watch" id="watch" hidden></p>
     <section id="run" class="run" hidden aria-live="polite">
       <div class="run-frame">
         <div class="run-head">
@@ -142,24 +130,32 @@
     <div id="company"></div>
   </section>
 
-  <details class="panel glass fold" id="usage-section">
-    <summary><h2 data-i18n="usage_title"></h2></summary>
-    <div class="row"><p class="muted" data-i18n="usage_note"></p><button type="button" id="refresh-usage" data-i18n="refresh"></button></div>
-    <div id="usage" class="usage"></div>
-  </details>
-
-  <details class="panel glass fold" id="audit-section">
-    <summary><h2 data-i18n="audit_title"></h2></summary>
-    <div class="row"><p class="muted" id="decisions"></p><button type="button" id="refresh-audit" data-i18n="refresh"></button></div>
-    <ol id="audit" class="timeline"></ol>
+  <!-- For the curious: which models, what it cost, every decision. Closed until opened. -->
+  <details class="hood fold" id="hood">
+    <summary><h2 data-i18n="hood_title"></h2></summary>
+    <div class="models">
+      <span class="chip"><i class="m-a"></i><span data-i18n="chip_analysts"></span></span>
+      <span class="chip"><i class="m-o"></i><span id="chip-second" data-i18n="chip_open"></span></span>
+      <span class="chip"><i class="m-c"></i><span data-i18n="chip_code"></span></span>
+    </div>
+    <details class="panel glass fold" id="usage-section">
+      <summary><h2 data-i18n="usage_title"></h2></summary>
+      <div class="row"><p class="muted" data-i18n="usage_note"></p><button type="button" id="refresh-usage" data-i18n="refresh"></button></div>
+      <div id="usage" class="usage"></div>
+    </details>
+    <details class="panel glass fold" id="audit-section">
+      <summary><h2 data-i18n="audit_title"></h2></summary>
+      <div class="row"><p class="muted" id="decisions"></p><button type="button" id="refresh-audit" data-i18n="refresh"></button></div>
+      <ol id="audit" class="timeline"></ol>
+    </details>
   </details>
 </main>
 
 <footer class="foot" data-i18n="footer"></footer>
-<script src="/static/media.js?v=27"></script>
-<script src="/static/app.js?v=27"></script>
-<script src="/static/people.js?v=27"></script>
-<script src="/static/setup.js?v=27"></script>
-<script src="/static/company.js?v=27"></script>
+<script src="/static/media.js?v=28"></script>
+<script src="/static/app.js?v=28"></script>
+<script src="/static/people.js?v=28"></script>
+<script src="/static/setup.js?v=28"></script>
+<script src="/static/company.js?v=28"></script>
 </body>
 </html>

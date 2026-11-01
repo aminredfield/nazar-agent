@@ -19,23 +19,23 @@ FONTS = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("C:/Windows/Fonts")
 
 TABLE = (
     ("Employee", "Location", "Days", "Shift"),
-    ("Dilnoza Yusupova", "Bahor Market — Chilonzor", "Mon–Sat", "09:00–18:00"),
-    ("Aziz Karimov", "Bahor Market — Chilonzor", "Mon–Sat", "09:00–18:00"),
-    ("Sevara Mirzaeva", "Bahor Market — Chilonzor", "Tue–Sun", "14:00–23:00"),
-    ("Otabek Ergashev", "Bahor Market — Yunusobod", "Mon–Fri", "08:00–17:00"),
-    ("Madina Ismailova", "Bahor Market — Yunusobod", "Mon–Fri", "08:00–17:00"),
-    ("Javohir Raupov", "Café Lola, Amir Temur 15", "Wed–Sun", "10:00–22:00"),
-    ("Zarina Hakimova", "Café Lola, Amir Temur 15", "Wed–Sun", "10:00–22:00"),
-    ("Farrukh Sultanov", "Café Lola, Amir Temur 15", "Mon–Fri", "07:00–15:00"),
+    ("Dana Brooks", "Fresh Market — Riverside", "Mon–Sat", "09:00–18:00"),
+    ("Andy Kim", "Fresh Market — Riverside", "Mon–Sat", "09:00–18:00"),
+    ("Sophie Martin", "Fresh Market — Riverside", "Tue–Sun", "14:00–23:00"),
+    ("Owen Edwards", "Fresh Market — Northside", "Mon–Fri", "08:00–17:00"),
+    ("Maria Lopez", "Fresh Market — Northside", "Mon–Fri", "08:00–17:00"),
+    ("Jake Reynolds", "Corner Café, 15 Market Street", "Wed–Sun", "10:00–22:00"),
+    ("Zara Hughes", "Corner Café, 15 Market Street", "Wed–Sun", "10:00–22:00"),
+    ("Frank Sullivan", "Corner Café, 15 Market Street", "Mon–Fri", "07:00–15:00"),
 )
 CHAT = (
-    "Ertangi haftadan smenalar:",
-    "Bahor Market Chilonzor — Dilnoza, Aziz 9:00-18:00 (dush-shan)",
-    "Sevara 14-23, seshanbadan yakshanbagacha",
-    "Юнусабад филиал: Отабек, Мадина с 8 до 17, пн-пт",
-    "Lola kafe (Amir Temur 15): Javohir va Zarina 10:00–22:00,",
-    "chorshanba–yakshanba",
-    "Farrux 7-15 hafta ichi",
+    "Shifts from next week:",
+    "Fresh Market Riverside — Dana, Andy 9-6 (mon-sat)",
+    "Sophie 2pm-11pm, tue thru sun",
+    "Northside branch: Owen + Maria 8 to 5, weekdays",
+    "Corner Café (15 Market St): Jake & Zara 10am–10pm,",
+    "wed–sun",
+    "Frank: de 7 a 3, entre semana",
 )
 
 
@@ -64,7 +64,7 @@ def chat() -> Image.Image:
     image = Image.new("RGB", (900, 120 + 40 * len(CHAT)), (230, 236, 241))
     draw = ImageDraw.Draw(image)
     draw.rectangle([0, 0, 900, 60], fill=(82, 136, 193))
-    draw.text((24, 14), "Bahor & Lola — managers", fill="white", font=regular)
+    draw.text((24, 14), "Fresh Market & Corner Café — managers", fill="white", font=regular)
     top, bottom = 84, 84 + 40 * len(CHAT) + 30
     draw.rounded_rectangle([40, top, 860, bottom], radius=18, fill="white")
     for index, line in enumerate(CHAT):

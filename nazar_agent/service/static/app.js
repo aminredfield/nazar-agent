@@ -69,8 +69,6 @@ function startRun(question, alreadyFor = 0) {
   $("feed").replaceChildren();
   for (const node of $("roster").children) node.className = "";
   $("analyst-name").textContent = t("analyst");
-  $("team-pill").classList.add("busy");
-  $("team-status").textContent = t("team_busy");
   clearInterval(run.clock);
   run.clock = setInterval(() => { $("run-timer").textContent = seconds((performance.now() - run.started) / 1000); }, 100);
   clearInterval(run.poll);
@@ -108,8 +106,6 @@ function stopRun(ok, text) {
   $("run").className = ok ? "run finished" : "run failed";
   $("run-title").textContent = ok ? t("done_in", $("run-timer").textContent) : t("failed");
   if (text) feed("⚠", text, "err");
-  $("team-pill").classList.remove("busy");
-  $("team-status").textContent = t("team_idle");
 }
 
 function setActive(agent) {
@@ -536,20 +532,30 @@ function chooseAnalyst(value) {
 }
 const chosenAnalyst = () => [...$("analyst-seg").children].find((button) => button.getAttribute("aria-checked") === "true").dataset.value;
 for (const button of $("analyst-seg").children) button.addEventListener("click", () => chooseAnalyst(button.dataset.value));
-// "Try these": each card asks its question at once; the line under it says what should happen.
+// "Try one": a card names the problem; a click asks its question, and what to
+// watch for shows above the agents' work — not before, so the cards stay short.
+let watching = null; // the card asked last: its "watch for" line follows the language
 function renderTry() {
-  $("try-list").replaceChildren(...L().TRY.map((item) => {
-    const card = el("button", { type: "button", class: "try-card" },
-      el("b", {}, item.t), el("span", { class: "try-q" }, `“${item.q}”`),
-      el("small", {}, el("i", {}, t("try_expect")), " ", item.e));
+  $("try-list").replaceChildren(...L().TRY.map((item, index) => {
+    const card = el("button", { type: "button", class: "try-card", title: item.q },
+      el("span", { class: "try-icon", "aria-hidden": "true" }, item.i),
+      el("b", {}, item.t), el("span", { class: "try-pain" }, item.p),
+      el("span", { class: "try-go" }, t("try_go")));
     card.addEventListener("click", () => {
       if ($("send").disabled) return; // one question at a time: the team is still on the last one
+      watching = index;
       $("question").value = item.q;
       chooseAnalyst("auto");
       $("ask").requestSubmit();
     });
     return card;
   }));
+  showWatch();
+}
+function showWatch() {
+  const item = watching === null ? null : L().TRY[watching];
+  $("watch").hidden = !item;
+  if (item) $("watch").replaceChildren(el("b", {}, t("watch_for")), " ", item.w);
 }
 renderTry();
 
@@ -637,9 +643,11 @@ $("ask").addEventListener("submit", async (event) => {
   $("send").disabled = true;
   $("status").textContent = "";
   $("answer").replaceChildren();
+  if (watching !== null && $("question").value !== L().TRY[watching].q) watching = null; // typed, not a card
+  showWatch();
   startRun($("question").value);
   // The team's work is the first thing to see. Not "smooth": the feed scrolling itself would stop it halfway.
-  $("run").scrollIntoView({ block: "start" });
+  ($("watch").hidden ? $("run") : $("watch")).scrollIntoView({ block: "start" });
   try {
     const answer = await api("/api/ask", { question: $("question").value, analyst: chosenAnalyst(), lang: LANG });
     await pollProgress(); // a tick may have been in flight: one more for the last events
@@ -698,6 +706,7 @@ $("refresh-usage").addEventListener("click", loadUsage);
 // fragment. It is removed from the address bar at once and exchanged by this
 // service for the person's own NAZAR session; from then on decisions carry
 // the name NAZAR knows them by, not the name field.
+let companyName = ""; // whose company this is, from NAZAR: the strip names it
 async function signIn() {
   const pass = location.hash.match(/^#handoff=(.+)$/);
   if (pass) {
@@ -711,13 +720,15 @@ async function signIn() {
   }
   try {
     const me = await api("/api/me");
+    companyName = me.company_name || "";
     // Without a Baseten key the second opinion is Muse Spark 1.2 on the Meta key: say so.
     if (me.second_opinion_open === false) $("chip-second").dataset.i18n = "chip_fallback";
     translatePage();
-    if (me.mode === "person" || me.mode === "demo") {
+    if (me.mode === "person") {
       const initials = me.full_name.split(/\s+/).map((part) => part[0] || "").join("").slice(0, 2).toUpperCase();
       $("who").replaceChildren(el("span", { class: "avatar" }, initials), el("span", {}, me.full_name, el("small", {}, me.company_name)));
     }
+    // In the demo the visitor is the owner: the strip under the title says whose company it is.
     if (me.mode === "demo") showDemo();
     return true;
   } catch (error) {
@@ -742,8 +753,7 @@ function showDemo() {
       alert(error.message);
     }
   });
-  $("who").prepend(el("span", { class: "demo-tag", title: t("demo_title"), "data-i18n": "demo", "data-i18n-title": "demo_title" }, t("demo")), reset);
-  $("demo-line").hidden = false;
+  $("who").replaceChildren(reset);
 }
 
 function notice(text) {
@@ -759,7 +769,6 @@ function showPrefs() {
   $("theme-toggle").textContent = dark ? "☀" : "☾";
   $("theme-toggle").title = t(dark ? "theme_light" : "theme_dark");
   $("theme-toggle").setAttribute("aria-label", $("theme-toggle").title);
-  $("team-status").textContent = t(run.poll && !run.finished ? "team_busy" : "team_idle");
 }
 for (const button of $("lang-seg").children) {
   button.addEventListener("click", () => {
@@ -767,6 +776,7 @@ for (const button of $("lang-seg").children) {
     showPrefs();
     renderTry();
     renderSamples();
+    renderStrip();
     if (!$("tab-company").hidden) loadCompany();
     if (shownAnswer) renderAnswer(shownAnswer);
     renderHistory();
@@ -780,9 +790,12 @@ showPrefs();
 
 // Once every script of the page has run: the start uses setup.js and company.js too,
 // and an answer from the network can come before a later script has loaded.
+// The Scenarios page links to a tab by the address: /#company, /#people.
+const TAB_OF_ADDRESS = { "#company": "company", "#people": "import" };
 document.addEventListener("DOMContentLoaded", () => signIn().then(async (ready) => {
   if (!ready) return;
   loadAudit();
   companyBaseline();
+  if (TAB_OF_ADDRESS[location.hash]) showTab(TAB_OF_ADDRESS[location.hash]);
   if (!(await followRunning())) loadDialog();
 }));

@@ -110,7 +110,7 @@ class Setup:
 
 
 # The crews the company starts with: a group per site, everyone on it a member.
-CREWS = (("chilonzor", "Chilonzor crew", "blue"), ("sergeli", "Sergeli crew", "green"), ("yashnobod", "Yashnobod finishing crew", "amber"))
+CREWS = (("riverside", "Riverside crew", "blue"), ("eastgate", "Eastgate crew", "green"), ("maple", "Maple Court finishing crew", "amber"))
 
 
 def crews(world: World) -> Setup:

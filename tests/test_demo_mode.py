@@ -60,17 +60,17 @@ def test_the_demo_window_opens_at_once_as_the_demo_owner(demo_window):
     me = client.get("/api/me")
 
     assert me.status_code == 200 and me.json()["mode"] == "demo"
-    assert me.json()["company_name"] == "Mustahkam Qurilish"
+    assert me.json()["company_name"] == "Northline Builders"
     assert len(client.cookies.get("nazar_agent_demo") or "") >= 20  # each browser counted on its own
 
 
 def test_the_demo_window_works_on_the_demo_company(demo_window):
     client, demo = demo_window
-    chilonzor = next(site for site in demo.world.sites.values() if site.key == "chilonzor")
+    riverside = next(site for site in demo.world.sites.values() if site.key == "riverside")
 
-    drafts = client.post("/api/import/drafts", json={"rows": [{"full_name": "Нилуфар Рахимова", "site_id": chilonzor.id}]})
+    drafts = client.post("/api/import/drafts", json={"rows": [{"full_name": "Нилуфар Рахимова", "site_id": riverside.id}]})
 
-    assert drafts.status_code == 200 and drafts.json()[0]["site_name"] == chilonzor.name
+    assert drafts.status_code == 200 and drafts.json()[0]["site_name"] == riverside.name
 
 
 def test_reset_brings_the_demo_company_back(demo_window):
@@ -166,3 +166,24 @@ def test_the_workday_clock_drives_the_demo_nazar_too(tmp_path):
 
     assert workday.now().strftime("%H:%M") == "11:30" and workday.now().isoweekday() <= 5
     assert link.demo.world.now == workday.now().astimezone(link.demo.world.now.tzinfo)
+
+
+def test_the_people_come_with_their_photos_and_nothing_else_is_served(tmp_path):
+    with TestClient(create_app(settings(tmp_path, demo_mode=True))) as client:
+        people = client.get("/api/company").json()["people"]
+        photo = client.get("/api/photo", params={"path": people[0]["photo"]})
+        outside = [client.get("/api/photo", params={"path": path}).status_code
+                   for path in ("/employees", "/media/../employees", "media/persons/x.jpg")]
+
+    assert all(person["photo"].startswith("/media/") for person in people)
+    assert photo.status_code == 200 and photo.headers["content-type"] == "image/jpeg" and photo.content[:2] == b"\xff\xd8"
+    assert outside == [404, 404, 404]
+
+
+def test_every_scenario_has_its_own_page_and_no_page_is_kept_stale(tmp_path):
+    with TestClient(create_app(settings(tmp_path, demo_mode=True))) as client:
+        pages = [client.get(path) for path in ("/", "/scenarios", "/scenarios/gps", "/scenarios/explain")]
+        missing = client.get("/scenarios/nope")
+
+    assert all(page.status_code == 200 and page.headers["cache-control"] == "no-cache" for page in pages)
+    assert missing.status_code == 404

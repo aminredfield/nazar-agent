@@ -26,18 +26,18 @@ OUT = Path(__file__).resolve().parents[1] / "nazar_agent" / "service" / "static"
 FONT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("C:/Windows/Fonts/Inkfree.ttf")
 
 NOTEBOOK = (
-    "Chilonzor crew",
-    "1. Normatov Azamat",
-    "2. Toirov Jasur",
-    "3. Ahmedova Malika",
-    "Sergeli warehouse",
-    "4. Rahimov",
-    "5. Toirov Jasur",
+    "Riverside crew",
+    "1. Novak Adam",
+    "2. Taylor Jason",
+    "3. Adams Mia",
+    "Eastgate warehouse",
+    "4. Reed",
+    "5. Taylor Jason",
 )
-CSV_ROWS = (("name", "site"), ("Sardor Qodirov", "Yashnobod"), ("Laylo Usmonova", "Chilonzor"),
-            ("Bobur Karimov", "Chilonzor"), ("Umida", ""))
-EXCEL_ROWS = (("Full name", "Site"), ("Aziz Saidov", "Sergeli warehouse"), ("Dilnoza Yusupova", "Sergeli"),
-              ("Tashpulatova Kamola", "Yashnobod"), ("Otabek Ergashev", "Yashnobod finishing"))
+CSV_ROWS = (("name", "site"), ("Sean Collins", "Maple Court"), ("Lena Ortiz", "Riverside"),
+            ("Ben Carter", "Riverside"), ("Emma", ""))
+EXCEL_ROWS = (("Full name", "Site"), ("Aaron Scott", "Eastgate warehouse"), ("Dana Brooks", "Eastgate"),
+              ("Palmer Kate", "Maple Court"), ("Owen Edwards", "Maple Court finishing"))
 
 
 def notebook() -> bytes:

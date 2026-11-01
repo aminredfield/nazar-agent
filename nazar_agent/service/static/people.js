@@ -30,9 +30,9 @@ function chooseImportFile(file) {
 // static/samples (scripts/make_import_samples.py), lists to paste.
 const SAMPLE_FILES = { sample_notebook: "notebook.jpg", sample_csv: "crew.csv", sample_excel: "crew.xlsx" };
 const SAMPLE_LISTS = {
-  sample_simple: "Chilonzor City: Jasur Toirov, Laylo Usmonova\nSergeli warehouse: Aziz Saidov, Malika Ahmedova",
-  sample_problems: "Chilonzor:\n1. Normatov Azamat\n2. Sardor Yusupov\n3. Ergashev\n4. Sardor Yusupov\nYashnobod:\n5. Botir Abdullaev",
-  sample_cyrillic: "Объект Чиланзар — Тоиров Жасур, Каримов Бобур\nСклад Сергели — Рахимов, Саидов Азиз",
+  sample_simple: "Riverside Tower: Jason Taylor, Lena Ortiz\nEastgate warehouse: Aaron Scott, Mia Adams",
+  sample_problems: "Riverside:\n1. Novak Adam\n2. Sean Collins\n3. Edwards\n4. Sean Collins\nMaple Court:\n5. Seth Abbott",
+  sample_cyrillic: "new guys for riverside from monday: jason taylor + lena (ortiz?)\nben carter moves to eastgate\nmaple court - kate palmer, diana e.",
 };
 
 async function sampleFile(name) {

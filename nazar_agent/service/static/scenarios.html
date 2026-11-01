@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="/static/app.css?v=27">
-<script src="/static/i18n.js?v=27"></script>
+<link rel="stylesheet" href="/static/app.css?v=28">
+<script src="/static/i18n.js?v=28"></script>
 </head>
 <body class="sc-page">
 <div class="backdrop" aria-hidden="true"></div>
@@ -19,7 +19,13 @@
     <img src="/static/logo.png" alt="" width="34" height="34">
     <div><strong>NAZAR</strong> <span class="brand-sub" data-i18n="sc_brand"></span></div>
   </div>
-  <a class="sc-back" href="/" data-i18n="sc_back"></a>
+  <!-- The same places to go as on the assistant's page; Company and Add people open its tabs. -->
+  <nav class="tabs">
+    <a class="tab-link" href="/" data-i18n="tab_ask"></a>
+    <a class="tab-link" href="/#company" data-i18n="tab_company"></a>
+    <a class="tab-link" href="/#people" data-i18n="tab_import"></a>
+    <a class="tab-link on" href="/scenarios" data-i18n="tab_scenarios"></a>
+  </nav>
   <div class="prefs">
     <div class="seg lang" id="lang-seg" role="radiogroup" data-i18n-aria="language">
       <button type="button" data-lang="en" role="radio">EN</button>
@@ -31,15 +37,22 @@
 </header>
 
 <main>
-  <section class="hero sc-hero">
+  <!-- /scenarios: the gallery — one card per problem, each opens its own page. -->
+  <section class="hero sc-hero" id="gallery" hidden>
     <h1><span data-i18n="sc_h1"></span> <span class="grad" data-i18n="sc_h1_grad"></span></h1>
     <p class="lead" data-i18n="sc_lead"></p>
-    <nav class="sc-nav">
-      <a href="#explain"><b>1</b><span data-i18n="sc_t1"></span></a>
-      <a href="#roster"><b>2</b><span data-i18n="sc_t2"></span></a>
-      <a href="#headcount"><b>3</b><span data-i18n="sc_t3"></span></a>
-      <a href="#place"><b>4</b><span data-i18n="sc_t4"></span></a>
-    </nav>
+    <div class="sc-gallery" id="sc-cards"></div>
+  </section>
+
+  <!-- /scenarios/<name>: why it matters, the three steps, then the scene itself. -->
+  <section class="sc-intro" id="scene-intro" hidden>
+    <a class="sc-back" href="/scenarios" data-i18n="sc_all"></a>
+    <h1 id="scene-title"></h1>
+    <div class="sc-why">
+      <p><b data-i18n="sc_why_label"></b> <span id="scene-why"></span></p>
+      <p><b data-i18n="sc_does_label"></b> <span id="scene-does"></span></p>
+    </div>
+    <ol class="sc-steps" id="scene-steps"></ol>
   </section>
 
   <section class="sc-part" id="explain">
@@ -121,7 +134,8 @@
   </section>
 </main>
 
+<p class="sc-nazar" id="scene-nazar" hidden></p>
 <footer class="foot" data-i18n="sc_footer"></footer>
-<script src="/static/scenarios.js?v=27"></script>
+<script src="/static/scenarios.js?v=28"></script>
 </body>
 </html>

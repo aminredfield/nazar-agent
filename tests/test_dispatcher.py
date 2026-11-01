@@ -25,11 +25,11 @@ def reading(**values) -> Reading:
 
 
 async def test_a_reading_becomes_a_request():
-    llm = ScriptedLLM([turn(text=reading(analyst="attendance", lang="uz", date_from="2026-10-27", people=["Rustam "]).model_dump_json())])
+    llm = ScriptedLLM([turn(text=reading(analyst="attendance", lang="uz", date_from="2026-10-27", people=["Mike "]).model_dump_json())])
 
-    request = await parse(llm, "m", "Kecha Rustam qachon keldi?", TODAY)
+    request = await parse(llm, "m", "Kecha Mike qachon keldi?", TODAY)
 
-    assert request == Request(intent="data", analyst="attendance", lang="uz", period=(date(2026, 10, 27),) * 2, people=("Rustam",))
+    assert request == Request(intent="data", analyst="attendance", lang="uz", period=(date(2026, 10, 27),) * 2, people=("Mike",))
     assert "Wednesday, 2026-10-28" in llm.requests[0]["instructions"]
 
 
@@ -61,9 +61,9 @@ def test_a_question_about_the_future_is_not_investigated():
 
 
 def test_the_analyst_is_told_what_the_dispatcher_read():
-    hints = checked(reading(lang="en", date_from="2026-04-01", date_to="2026-10-28", people=["Rustam"]), TODAY).hints()
+    hints = checked(reading(lang="en", date_from="2026-04-01", date_to="2026-10-28", people=["Mike"]), TODAY).hints()
 
-    assert "2026-09-28 to 2026-10-28" in hints and "data gaps" in hints and "Rustam" in hints and "English" in hints
+    assert "2026-09-28 to 2026-10-28" in hints and "data gaps" in hints and "Mike" in hints and "English" in hints
 
 
 @pytest.mark.parametrize("lang", list(CAN_DO))
@@ -107,7 +107,7 @@ def test_uzbek_is_answered_in_the_letters_it_was_asked_in(lang, question, expect
 async def test_the_window_language_is_told_and_kept_when_reading_fails():
     llm = ScriptedLLM([turn(text="not json")])
 
-    request = await parse(llm, "m", "Rustam?", TODAY, "en")
+    request = await parse(llm, "m", "Mike?", TODAY, "en")
 
     assert request.lang == "en"
     assert "The owner's window is in en" in llm.requests[0]["instructions"]

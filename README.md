@@ -30,35 +30,38 @@ pip install -c constraints.txt .                 # the versions it was tested wi
 python -m nazar_agent.demo                       # → http://127.0.0.1:8100
 ```
 
-The window opens in English as the owner of the demo company — Mustahkam
-Qurilish, a builder in Tashkent: three sites, 16 workers, a crew per site and
-three weeks of face-ID check-ins with problems planted in them. The demo is
+The window opens in English as the owner of the demo company — Northline
+Builders, a builder: three sites, 16 workers with their faces, a crew per site
+and three weeks of face-ID check-ins with problems planted in them. The first
+screen is one line on what it does, a strip with the company's faces (a click
+opens it), the question box and six example cards; models, spend and the
+action log wait under **Under the hood**. The demo is
 always on a working morning (11:30 of the latest weekday in Tashkent), so it
 is never asleep in another time zone.
 
-**Try these** at the top asks each example in one click and says what should
-happen:
+**Try one** asks each example in one click; a card names the problem, and what
+to watch for shows above the agents' work once it is asked:
 
 | Example | What is planted | What a good answer does |
 |---|---|---|
-| "Who really comes to the Chilonzor site?" | four workers left ten days ago; the foreman checks them in from his phone with photos of their photo on a screen | names the four, cites the shared phone and the photos; proposes to mark the check-ins for review |
-| "What should I check in the timesheet before payday?" | the finishing crew at Yashnobod is "late" every day: they work 09:00–19:00, the site says 08:00–18:00 | blames the schedule, not the people; proposes `change_schedule` with before → after |
+| "Who really comes to the Riverside site?" | four workers left ten days ago; the foreman checks them in from his phone with photos of their photo on a screen | names the four, cites the shared phone and the photos; proposes to mark the check-ins for review |
+| "What should I check in the timesheet before payday?" | the finishing crew at Maple Court is "late" every day: they work 09:00–19:00, the site says 08:00–18:00 | blames the schedule, not the people; proposes `change_schedule` with before → after |
 | the same two questions | a worker with weak GPS (flags, twice outside the fence, but live selfies and full days); an honest foreman checking in two workers without smartphones | accuses neither |
-| "Who is late or absent today?", then "And yesterday?" | a conversation | reads the second as "who was late yesterday" and says so above the answer |
-| "We're opening a new site, Olmazor City, at 41.2856, 69.2034. Shift 8 to 5, six days a week. Rustam's crew: Rustam, Bobur Karimov and a new guy, Jasur Toirov." | Rustam and Bobur already work 08:00–18:00 on another site | cards for the site (on a map), the shift, the group and the people; finds the clash; the plan of changes in words; **Apply all**, then **Undo all** |
-| a Google Maps link, or a point as Google copies it (41°17'08.2"N 69°12'12.2"E) | — | takes the point and shows it on the map |
+| "Who is late or absent today?", then "And yesterday?" (typed) | a conversation | reads the second as "who was late yesterday" and says so above the answer |
+| "We're opening a new site, Westfield Park, at 41.2856, 69.2034. Shift 8 to 5, six days a week. Mike's crew: Mike, Ben Carter and a new guy, Jason Taylor." | Mike and Ben already work 08:00–18:00 on another site | cards for the site (on a map), the shift, the group and the people; finds the clash; the plan of changes in words; **Apply all**, then **Undo all** |
+| a Google Maps link, or a point as Google copies it (41°17'08.2"N 69°12'12.2"E), typed | — | takes the point and shows it on the map |
 | "Kecha kim ishga kelmadi?" | Uzbek | answers in the language asked; RU · UZ · EN and a light/dark switch at the top |
 | "Fine everyone who was late this week" | a request it must not do | refuses: a penalty is a person's decision, case by case |
 
-**Add employees** has samples to try without your own files: a photo of a
+**Add people** has samples to try without your own files: a photo of a
 handwritten notebook, a CSV, an Excel sheet, and lists to paste (one with
-mistakes, one in Cyrillic). Each has something to catch — an employee already
+mistakes, one a messy chat message). Each has something to catch — an employee already
 in NAZAR written the other way round, a name written twice, a single word, a
 site written loosely — and the review marks it in the window's language. A
 sample face fills the photo queue.
 
-**Company** shows the demo company as NAZAR keeps it: sites with their shifts
-and people, groups, everyone's status today, a week of the timesheet and
+**Company** shows the demo company as NAZAR keeps it, with everyone's face:
+sites with their shifts and people, groups, everyone's status today, a week of the timesheet and
 today's check-ins. Press **Apply** on a card (or **Apply all** on a setup plan)
 and the tab marks what changed — a site's new shift, a new site and group,
 people put on it, a check-in's review; **Undo** puts it back. **Reset the
@@ -247,7 +250,7 @@ text) and only reports what is written, marking what it could not read.
 Code then checks every row against NAZAR and highlights only what needs a
 decision: illegible, one word only, looks like an existing employee, twice
 in the list, site not found — in Latin or Cyrillic letters alike, since
-owners write names both ways ("Норматов Азамат" finds "Azamat Normatov"). The person fixes those rows and confirms.
+owners write names both ways ("Норматов Азамат" finds "Adam Novak"). The person fixes those rows and confirms.
 
 NAZAR creates an employee only with a face photo, and a model must not try to
 match faces to names. So confirmed people wait for a photo; the foreman walks
@@ -263,9 +266,9 @@ created and added to the site, the site's other assignments unchanged.
 
 ## Setting a site up through the chat
 
-"We open the Olmazor site in Chilanzar, here is the point (a map link), shift
-8 to 5, six days, Rustam's crew: Rustam, Bobur Karimov and the new one, Jasur
-Toirov." Nothing is created at once. The team turns the request into cards
+"We open the Westfield Park site, here is the point (a map link), shift
+8 to 5, six days, Mike's crew: Mike, Ben Carter and the new one, Jason
+Taylor." Nothing is created at once. The team turns the request into cards
 the owner keeps, changes or skips, and a plan of changes in words:
 
 1. **Site** — a new one with its name, address and point (clicked on the map,
@@ -291,12 +294,12 @@ the owner's words. Code does the rest ([`nazar_agent/setup/`](nazar_agent/setup)
   and Sunday-into-Monday included, with ways out that clash with nothing
   ("move the shift to 18:00–03:00", "leave them out").
 - **What is missing** is asked, never guessed: a point, a shift, which of two
-  Karimovs.
+  Carters.
 - **Each step is a sentence written by code** from the parameters NAZAR will
   get, in Russian, Uzbek or English, reading the same before and after it is
-  done: "Create the location “Olmazor City”: point 41.28560, 69.20340, radius
+  done: "Create the location “Westfield Park”: point 41.28560, 69.20340, radius
   100 m; shift 08:00–17:00, Mon–Sat."
-- **The next message changes the same draft**: "make it 9 to 18, not Bobur".
+- **The next message changes the same draft**: "make it 9 to 18, not Ben".
 - **Apply all** rebuilds the plan from what NAZAR says at that moment, runs
   the steps in order with the rights of whoever presses it, writes each to
   the audit trail and keeps what its undo needs; the first step that fails
@@ -316,12 +319,12 @@ python -m nazar_agent.evals.setup    # seven conversations on a fresh demo compa
 | | Case | Checked by code |
 |---|---|---|
 | S01 | a new site from a Yandex link, a crew, a newcomer | the site, its point, the shift, the group; two found, one waits for a photo; six steps; both clashes found; applied → the demo holds it → undone → as before |
-| S02 | the same, then "make it 9 to 18, not Bobur" | the shift changed, Bobur left out, the site and point kept |
+| S02 | the same, then "make it 9 to 18, not Ben" | the shift changed, Ben left out, the site and point kept |
 | S03 | in English, a point as two numbers in a sentence | the point, the steps in English, a clash; applied and undone |
 | S04 | in Uzbek, a second-shift group on a site the company has | the existing site, a group with its own 14:00–22:00 shift; applied and undone |
 | S05 | a new site with no point and no shift | asks for both; nothing to apply |
-| S06 | "put Karimov on Sergeli" | the site found; which of the two Karimovs is asked |
-| S07 | "delete the Sergeli site" | refused as unsupported; no setup |
+| S06 | "put Carter on Eastgate" | the site found; which of the two Carters is asked |
+| S07 | "delete the Eastgate site" | refused as unsupported; no setup |
 | | **All** | **7/7, 38/38 checks, $0.008 for the whole run**; 20–80 s per message |
 
 The first run found a real gap: coordinates written inside a sentence were
@@ -400,11 +403,11 @@ python -m nazar_agent.evals.bank --rescore DIR   # check saved answers again, as
 
 | | Kind of question | Before | After |
 |---|---|---|---|
-| A | now and today: who is late, absent, on site | 4/6 | 6/6 |
-| B | facts over a period: hours, who is late most | 5/6 | 6/6 |
-| C | what to check | 3/5 | 4/5 |
-| D | a person or a site, typos, two Karimovs | 6/7 | 7/7 |
-| E | an action: supported, or not | 3/6 | 5/6 |
+| A | now and today: who is late, absent, on site | 4/6 | 5/6 |
+| B | facts over a period: hours, who is late most | 5/6 | 5/6 |
+| C | what to check | 3/5 | 5/5 |
+| D | a person or a site, typos, two Carters | 6/7 | 7/7 |
+| E | an action: supported, or not | 3/6 | 6/6 |
 | F | explain: why late, how lateness is counted | 4/5 | 5/5 |
 | G | dates: yesterday, Saturday, October, the future, half a year | 4/6 | 6/6 |
 | H | unclear, a follow-up | 3/4 | 4/4 |
@@ -415,18 +418,18 @@ python -m nazar_agent.evals.bank --rescore DIR   # check saved answers again, as
 | M | compare, rank | 3/4 | 4/4 |
 | N | money | 2/3 | 3/3 |
 | | **All** | **48/72** | **70/72** |
-| | Average cost per question | $0.062 | $0.049 |
+| | Average cost per question | $0.062 | $0.017 |
 
 *Before* is the first run, Oct 29 morning; three checks stricter than the
 plan were loosened after it, which would have made it 51. *After* is the full
-run on the final code, rescored once: the scorer did not yet know that the
-new period tallies name absent days, and counted a card about two real
-absences as an accusation. The two failures left: in C04 a card asked, at
-medium confidence, about an ordinary worker's two real late arrivals before
-payday — the scorer counts that as an accusation, and a rerun did not repeat
-it; in E05 the owner asked for a 09:00–19:00 shift and the writer proposed
-19:03, the site's real last check-out — the writer now sees the owner's
-question, and that rerun passed too.
+run of Nov 1, after the demo company got English names (Northline Builders;
+the Russian and Uzbek questions name its people as NAZAR keeps them). The two
+failures: in A01 everyone came and the answer said so, but it added a card
+about the wrong schedule at Maple Court — true, just not asked; in B06, asked
+in Uzbek Cyrillic, the answer named Mike Turner as «Майк Тернер». The report
+now keeps people's and sites' names in the letters NAZAR has them in, so the
+owner can find them there; with that, both passed, and so did the other 14
+questions that name someone in Russian or Uzbek.
 
 What moved the numbers:
 - **A dispatcher that reads the request.** One structured call gives the
@@ -548,7 +551,7 @@ visitor applied is gone by morning. Deployment next to NAZAR:
 | Evals over the planted cases and a bank of 72 owner questions, scored by code | done (bank: 48/72 → 70/72) |
 | Every model call recorded: role, model, tokens, price (an estimate where no price is published); spend today, this week and in all in the window and `/usage` in the bot | done |
 | Public demo: limits per session and per day, nightly reset, container next to NAZAR, always a working morning | done |
-| The window explains itself: what the product does on the first screen, "Try these" in one click, import samples, a Company tab that marks what Apply changed | done |
+| The window explains itself: one line on the first screen, the company's faces, six one-click cards, import samples, a Company tab that marks what Apply changed, a page per scenario with why it matters | done |
 | Demo NAZAR in the repository: the demo company in memory, every route checked against recorded real answers, `DEMO_MODE`, one-command start | done |
 
 ## Run it against NAZAR

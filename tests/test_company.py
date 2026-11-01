@@ -24,12 +24,12 @@ async def test_the_company_is_read_as_nazar_keeps_it(demo):
     company = await snapshot(nazar, BANK_NOW)
 
     sites = {site["name"]: site for site in company["sites"]}
-    yashnobod = sites["Yashnobod residential, finishing"]
-    assert (yashnobod["shift_start"], yashnobod["shift_end"]) == ("08:00", "18:00")
-    assert yashnobod["people"] == ["Dilfuza Ergasheva", "Kamola Tashpulatova", "Zuhra Nabieva"]
+    maple = sites["Maple Court residential, finishing"]
+    assert (maple["shift_start"], maple["shift_end"]) == ("08:00", "18:00")
+    assert maple["people"] == ["Diana Evans", "Kate Palmer", "Zoe Nash"]
     assert len(company["people"]) == len([person for person in truth.world.people.values() if person.is_active])
     assert len(company["week"]["dates"]) == 7 and company["week"]["dates"][-1] == company["date"]
-    zuhra = next(row for row in company["week"]["rows"] if row["name"] == "Zuhra Nabieva")
+    zuhra = next(row for row in company["week"]["rows"] if row["name"] == "Zoe Nash")
     assert zuhra["late_days"] > 0 and zuhra["worked_minutes"] > 0
     late_today = sorted(person["name"] for person in company["people"] if person["late_minutes"])
     assert late_today == truth.late(truth.today)
@@ -39,7 +39,7 @@ async def test_the_company_is_read_as_nazar_keeps_it(demo):
 async def test_a_schedule_change_shows_on_the_site(demo):
     nazar, _ = demo
     before = await snapshot(nazar, BANK_NOW)
-    site = next(item for item in before["sites"] if item["name"].startswith("Yashnobod"))
+    site = next(item for item in before["sites"] if item["name"].startswith("Maple Court"))
 
     await nazar.patch(f"/objects/{site['id']}", json={"shift_start": "09:00", "shift_end": "19:00"})
     after = await snapshot(nazar, BANK_NOW)

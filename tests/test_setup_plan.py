@@ -19,7 +19,7 @@ from tests.fakes import ScriptedLLM, turn
 from tests.test_dispatcher import reading as dispatcher_reading
 
 NOW = datetime(2026, 10, 28, 11, 30, tzinfo=ZoneInfo("Asia/Tashkent"))
-OLMAZOR = "https://yandex.uz/maps/10335/tashkent/?ll=69.203411%2C41.285612&z=17"
+WESTFIELD = "https://yandex.uz/maps/10335/tashkent/?ll=69.203411%2C41.285612&z=17"
 
 
 def asked(**values) -> SetupReading:
@@ -40,15 +40,15 @@ async def company(tmp_path):
     await nazar.aclose()
 
 
-OPEN_OLMAZOR = asked(
+OPEN_WESTFIELD = asked(
     site_name="ЖК Олмазор", address="Ташкент, Чиланзар", shift_start="08:00", shift_end="17:00",
-    working_days=[1, 2, 3, 4, 5, 6], group_name="бригада Рустама", people=["Рустам", "Bobur Karimov"],
+    working_days=[1, 2, 3, 4, 5, 6], group_name="бригада Рустама", people=["Mike", "Ben Carter"],
 )
 
 
 async def test_a_new_site_with_a_crew_becomes_a_ready_plan_in_words(company):
     nazar, data, demo = company
-    draft = merge(Draft.new("ru"), OPEN_OLMAZOR, await point_from(f"Открываем объект {OLMAZOR}"), **data)
+    draft = merge(Draft.new("ru"), OPEN_WESTFIELD, await point_from(f"Открываем объект {WESTFIELD}"), **data)
 
     plan = await build(draft, nazar, NOW.date())
     shown = setup_view(draft, plan, "ru")
@@ -58,8 +58,8 @@ async def test_a_new_site_with_a_crew_becomes_a_ready_plan_in_words(company):
     assert shown["steps"][0]["text"] == (
         "Создать объект «ЖК Олмазор», Ташкент, Чиланзар: точка 41.28561, 69.20341, радиус 100 м; смена 08:00–17:00, пн–сб."
     )
-    assert shown["steps"][3]["text"] == "Добавить в группу «Бригада Рустама»: Rustam Yuldashev, Bobur Karimov."
-    assert shown["steps"][4]["text"] == "Назначить на объект «ЖК Олмазор» с 28.10: Rustam Yuldashev, Bobur Karimov."
+    assert shown["steps"][3]["text"] == "Добавить в группу «Бригада Рустама»: Mike Turner, Ben Carter."
+    assert shown["steps"][4]["text"] == "Назначить на объект «ЖК Олмазор» с 28.10: Mike Turner, Ben Carter."
     assert [day["working"] for day in shown["preview"]] == [True, True, True, True, False, True, True]  # from Wednesday
     assert summary(plan, "ru").startswith("Подготовил план: шагов — 5")
     assert not any(site.name == "ЖК Олмазор" for site in demo.world.sites.values())  # nothing written yet
@@ -67,12 +67,12 @@ async def test_a_new_site_with_a_crew_becomes_a_ready_plan_in_words(company):
 
 async def test_people_already_working_elsewhere_at_the_same_hours_are_found(company):
     nazar, data, _ = company
-    draft = merge(Draft.new("ru"), OPEN_OLMAZOR, await point_from(OLMAZOR), **data)
+    draft = merge(Draft.new("ru"), OPEN_WESTFIELD, await point_from(WESTFIELD), **data)
 
     plan = await build(draft, nazar, NOW.date())
     shown = setup_view(draft, plan, "ru")
 
-    rustam = next(item for item in shown["clashes"] if item["name"] == "Rustam Yuldashev")
+    rustam = next(item for item in shown["clashes"] if item["name"] == "Mike Turner")
     assert "уже работает на объекте" in rustam["text"] and "08:00–18:00" in rustam["text"] and "(08:00–17:00)" in rustam["text"]
     assert [option["kind"] for option in rustam["options"]] == ["shift", "shift", "skip"]  # no move yet
     assert rustam["options"][0]["shift"]["start"] == "18:00"
@@ -80,35 +80,35 @@ async def test_people_already_working_elsewhere_at_the_same_hours_are_found(comp
 
 async def test_what_is_missing_is_asked_not_guessed(company):
     nazar, data, _ = company
-    draft = merge(Draft.new("ru"), asked(site_name="Склад Сергели", people=["Каримов", "Жасур Тоиров"]), None, **data)
+    draft = merge(Draft.new("ru"), asked(site_name="Склад Сергели", people=["Carter", "Жасур Тоиров"]), None, **data)
 
     plan = await build(draft, nazar, NOW.date())
     shown = setup_view(draft, plan, "en")
 
     assert [item["kind"] for item in shown["missing"]] == ["point", "shift", "choose_person"]
     assert not plan.ready and summary(plan, "ru").startswith("Готовлю план")
-    karimov = draft.person("Каримов")
-    assert {name for _, name in karimov.choices} == {"Bobur Karimov", "Feruza Karimova"}
+    karimov = draft.person("Carter")
+    assert {name for _, name in karimov.choices} == {"Ben Carter", "Fiona Carter"}
     assert draft.person("Жасур Тоиров").state == "new"
     assert plan.steps[-1].kind == "wait_for_photo" and "Жасур Тоиров" in shown["steps"][-1]["text"]
 
 
 async def test_a_follow_up_changes_the_draft_it_continues(company):
     nazar, data, _ = company
-    draft = merge(Draft.new("ru"), OPEN_OLMAZOR, await point_from(OLMAZOR), **data)
+    draft = merge(Draft.new("ru"), OPEN_WESTFIELD, await point_from(WESTFIELD), **data)
 
-    draft = merge(draft, asked(shift_start="09:00", shift_end="18:00", leave_out=["Бобура"]), None, **data)
+    draft = merge(draft, asked(shift_start="09:00", shift_end="18:00", leave_out=["Ben"]), None, **data)
     plan = await build(draft, nazar, NOW.date())
 
     assert (draft.shift.start, draft.shift.end, draft.shift.days) == ("09:00", "18:00", (1, 2, 3, 4, 5, 6))
     assert draft.site.name == "ЖК Олмазор" and draft.site.has_point  # kept
-    assert draft.person("Bobur Karimov").state == "skip"
-    assert plan.steps[-1].params["names"] == ["Rustam Yuldashev"]
+    assert draft.person("Ben Carter").state == "skip"
+    assert plan.steps[-1].params["names"] == ["Mike Turner"]
 
 
 async def test_a_group_on_an_existing_site_gets_its_own_shift_and_nazars_preview(company):
     nazar, data, demo = company
-    yashnabad = next(site for site in demo.world.sites.values() if site.key == "yashnobod")
+    yashnabad = next(site for site in demo.world.sites.values() if site.key == "maple")
     draft = merge(Draft.new("ru"), asked(
         existing_site=yashnabad.name, group_name="Отделка, вторая смена", shift_start="14:00", shift_end="22:00", working_days=[1, 2, 3, 4, 5],
     ), None, **data)
@@ -140,8 +140,8 @@ def test_days_read_as_ranges_in_three_languages():
 async def test_the_assistant_keeps_one_draft_per_conversation(tmp_path, monkeypatch):
     llms: list[ScriptedLLM] = []
     script = [
-        [turn(text=dispatcher_reading(intent="setup").model_dump_json()), turn(text=OPEN_OLMAZOR.model_dump_json())],
-        [turn(text=dispatcher_reading(intent="setup").model_dump_json()), turn(text=asked(leave_out=["Бобура"]).model_dump_json())],
+        [turn(text=dispatcher_reading(intent="setup").model_dump_json()), turn(text=OPEN_WESTFIELD.model_dump_json())],
+        [turn(text=dispatcher_reading(intent="setup").model_dump_json()), turn(text=asked(leave_out=["Ben"]).model_dump_json())],
     ]
 
     def model(self):
@@ -157,13 +157,13 @@ async def test_the_assistant_keeps_one_draft_per_conversation(tmp_path, monkeypa
     link = connect(settings)
     helper = Assistant(settings, ProposalStore(tmp_path / "a.sqlite3"), service=link.client())
 
-    first = await helper.ask(f"Открываем ЖК Олмазор {OLMAZOR}, смена с 8 до 17 пн–сб, бригада Рустама: Рустам и Bobur Karimov", conversation="w")
-    second = await helper.ask("Бобура не надо", conversation="w")
+    first = await helper.ask(f"Открываем ЖК Олмазор {WESTFIELD}, смена с 8 до 17 пн–сб, бригада Рустама: Mike и Ben Carter", conversation="w")
+    second = await helper.ask("Ben не надо", conversation="w")
 
     assert first.view["reply"] == "setup" and first.view["setup"]["ready"] and first.view["cards"] == []
     assert "A setup is being made in this conversation" in llms[2].requests[0]["instructions"]
-    assert second.view["setup"]["steps"][-1]["text"].endswith("Rustam Yuldashev.")
-    assert helper.setup.drafts.get("w").person("Bobur Karimov").state == "skip"
+    assert second.view["setup"]["steps"][-1]["text"].endswith("Mike Turner.")
+    assert helper.setup.drafts.get("w").person("Ben Carter").state == "skip"
 
 
 def test_the_bot_shows_the_plan_and_sends_the_owner_to_the_window():
@@ -180,8 +180,8 @@ def test_the_bot_shows_the_plan_and_sends_the_owner_to_the_window():
 
 async def test_new_hours_for_a_site_the_company_has_keep_its_days(company):
     nazar, data, demo = company
-    yashnobod = next(site for site in demo.world.sites.values() if site.key == "yashnobod")
-    draft = merge(Draft.new("ru"), asked(existing_site=yashnobod.name, shift_start="09:00", shift_end="19:00"), None, **data)
+    maple = next(site for site in demo.world.sites.values() if site.key == "maple")
+    draft = merge(Draft.new("ru"), asked(existing_site=maple.name, shift_start="09:00", shift_end="19:00"), None, **data)
 
     plan = await build(draft, nazar, NOW.date())
 
@@ -191,8 +191,8 @@ async def test_new_hours_for_a_site_the_company_has_keep_its_days(company):
 
 async def test_a_plan_with_nothing_to_do_asks_what_to_set_up(company):
     nazar, data, demo = company
-    yashnobod = next(site for site in demo.world.sites.values() if site.key == "yashnobod")
-    draft = merge(Draft.new("ru"), asked(existing_site=yashnobod.name), None, **data)
+    maple = next(site for site in demo.world.sites.values() if site.key == "maple")
+    draft = merge(Draft.new("ru"), asked(existing_site=maple.name), None, **data)
 
     plan = await build(draft, nazar, NOW.date())
 

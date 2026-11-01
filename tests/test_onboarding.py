@@ -89,11 +89,11 @@ def test_rows_that_need_a_decision_are_highlighted_with_the_reason():
 
 
 def test_the_reasons_are_in_the_window_language():
-    rows = review([person("Umida"), person("Hakimova Zarina", site="Mars")], SITES, factories.EMPLOYEES, lang="en")
+    rows = review([person("Emma"), person("Hakimova Zarina", site="Mars")], SITES, factories.EMPLOYEES, lang="en")
 
     assert rows[0].issues == ("one word only — add the first or last name, or keep it",)
     assert rows[1].issues == ("looks like the current employee “Зарина Хакимова” — maybe a duplicate", "no site “Mars” — pick one from the list")
-    assert review([person("Umida")], SITES, [], lang="uz")[0].issues[0].startswith("faqat bitta so'z")
+    assert review([person("Emma")], SITES, [], lang="uz")[0].issues[0].startswith("faqat bitta so'z")
 
 
 def test_name_and_site_matching():

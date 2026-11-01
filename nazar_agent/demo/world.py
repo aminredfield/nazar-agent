@@ -1,20 +1,20 @@
 """The demo construction company the demo NAZAR serves: people, sites, three weeks of check-ins.
 
-Mustahkam Qurilish — the same company as NAZAR's construction demo, built in
+Northline Builders — the same company as NAZAR's construction demo, built in
 memory so the agent runs without NAZAR. Generated from a seed, so the same
 seed and the same moment give the same world; "today" is the current
 Tashkent day, with today's check-ins up to now. The cases the agents are
 evaluated on:
 
-- Chilonzor — four workers left ``left_days_ago`` days ago, but the foreman
+- Riverside — four workers left ``left_days_ago`` days ago, but the foreman
   keeps checking them in and out from his own phone: one device, a minute
   apart, their registration photo on a phone screen in his cabin. Before they
   left, each checked in from their own phone with a selfie;
-- Chilonzor — a worker whose phone gives a weak GPS: flags, twice outside the
+- Riverside — a worker whose phone gives a weak GPS: flags, twice outside the
   fence, but live selfies and full days. Technology, not fraud;
-- Sergeli — two workers without smartphones, checked in by their honest
+- Eastgate — two workers without smartphones, checked in by their honest
   foreman from his phone: live selfies, on the site, each checks out on their own;
-- Yashnobod — a finishing crew works 09:00–19:00 while the site's schedule
+- Maple Court — a finishing crew works 09:00–19:00 while the site's schedule
   says 08:00–18:00. The schedule is wrong, not the people.
 
 Everyone's assignment starts on the first generated day: no day before the
@@ -39,7 +39,7 @@ from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo("Asia/Tashkent")
 NAMESPACE = uuid.UUID("6f0f3c1e-8a52-4d1b-9c55-2b7d2a1f9e10")
-COMPANY_NAME = "Mustahkam Qurilish"
+COMPANY_NAME = "Northline Builders"
 OWNER_NAME = "Demo Owner"
 LATE_GRACE_MINUTES = 10
 ABSENCE_CHANCE = 0.04
@@ -178,29 +178,29 @@ class World:
 
 
 SITES = (
-    ("chilonzor", "Chilonzor City, block 3", "7 Arnasoy St, Chilonzor district, Tashkent", 41.28032, 69.19115, 150.0),
-    ("sergeli", "Sergeli warehouse", "42 Yangi Sergeli St, Sergeli district, Tashkent", 41.22681, 69.21904, 120.0),
-    ("yashnobod", "Yashnobod residential, finishing", "95 Makhtumkuli St, Yashnobod district, Tashkent", 41.30692, 69.33641, 100.0),
+    ("riverside", "Riverside Tower, block 3", "7 Riverside Avenue", 41.28032, 69.19115, 150.0),
+    ("eastgate", "Eastgate warehouse", "42 Eastgate Road", 41.22681, 69.21904, 120.0),
+    ("maple", "Maple Court residential, finishing", "95 Maple Street", 41.30692, 69.33641, 100.0),
 )
-# Every site is set to 08:00–18:00, six days a week. For Yashnobod that is the mistake to find.
+# Every site is set to 08:00–18:00, six days a week. For Maple Court that is the mistake to find.
 SITE_SCHEDULE = ("08:00", "18:00", (1, 2, 3, 4, 5, 6))
 ROSTER: tuple[tuple[str, str, str, Kind], ...] = (
-    ("Rustam Yuldashev", "rustam_yuldashev.jpg", "chilonzor", "foreman"),
-    ("Azamat Normatov", "azamat_normatov.jpg", "chilonzor", "worker"),
-    ("Bobur Karimov", "bobur_karimov.jpg", "chilonzor", "worker"),
-    ("Ilhom Turaev", "ilhom_turaev.jpg", "chilonzor", "worker"),
-    ("Nodira Safarova", "nodira_safarova.jpg", "chilonzor", "worker"),
-    ("Sherzod Alimov", "sherzod_alimov.jpg", "chilonzor", "weak_gps"),
-    ("Timur Hasanov", "timur_hasanov.jpg", "chilonzor", "left"),
-    ("Gulchehra Ibragimova", "gulchehra_ibragimova.jpg", "chilonzor", "left"),
-    ("Mohira Yunusova", "mohira_yunusova.jpg", "chilonzor", "left"),
-    ("Feruza Karimova", "feruza_karimova.jpg", "chilonzor", "left"),
-    ("Dilshod Mirzaev", "dilshod_mirzaev.jpg", "sergeli", "foreman_honest"),
-    ("Hurshid Rahmonov", "hurshid_rahmonov.jpg", "sergeli", "no_phone"),
-    ("Anvar Bakirov", "anvar_bakirov.jpg", "sergeli", "no_phone"),
-    ("Zuhra Nabieva", "zuhra_nabieva.jpg", "yashnobod", "late_crew"),
-    ("Kamola Tashpulatova", "kamola_tashpulatova.jpg", "yashnobod", "late_crew"),
-    ("Dilfuza Ergasheva", "dilfuza_ergasheva.jpg", "yashnobod", "late_crew"),
+    ("Mike Turner", "mike_turner.jpg", "riverside", "foreman"),
+    ("Adam Novak", "adam_novak.jpg", "riverside", "worker"),
+    ("Ben Carter", "ben_carter.jpg", "riverside", "worker"),
+    ("Ian Foster", "ian_foster.jpg", "riverside", "worker"),
+    ("Nora Sanders", "nora_sanders.jpg", "riverside", "worker"),
+    ("Sam Ellis", "sam_ellis.jpg", "riverside", "weak_gps"),
+    ("Tom Harris", "tom_harris.jpg", "riverside", "left"),
+    ("Grace Ingram", "grace_ingram.jpg", "riverside", "left"),
+    ("Megan Young", "megan_young.jpg", "riverside", "left"),
+    ("Fiona Carter", "fiona_carter.jpg", "riverside", "left"),
+    ("Daniel Morgan", "daniel_morgan.jpg", "eastgate", "foreman_honest"),
+    ("Henry Ross", "henry_ross.jpg", "eastgate", "no_phone"),
+    ("Alex Baker", "alex_baker.jpg", "eastgate", "no_phone"),
+    ("Zoe Nash", "zoe_nash.jpg", "maple", "late_crew"),
+    ("Kate Palmer", "kate_palmer.jpg", "maple", "late_crew"),
+    ("Diana Evans", "diana_evans.jpg", "maple", "late_crew"),
 )
 
 
@@ -234,11 +234,11 @@ def build_world(
     people = {
         person.id: person
         for index, (name, face, site_key, kind) in enumerate(ROSTER)
-        for person in [Person(stable_id("person", name), name, f"MQ-{index + 1:03d}", sites[site_key].id, kind, face, origin, first_day)]
+        for person in [Person(stable_id("person", name), name, f"NB-{index + 1:03d}", sites[site_key].id, kind, face, origin, first_day)]
     }
     builder = _Builder(random.Random(seed), cutoff, {site.id: site for site in sites.values()})
     workdays_back = [
-        day for day in (today - timedelta(days=n) for n in range(1, days + 1)) if sites["chilonzor"].shift_on(day)
+        day for day in (today - timedelta(days=n) for n in range(1, days + 1)) if sites["riverside"].shift_on(day)
     ]
     builder.weak_gps_outside = {workdays_back[n - 1] for n in WEAK_GPS_OUTSIDE_WORKDAYS_AGO if n <= len(workdays_back)}
     for offset in range(days, -1, -1):

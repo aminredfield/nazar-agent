@@ -33,7 +33,7 @@ SAME_SITE = 0.85  # how close a name must be to mean a site the company has
 SETUP_OPEN = """
 A setup is being made in this conversation (a site, its shift, a group,
 people). A message that changes or continues it — a time, days, a name, an
-address, a link, "not Bobur", "add Rustam" — is setup.
+address, a link, "not Ben", "add Mike" — is setup.
 """
 log = logging.getLogger(__name__)
 

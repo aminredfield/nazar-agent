@@ -25,7 +25,7 @@ from nazar_agent.onboarding.parse import ListedPerson
 
 SAME_PERSON = 0.88  # name similarity to call two names one person
 SAME_SITE = 0.6
-# Words a foreman writes before a site's name ("Объект Чиланзар", "Site: Sergeli"), in
+# Words a foreman writes before a site's name ("Объект Чиланзар", "Site: Eastgate"), in
 # one spelling; they name no site.
 GENERIC_SITE_WORDS = frozenset({"obyekt", "obekt", "uchastok", "ploshadka", "site", "location", "object"})
 

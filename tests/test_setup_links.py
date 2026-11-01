@@ -5,12 +5,12 @@ import pytest
 
 from nazar_agent.setup.links import LinkError, Point, is_map_link, point_in, resolve
 
-OLMAZOR = (41.285612, 69.203411)
+WESTFIELD = (41.285612, 69.203411)
 
 
 @pytest.mark.parametrize("link", [
     # Google: the pin (!3d!4d) wins over the map's centre (@).
-    "https://www.google.com/maps/place/Olmazor/@41.2901,69.2101,17z/data=!3m1!4b1!4m6!3m5!1s0x0:0x0!8m2!3d41.285612!4d69.203411!16s",
+    "https://www.google.com/maps/place/Westfield/@41.2901,69.2101,17z/data=!3m1!4b1!4m6!3m5!1s0x0:0x0!8m2!3d41.285612!4d69.203411!16s",
     "https://www.google.com/maps?q=41.285612,69.203411",
     "https://maps.google.com/?ll=41.285612,69.203411&z=16",
     "https://www.google.com/maps/search/?api=1&query=41.285612%2C69.203411",
@@ -27,11 +27,11 @@ OLMAZOR = (41.285612, 69.203411)
     "41.285612 69.203411",
 ])
 def test_the_point_of_a_full_link_or_two_numbers(link):
-    assert point_in(link).rounded() == OLMAZOR
+    assert point_in(link).rounded() == WESTFIELD
 
 
 @pytest.mark.parametrize("text", [
-    "https://www.google.com/maps/place/Olmazor",  # a name, no point
+    "https://www.google.com/maps/place/Westfield",  # a name, no point
     "https://example.com/?ll=41.28,69.20",  # not a map
     "Ташкент, Чиланзар",
     "0, 0",
@@ -70,7 +70,7 @@ async def test_a_short_yandex_link_follows_relative_redirects():
     async with redirects(chain, seen) as client:
         found = await resolve("https://yandex.uz/maps/-/CDqZ4R", client)
 
-    assert found.rounded() == OLMAZOR and found.source == "yandex"
+    assert found.rounded() == WESTFIELD and found.source == "yandex"
 
 
 @pytest.mark.parametrize(("first_hop", "kind"), [

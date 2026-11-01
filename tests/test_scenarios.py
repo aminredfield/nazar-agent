@@ -14,13 +14,13 @@ def said(payload) -> ScriptedLLM:
 
 async def test_the_employee_is_asked_in_their_language_and_their_answer_checked_against_the_records():
     case = EXPLAIN["cafe-late"]
-    llm = ScriptedLLM([turn(text=json.dumps({"message": "Salom Laylo! …"})),
+    llm = ScriptedLLM([turn(text=json.dumps({"message": "Salom Lena! …"})),
                        turn(text=json.dumps({"verdict": "contradicts", "why": "Wi-Fi at 10:39.", "next_step": "Talk to her."}))])
 
     message = await ask(llm, "spark", case, "uz")
     result = await check(llm, "spark", case, "I was there from ten", "en")
 
-    assert message == "Salom Laylo! …" and "Uzbek" in llm.requests[0]["instructions"]
+    assert message == "Salom Lena! …" and "Uzbek" in llm.requests[0]["instructions"]
     assert "10:41" in llm.requests[0]["input"] and "Wi-Fi at 10:39" in llm.requests[1]["input"]
     assert result["verdict"] == "contradicts" and llm.requests[1]["role"] == "scenario"
 
@@ -32,31 +32,31 @@ async def test_an_unreadable_answer_is_said_not_shown():
 
 def test_the_plan_is_built_by_code_a_location_per_workplace_a_shift_per_group():
     people = [
-        {"name": "Javohir", "workplace": "Café Lola", "days": [3, 4, 5, 6, 7], "shift_start": "10:00", "shift_end": "22:00"},
-        {"name": "Zarina", "workplace": "Café Lola", "days": [7, 3, 4, 5, 6], "shift_start": "10:00", "shift_end": "22:00"},
-        {"name": "Farrux", "workplace": "Café Lola", "days": [1, 2, 3, 4, 5], "shift_start": "07:00", "shift_end": "15:00"},
-        {"name": "Aziz", "workplace": "Bahor Market", "days": [1, 3, 5], "shift_start": "09:00", "shift_end": "18:00"},
-        {"name": "Umida", "workplace": " ", "days": [1], "shift_start": "09:00", "shift_end": "13:00"},
+        {"name": "Jake", "workplace": "Corner Café", "days": [3, 4, 5, 6, 7], "shift_start": "10:00", "shift_end": "22:00"},
+        {"name": "Zara", "workplace": "Corner Café", "days": [7, 3, 4, 5, 6], "shift_start": "10:00", "shift_end": "22:00"},
+        {"name": "Frank", "workplace": "Corner Café", "days": [1, 2, 3, 4, 5], "shift_start": "07:00", "shift_end": "15:00"},
+        {"name": "Andy", "workplace": "Fresh Market", "days": [1, 3, 5], "shift_start": "09:00", "shift_end": "18:00"},
+        {"name": "Emma", "workplace": " ", "days": [1], "shift_start": "09:00", "shift_end": "13:00"},
     ]
 
     assert roster_plan(people) == [
-        "Create the location “Café Lola”.",
-        "Shift 10:00–22:00, Wed–Sun: Javohir, Zarina.",
-        "Shift 07:00–15:00, Mon–Fri: Farrux.",
-        "Create the location “Bahor Market”.",
-        "Shift 09:00–18:00, Mon, Wed, Fri: Aziz.",
-        "Ask where they work — the picture does not say: Umida.",
+        "Create the location “Corner Café”.",
+        "Shift 10:00–22:00, Wed–Sun: Jake, Zara.",
+        "Shift 07:00–15:00, Mon–Fri: Frank.",
+        "Create the location “Fresh Market”.",
+        "Shift 09:00–18:00, Mon, Wed, Fri: Andy.",
+        "Ask where they work — the picture does not say: Emma.",
         "Add 5 people — each waits for a face photo before NAZAR creates them.",
     ]
 
 
 async def test_a_picture_becomes_people_a_plan_and_what_was_unclear():
-    person = {"name": "Dilnoza", "workplace": "Bahor Market", "days": [1, 2], "shift_start": "09:00", "shift_end": "18:00"}
-    llm = said({"people": [person], "unclear": ["Sevara's days"]})
+    person = {"name": "Dana", "workplace": "Fresh Market", "days": [1, 2], "shift_start": "09:00", "shift_end": "18:00"}
+    llm = said({"people": [person], "unclear": ["Sophie's days"]})
 
     roster = await read_roster(llm, "spark", b"png", "image/png")
 
-    assert roster.people == [person] and roster.unclear == ["Sevara's days"] and roster.plan[0] == "Create the location “Bahor Market”."
+    assert roster.people == [person] and roster.unclear == ["Sophie's days"] and roster.plan[0] == "Create the location “Fresh Market”."
     [message] = llm.requests[0]["input"]
     assert message["content"][0]["image_url"].startswith("data:image/png;base64,")
 

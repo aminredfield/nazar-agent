@@ -15,7 +15,7 @@ SITE = "aaaaaaaa-0000-0000-0000-000000000001"
 OTHER = "aaaaaaaa-0000-0000-0000-000000000002"
 OBJECT = {
     "id": SITE,
-    "name": "Yashnobod residential, finishing",
+    "name": "Maple Court residential, finishing",
     "address": "ул. Махтумкули, 95",
     "latitude": 41.3,
     "longitude": 69.3,

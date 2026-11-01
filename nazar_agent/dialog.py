@@ -22,7 +22,7 @@ MAX_SUMMARY = 500  # characters of an earlier answer passed on
 MAX_CONVERSATIONS = 1000  # the oldest conversation is dropped first
 
 FOLLOW_UP = """\
-A message that continues this conversation — "and Rustam?", "what about
+A message that continues this conversation — "and Mike?", "what about
 yesterday?", "why?", "and on the other site?" — is read with it: keep the
 earlier period, people, sites and analyst unless the message changes them,
 put them in your reading, and write the full question in meant. A message
