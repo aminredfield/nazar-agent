@@ -163,12 +163,13 @@ async def count_shift(
     expected = len(checked_in)
     in_team = max(0, int(seen["in_team"]))
     if in_team == expected:
-        verdict = f"Everyone who checked in is in the photo: {in_team} of {expected}."
+        verdict = f"Sees {in_team} in the photo — all {expected} who checked in."
     elif in_team < expected:
-        verdict = (f"{expected} checked in, {in_team} in the photo: {expected - in_team} "
-                   f"{'is' if expected - in_team == 1 else 'are'} not there — worth asking who.")
+        # What it saw first: "4 checked in, 3 in the photo" read as "it saw four".
+        verdict = (f"Sees {in_team} in the photo, but {expected} checked in: {expected - in_team} "
+                   f"{'is' if expected - in_team == 1 else 'are'} not in the photo — worth asking who.")
     else:
-        verdict = f"{in_team} in the photo but only {expected} checked in: someone is working without a check-in."
+        verdict = f"Sees {in_team} in the photo, but only {expected} checked in: someone is working without a check-in."
     return {**seen, "in_team": in_team, "checked_in": expected, "verdict": verdict}
 
 

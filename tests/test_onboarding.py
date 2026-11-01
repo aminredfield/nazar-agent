@@ -86,6 +86,8 @@ def test_rows_that_need_a_decision_are_highlighted_with_the_reason():
     assert twin.full_name == "Иванов Алишер"
     assert set(twin.issues) == {"встречается в списке дважды", "объект «Объект 3» не найден — выберите из списка"}
     assert twin.site_id is None
+    # Someone already in NAZAR, or written twice, is left out until the owner ticks them.
+    assert [row.left_out for row in rows] == [False, True, False, False, True]
 
 
 def test_the_reasons_are_in_the_window_language():

@@ -100,7 +100,7 @@ function renderReview(data) {
       return option;
     }));
   const rows = data.rows.map((row) => {
-    const include = el("input", { type: "checkbox" }); include.checked = true;
+    const include = el("input", { type: "checkbox" }); include.checked = !row.left_out; // a likely duplicate waits for a tick
     const name = el("input", { type: "text", maxlength: "120" }); name.value = row.full_name;
     const site = siteSelect(row.site_id);
     const tr = el("tr", { class: row.issues.length ? "attention" : "" },

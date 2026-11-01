@@ -54,6 +54,7 @@ async def _site_details(nazar: NazarClient, site_id: str) -> tuple[list[dict[str
 
 
 def _site(item: dict[str, Any], assignments: list[dict[str, Any]], groups: list[dict[str, Any]]) -> dict[str, Any]:
+    active = sorted((row for row in assignments if row.get("is_active", True)), key=lambda row: row["employee_name"])
     return {
         "id": item["id"],
         "name": item["name"],
@@ -65,7 +66,8 @@ def _site(item: dict[str, Any], assignments: list[dict[str, Any]], groups: list[
         "shift_end": item.get("shift_end"),
         "working_days": item.get("working_days") or [],
         "late_grace_minutes": item.get("late_grace_minutes"),
-        "people": sorted(row["employee_name"] for row in assignments if row.get("is_active", True)),
+        "people": [row["employee_name"] for row in active],
+        "people_ids": [row["employee_id"] for row in active],  # the faces: two people may share a name
         "groups": [
             {
                 "name": group["name"],
@@ -155,6 +157,7 @@ def _check_ins(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "id": item["id"],
             "time": datetime.fromisoformat(item["received_at_server"]).astimezone(COMPANY_TZ).strftime("%H:%M"),
             "name": item.get("employee_name"),
+            "person_id": item.get("employee_id"),
             "site": item.get("object_name"),
             "type": item.get("event_type"),
             "flags": item.get("suspicious_flags") or [],

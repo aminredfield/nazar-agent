@@ -62,10 +62,10 @@ async def test_a_picture_becomes_people_a_plan_and_what_was_unclear():
 
 
 @pytest.mark.parametrize(("in_team", "verdict"), [
-    (7, "Everyone who checked in is in the photo: 7 of 7."),
-    (5, "7 checked in, 5 in the photo: 2 are not there — worth asking who."),
-    (6, "7 checked in, 6 in the photo: 1 is not there — worth asking who."),
-    (9, "9 in the photo but only 7 checked in: someone is working without a check-in."),
+    (7, "Sees 7 in the photo — all 7 who checked in."),
+    (5, "Sees 5 in the photo, but 7 checked in: 2 are not in the photo — worth asking who."),
+    (6, "Sees 6 in the photo, but 7 checked in: 1 is not in the photo — worth asking who."),
+    (9, "Sees 9 in the photo, but only 7 checked in: someone is working without a check-in."),
 ])
 async def test_the_shift_photo_is_compared_with_the_check_ins_by_code(in_team, verdict):
     result = await count_shift(said({"people": in_team + 1, "in_team": in_team, "notes": ""}), "spark", b"jpg", "image/jpeg",
@@ -82,4 +82,7 @@ def test_every_staged_scene_names_pictures_that_exist():
     files += [item["file"] for scene in PLACES.values() for item in scene["candidates"]]
     files += ["roster-excel.png", "roster-chat.png"]
     assert all((STATIC / "scenarios" / name).is_file() for name in files)
-    assert all(reply["expect"] in {"consistent", "contradicts", "cannot_tell"} for scene in EXPLAIN.values() for reply in scene["replies"])
+    # Each scene answers three ways — fits, contradicts, cannot tell — in every window language.
+    for scene in EXPLAIN.values():
+        assert sorted(reply["expect"] for reply in scene["replies"]) == ["cannot_tell", "consistent", "contradicts"]
+        assert all(set(reply["text"]) == {"en", "ru", "uz"} for reply in scene["replies"])

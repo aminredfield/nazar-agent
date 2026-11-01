@@ -68,6 +68,7 @@ class ImportRow:
     site_hint: str
     site_id: str | None
     issues: tuple[str, ...]
+    left_out: bool = False  # already in NAZAR or written twice: unticked until the owner ticks it
 
 
 def review(
@@ -89,7 +90,8 @@ def review(
         twin = next((employee for employee in employees if same_person(name, employee["full_name"])), None)
         if twin is not None:
             issues.append(said("twin", name=twin["full_name"]))
-        if any(same_person(name, other) for other in seen):
+        twice = any(same_person(name, other) for other in seen)
+        if twice:
             issues.append(said("twice"))
         seen.append(name)
 
@@ -100,7 +102,7 @@ def review(
                 issues.append(said("no_site", site=person.site))
             else:
                 site_id = site.id
-        rows.append(ImportRow(name, person.as_written, person.site, site_id, tuple(issues)))
+        rows.append(ImportRow(name, person.as_written, person.site, site_id, tuple(issues), twin is not None or twice))
     return rows
 
 

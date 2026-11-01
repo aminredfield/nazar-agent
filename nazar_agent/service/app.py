@@ -573,6 +573,7 @@ def _row_view(row: ImportRow) -> dict[str, Any]:
         "site_hint": row.site_hint,
         "site_id": row.site_id,
         "issues": list(row.issues),
+        "left_out": row.left_out,
     }
 
 

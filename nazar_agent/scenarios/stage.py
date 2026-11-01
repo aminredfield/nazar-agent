@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
-# The employee explains — a card with an open question, the employee's own answer.
+# The employee explains — a card with an open question; three replies the visitor can send, each in
+# every window language: one the records fit, one they contradict, one they cannot settle.
 EXPLAIN: dict[str, dict[str, Any]] = {
     "cafe-late": {
         "segment": "Café",
@@ -37,9 +38,21 @@ EXPLAIN: dict[str, dict[str, Any]] = {
                                "Ch 28.10: belgi 10:18. Ju 30.10: belgi 10:12."]},
         },
         "replies": [
-            {"lang": "en", "text": "I was there from ten, the app just did not work in the morning.", "expect": "contradicts"},
-            {"lang": "uz", "text": "Avtobus kech qoldi, soat 10:40 da yetib keldim. Kechirasiz.", "expect": "consistent"},
-            {"lang": "ru", "text": "В четверг я была на больничном, это не я отмечалась.", "expect": "contradicts"},
+            {"expect": "consistent", "text": {
+                "en": "The bus was late on Thursday, I got there at 10:40. Sorry.",
+                "ru": "В четверг автобус опоздал, я пришла в 10:40. Извините.",
+                "uz": "Payshanba kuni avtobus kechikdi, 10:40 da yetib keldim. Kechirasiz.",
+            }},
+            {"expect": "contradicts", "text": {
+                "en": "I was there from ten, the app just didn't work in the morning.",
+                "ru": "Я была на месте с десяти, просто приложение утром не работало.",
+                "uz": "Soat o'ndan beri joyimda edim, ertalab ilova ishlamadi.",
+            }},
+            {"expect": "cannot_tell", "text": {
+                "en": "The manager asked me to pick up milk for the café on the way in.",
+                "ru": "Управляющий попросил меня по дороге купить молоко для кафе.",
+                "uz": "Boshqaruvchi yo'lda kafe uchun sut olib kelishimni so'ragan edi.",
+            }},
         ],
     },
     "store-screen": {
@@ -66,10 +79,21 @@ EXPLAIN: dict[str, dict[str, Any]] = {
                                "Owenning o'z telefoni: oxirgi belgi juma 23.10 da."]},
         },
         "replies": [
-            {"lang": "en", "text": "My phone broke on Saturday. Maria checked me in from hers, but I was in the store all day.",
-             "expect": "cannot_tell"},
-            {"lang": "ru", "text": "Я отметился сам, со своего телефона.", "expect": "contradicts"},
-            {"lang": "uz", "text": "Shanba kuni ishga kelmaganman, Maria o'zi belgilab qo'ygan.", "expect": "consistent"},
+            {"expect": "consistent", "text": {
+                "en": "I didn't come in on Saturday. Maria checked me in herself.",
+                "ru": "В субботу я не выходил. Мария отметила меня сама.",
+                "uz": "Shanba kuni ishga chiqmadim. Maria meni o'zi belgilab qo'ygan.",
+            }},
+            {"expect": "contradicts", "text": {
+                "en": "I checked in myself, from my own phone.",
+                "ru": "Я отметился сам, со своего телефона.",
+                "uz": "O'zim, o'z telefonimdan belgilandim.",
+            }},
+            {"expect": "cannot_tell", "text": {
+                "en": "I don't remember Saturday, it was a busy week.",
+                "ru": "Не помню субботу, неделя была тяжёлая.",
+                "uz": "Shanbani eslay olmayman, hafta og'ir o'tdi.",
+            }},
         ],
     },
     "cleaning-address": {
@@ -93,9 +117,21 @@ EXPLAIN: dict[str, dict[str, Any]] = {
                                "Bu nuqta — mijozning ikkinchi manzili, 5 Liberty Plaza, jamoa oktyabrda u yerda ikki marta ishlagan."]},
         },
         "replies": [
-            {"lang": "en", "text": "The client asked us to clean their office at 5 Liberty Plaza that day instead.", "expect": "consistent"},
-            {"lang": "ru", "text": "Я весь день был на квартире у клиента.", "expect": "contradicts"},
-            {"lang": "uz", "text": "GPS noto'g'ri ko'rsatdi, men manzilda edim.", "expect": "contradicts"},
+            {"expect": "consistent", "text": {
+                "en": "The client asked us to clean their office at 5 Liberty Plaza that day instead.",
+                "ru": "Клиент попросил в тот день убрать вместо квартиры его офис на 5 Liberty Plaza.",
+                "uz": "Mijoz o'sha kuni kvartira o'rniga 5 Liberty Plaza dagi ofisini tozalashni so'radi.",
+            }},
+            {"expect": "contradicts", "text": {
+                "en": "I was at the flat on 12 Oak Lane all day.",
+                "ru": "Я весь день был в квартире на 12 Oak Lane.",
+                "uz": "Kun bo'yi 12 Oak Lane dagi kvartirada edim.",
+            }},
+            {"expect": "cannot_tell", "text": {
+                "en": "I don't remember Tuesday, we had a lot of jobs that week.",
+                "ru": "Не помню вторник, на той неделе было много заказов.",
+                "uz": "Seshanbani eslay olmayman, o'sha hafta buyurtmalar ko'p edi.",
+            }},
         ],
     },
 }

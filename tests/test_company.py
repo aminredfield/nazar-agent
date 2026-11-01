@@ -46,3 +46,14 @@ async def test_a_schedule_change_shows_on_the_site(demo):
 
     changed = next(item for item in after["sites"] if item["id"] == site["id"])
     assert (changed["shift_start"], changed["shift_end"]) == ("09:00", "19:00")
+
+
+async def test_faces_are_matched_by_person_not_by_name(demo):
+    nazar, truth = demo
+
+    company = await snapshot(nazar, BANK_NOW)
+
+    people = {person["id"]: person for person in company["people"]}
+    for site in company["sites"]:
+        assert [people[person_id]["name"] for person_id in site["people_ids"]] == site["people"]
+    assert all(item["person_id"] in people for item in company["check_ins"])

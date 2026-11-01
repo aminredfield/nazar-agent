@@ -98,11 +98,12 @@ function showExplain(key, scene) {
   $("explain-ask").textContent = t("sc_ask", scene.employee.split(" ")[0]);
   $("explain-chat").replaceChildren(el("p", { class: "muted sc-empty" }, t("sc_chat_empty")));
   $("explain-result").replaceChildren();
+  // Three replies in the window's language: one the records fit, one they contradict, one they cannot settle.
   $("explain-templates").replaceChildren(...scene.replies.map((reply) => {
-    const pick = el("button", { type: "button", class: "sc-template" },
-      el("span", { class: "sc-lang" }, reply.lang.toUpperCase()), el("span", {}, reply.text),
+    const said = reply.text[LANG] || reply.text.en;
+    const pick = el("button", { type: "button", class: "sc-template" }, el("span", {}, said),
       el("small", {}, t("sc_expected", t(`sc_v_${reply.expect}`).slice(2))));
-    pick.addEventListener("click", () => answer(reply.text));
+    pick.addEventListener("click", () => answer(said));
     return pick;
   }));
 }
