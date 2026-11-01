@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NAZAR · My account</title>
+<link rel="icon" href="/static/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="/static/app.css?v=34">
+<script src="/static/i18n.js?v=34"></script>
+<script src="/static/icons.js?v=34"></script>
+</head>
+<body class="cab-page">
+<!-- The employee's side of "Ask before you fine": the account an employee opens on their phone.
+     Standalone at /scenarios/explain/cabinet?scene=…, or inside the scene's page (?embed=1). -->
+<div class="cab">
+  <header class="cab-top">
+    <img src="/static/logo.png" alt="" width="28" height="28">
+    <b data-i18n="cab_title"></b>
+    <div class="seg lang" id="lang-seg" role="radiogroup" data-i18n-aria="language">
+      <button type="button" data-lang="en" role="radio">EN</button>
+      <button type="button" data-lang="ru" role="radio">RU</button>
+      <button type="button" data-lang="uz" role="radio">UZ</button>
+    </div>
+  </header>
+  <section class="cab-me" id="cab-me"></section>
+  <h2 class="cab-h" data-i18n="cab_messages"></h2>
+  <section class="cab-thread" id="cab-thread" aria-live="polite"></section>
+  <section class="cab-answer" id="cab-answer" hidden>
+    <p class="cab-h" data-i18n="cab_quick"></p>
+    <div class="cab-quick" id="cab-quick"></div>
+    <form class="cab-form" id="cab-form">
+      <input id="cab-text" type="text" maxlength="1000" data-i18n-placeholder="cab_write">
+      <button class="primary" type="submit" data-i18n="cab_send"></button>
+    </form>
+    <p class="error" id="cab-error" hidden></p>
+  </section>
+</div>
+<script src="/static/cabinet.js?v=34"></script>
+</body>
+</html>

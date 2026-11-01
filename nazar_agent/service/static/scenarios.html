@@ -8,9 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="/static/app.css?v=30">
-<script src="/static/i18n.js?v=30"></script>
-<script src="/static/icons.js?v=30"></script>
+<link rel="stylesheet" href="/static/app.css?v=34">
+<script src="/static/i18n.js?v=34"></script>
+<script src="/static/icons.js?v=34"></script>
 </head>
 <body class="sc-page">
 <div class="backdrop" aria-hidden="true"></div>
@@ -72,15 +72,13 @@
         </div>
         <div class="sc-result" id="explain-result"></div>
       </div>
-      <div class="sc-side sc-phone">
-        <h3 class="sc-label" data-i18n="sc_phone"></h3>
-        <div class="sc-chat" id="explain-chat"></div>
-        <p class="sc-label sc-small" data-i18n="sc_answer_as"></p>
-        <div class="sc-templates" id="explain-templates"></div>
-        <form class="sc-reply" id="explain-form">
-          <input id="explain-text" type="text" maxlength="1000" data-i18n-placeholder="sc_own_answer">
-          <button class="primary" type="submit" data-i18n="sc_send"></button>
-        </form>
+      <!-- The employee's cabinet, the same page /scenarios/explain/cabinet shows on its own. -->
+      <div class="sc-side sc-pane">
+        <div class="row sc-cab-head">
+          <h3 class="sc-label" data-i18n="sc_phone"></h3>
+          <a class="sc-open" id="explain-open" target="_blank" rel="noopener" data-i18n="cab_open"></a>
+        </div>
+        <iframe class="sc-cabinet" id="explain-cabinet" title="Employee's cabinet"></iframe>
       </div>
     </div>
   </section>
@@ -137,6 +135,6 @@
 
 <p class="sc-nazar" id="scene-nazar" hidden></p>
 <footer class="foot" data-i18n="sc_footer"></footer>
-<script src="/static/scenarios.js?v=30"></script>
+<script src="/static/scenarios.js?v=34"></script>
 </body>
 </html>

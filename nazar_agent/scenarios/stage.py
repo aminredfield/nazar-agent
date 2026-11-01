@@ -17,6 +17,7 @@ EXPLAIN: dict[str, dict[str, Any]] = {
         "segment": "Café",
         "place": "Corner Café, 15 Market Street",
         "employee": "Lena Ortiz",
+        "record": "Check-in Thu 29.10, 10:41",
         "finding": "Late three times this week; on Thursday the first check-in was at 10:41 for a 10:00 shift.",
         "records": [
             "Shift: 10:00–22:00, Wednesday to Sunday.",
@@ -30,12 +31,14 @@ EXPLAIN: dict[str, dict[str, Any]] = {
                    "records": ["Смена: 10:00–22:00, со среды по воскресенье.",
                                "Чт 29.10: отметка 10:41 в зоне кафе, живое селфи; уход 22:02.",
                                "Чт 29.10: её телефон впервые подключился к Wi-Fi кафе в 10:39.",
-                               "Ср 28.10: отметка 10:18. Пт 30.10: отметка 10:12."]},
+                               "Ср 28.10: отметка 10:18. Пт 30.10: отметка 10:12."],
+                   "record": "Отметка Чт 29.10, 10:41"},
             "uz": {"finding": "Hafta davomida uch marta kechikkan; payshanba kuni 10:00 dagi smenaga birinchi belgi 10:41 da.",
                    "records": ["Smena: 10:00–22:00, chorshanbadan yakshanbagacha.",
                                "Pa 29.10: belgi 10:41, kafe hududida, jonli selfi; chiqish 22:02.",
                                "Pa 29.10: telefoni kafe Wi-Fi siga birinchi marta 10:39 da ulangan.",
-                               "Ch 28.10: belgi 10:18. Ju 30.10: belgi 10:12."]},
+                               "Ch 28.10: belgi 10:18. Ju 30.10: belgi 10:12."],
+                   "record": "Belgi Pa 29.10, 10:41"},
         },
         "replies": [
             {"expect": "consistent", "text": {
@@ -59,24 +62,31 @@ EXPLAIN: dict[str, dict[str, Any]] = {
         "segment": "Store",
         "place": "Fresh Market, Northside",
         "employee": "Owen Edwards",
+        "record": "Check-in Sat 24.10, 09:01, from Maria Lopez's phone",
+        "paid_minutes": 539,  # 09:01 to the shift's end, 18:00: the timesheet closed the day itself
         "finding": "Saturday's check-in photo looks like a photo of a phone screen, sent from a colleague's phone.",
         "records": [
             "Sat 24.10: check-in 09:01 from Maria Lopez's phone, a minute after her own check-in.",
             "The photo inspector saw a phone screen showing Owen's registration photo.",
             "GPS inside the store's zone. No check-out for Owen; Maria checked out at 18:05.",
             "Owen's own phone: last check-in on Friday 23.10.",
+            "With no check-out, the timesheet closed Saturday at the shift's end, 18:00: 8 h 59 min to pay.",
         ],
         "shown": {
             "ru": {"finding": "Фото отметки в субботу похоже на снимок экрана телефона и отправлено с телефона коллеги.",
                    "records": ["Сб 24.10: отметка в 09:01 с телефона Марии Лопес, через минуту после её собственной.",
                                "Инспектор фото увидел экран телефона с регистрационным фото Оуэна.",
                                "GPS в зоне магазина. Ухода у Оуэна нет; Мария ушла в 18:05.",
-                               "Собственный телефон Оуэна: последняя отметка в пятницу 23.10."]},
+                               "Собственный телефон Оуэна: последняя отметка в пятницу 23.10.",
+                               "Ухода нет — табель закрыл субботу концом смены, 18:00: к оплате 8 ч 59 мин."],
+                   "record": "Отметка Сб 24.10, 09:01, с телефона Марии Лопес"},
             "uz": {"finding": "Shanba kungi belgi surati telefon ekranining surati kabi va hamkasbining telefonidan yuborilgan.",
                    "records": ["Sh 24.10: belgi 09:01 da Maria Lopezning telefonidan, uning o'z belgisidan bir daqiqa keyin.",
                                "Surat inspektori Owenning ro'yxatdagi surati ko'rsatilgan telefon ekranini ko'rdi.",
                                "GPS do'kon hududida. Owenda chiqish yo'q; Maria 18:05 da chiqqan.",
-                               "Owenning o'z telefoni: oxirgi belgi juma 23.10 da."]},
+                               "Owenning o'z telefoni: oxirgi belgi juma 23.10 da.",
+                               "Chiqish yo'q — tabel shanbani smena oxiri, 18:00 bilan yopdi: to'lovga 8 soat 59 daqiqa."],
+                   "record": "Belgi Sh 24.10, 09:01, Maria Lopezning telefonidan"},
         },
         "replies": [
             {"expect": "consistent", "text": {
@@ -100,6 +110,7 @@ EXPLAIN: dict[str, dict[str, Any]] = {
         "segment": "Cleaning",
         "place": "Client: 12 Oak Lane, apt 48",
         "employee": "Daniel Morgan",
+        "record": "Check-in Tue 27.10, 14:02, 6.3 km from the job",
         "finding": "Tuesday's check-in for the job at the client's flat was 6.3 km away from it.",
         "records": [
             "Tue 27.10: job at 12 Oak Lane, apt 48, 14:00–18:00.",
@@ -110,11 +121,13 @@ EXPLAIN: dict[str, dict[str, Any]] = {
             "ru": {"finding": "Во вторник отметка на заказе в квартире клиента была в 6,3 км от адреса.",
                    "records": ["Вт 27.10: заказ на 12 Oak Lane, кв. 48, 14:00–18:00.",
                                "Отметка в 14:02 в 6,3 км от адреса, точность GPS 8 м; уход в 17:55 в той же точке.",
-                               "Эта точка — второй адрес клиента, 5 Liberty Plaza, где команда работала дважды в октябре."]},
+                               "Эта точка — второй адрес клиента, 5 Liberty Plaza, где команда работала дважды в октябре."],
+                   "record": "Отметка Вт 27.10, 14:02, в 6,3 км от заказа"},
             "uz": {"finding": "Seshanba kuni mijoz kvartirasidagi buyurtmada belgi manzildan 6,3 km uzoqda bo'lgan.",
                    "records": ["Se 27.10: 12 Oak Lane, 48-xonadondagi buyurtma, 14:00–18:00.",
                                "Belgi 14:02 da manzildan 6,3 km uzoqdagi nuqtada, GPS aniqligi 8 m; chiqish 17:55 da shu nuqtada.",
-                               "Bu nuqta — mijozning ikkinchi manzili, 5 Liberty Plaza, jamoa oktyabrda u yerda ikki marta ishlagan."]},
+                               "Bu nuqta — mijozning ikkinchi manzili, 5 Liberty Plaza, jamoa oktyabrda u yerda ikki marta ishlagan."],
+                   "record": "Belgi Se 27.10, 14:02, buyurtmadan 6,3 km uzoqda"},
         },
         "replies": [
             {"expect": "consistent", "text": {

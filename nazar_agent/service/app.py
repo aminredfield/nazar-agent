@@ -40,7 +40,7 @@ from fastapi import (
     Response,
     UploadFile,
 )
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -54,6 +54,7 @@ from nazar_agent.limits import LimitReached, Limits
 from nazar_agent.nazar import NazarClient
 from nazar_agent.nazar.connect import NazarLink, connect
 from nazar_agent.onboarding import Draft, ImportRow, ParseError, PhotoRejected
+from nazar_agent.scenarios.acts import SceneDesk
 from nazar_agent.service.scenarios import PAGE_HEADERS, scenario_routes
 from nazar_agent.sessions import COOKIE, Person, SessionError, Sessions
 from nazar_agent.setup.apply import SetupRefused
@@ -232,6 +233,7 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
             raise HTTPException(429, "The agent is working on a question. Wait for it to finish.")
         link.demo.reset()
         current.assistant.forget()
+        app.state.scene_desk.forget(current.session_id)
         return {"reset": True, "now": link.demo.world.now.isoformat()}
 
     @app.post("/api/ask")
@@ -473,7 +475,8 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
             raise HTTPException(404, "No such draft.") from None
 
     # The new abilities, staged on their own page.
-    app.include_router(scenario_routes(STATIC, caller, _reserve, _add_cost, _read_upload))
+    app.state.scene_desk = SceneDesk()  # the Scenarios page's verdicts, actions and the employee's cabinet
+    app.include_router(scenario_routes(STATIC, caller, _reserve, _add_cost, _read_upload, app.state.scene_desk))
     return app
 
 

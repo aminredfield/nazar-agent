@@ -65,8 +65,11 @@ CHECK = """You check what an employee says against their time-and-attendance rec
 verdict: consistent — the records agree with what they say; contradicts — a record shows
 otherwise; cannot_tell — the records neither confirm nor deny it. Judge the claim, never the
 person. why: one sentence citing the record that decides it. next_step: one sentence for the
-owner — what would settle it or what to do now. Write why and next_step in {language}, whatever
-language the employee wrote in."""
+owner that follows the verdict — consistent: the explanation settles it, the case can be closed
+(if they say they did not work that day, the day need not be paid); contradicts: what to ask or
+check before deciding; cannot_tell: what would settle it. Never a penalty, never a reminder or a
+warning to the employee. Write why and next_step in {language}, whatever language the employee
+wrote in."""
 
 
 async def ask(llm: LLMClient, model: str, case: dict[str, Any], lang: str) -> str:

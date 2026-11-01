@@ -44,9 +44,12 @@ async function working(button, place, run) {
   button.textContent = t("sc_thinking");
   place.replaceChildren(el("p", { class: "muted sc-wait" }, t("sc_looking")));
   try {
-    const nodes = await run();
+    const nodes = (await run()).filter(Boolean);
     const seconds = ((performance.now() - started) / 1000).toFixed(1);
-    place.replaceChildren(...nodes.filter(Boolean), el("p", { class: "sc-time" }, `Muse Spark 1.3 · ${seconds} s`));
+    // The model's time goes under its verdict, before what the agent proposes.
+    const proposals = nodes.findIndex((node) => node.classList && node.classList.contains("sc-can"));
+    const at = proposals < 0 ? nodes.length : proposals;
+    place.replaceChildren(...nodes.slice(0, at), el("p", { class: "sc-time" }, `Muse Spark 1.3 · ${seconds} s`), ...nodes.slice(at));
   } catch (error) {
     place.replaceChildren(el("p", { class: "error" }, error.message));
   } finally {
@@ -78,16 +81,96 @@ const verdict = (text, tone) => el("div", { class: `sc-verdict ${tone}` }, text)
 const VERDICT_TONE = { consistent: "good", contradicts: "bad", cannot_tell: "warn" };
 let scenes = null;
 
-// ---- 1. The employee explains ----------------------------------------------------
+// ---- What the agent may do after a verdict -----------------------------------------
+// Code picks the actions from the verdict (scenarios/acts.py): flag for review, close with
+// no violation, don't count the day, ask for a live selfie. The visitor applies, skips or
+// undoes each one — on the scene's own record; in NAZAR the same buttons change the real one.
 
-const explain = { key: null, scene: null, asked: false };
+const hm = (minutes) => (minutes ? t("sc_hm", Math.floor(minutes / 60), minutes % 60) : t("sc_unpaid"));
+
+function effectText(offer, record) {
+  const subject = offer.who ? `${offer.who} · ${record}` : record;
+  if (offer.field === "paid") return t("sc_eff_paid", subject, hm(offer.before), hm(offer.after));
+  if (offer.field === "selfie") return offer.count > 1 ? t("sc_eff_selfie_all", offer.count) : t("sc_eff_selfie", offer.who);
+  return t("sc_eff_review", subject, L().SC_REVIEW[offer.before], L().SC_REVIEW[offer.after]);
+}
+
+function offerNodes(page, scene, data, applied = [], record = "") {
+  if (!data.offers || !data.offers.length) return [];
+  return [el("h3", { class: "sc-label sc-can" }, t("sc_can_do")),
+    ...data.offers.map((offer) => offerCard(page, scene, offer, applied.includes(offer.action), record || offer.record)),
+    el("p", { class: "muted sc-small" }, t("sc_act_note"))];
+}
+
+function offerCard(page, scene, offer, done, record) {
+  const buttons = el("div", { class: "row" });
+  const status = el("div", { class: "sc-act-status" });
+  const card = el("div", { class: "action" },
+    el("div", { class: "title" }, icon(ACT_ICON[offer.action], 18), L().SC_ACTIONS[offer.action],
+      el("span", { class: offer.pays ? "level pay" : "level" }, offer.pays ? t("sc_pays") : t("sc_no_pay"))),
+    el("div", { class: "what" }, effectText(offer, record)), buttons, status);
+
+  async function decide(undo) {
+    for (const button of buttons.querySelectorAll("button")) button.disabled = true;
+    try {
+      const data = await send("/api/scenarios/act", { page, scene, action: offer.action, undo });
+      draw(data.status === "applied", data.status === "undone" ? t("sc_undone") : "");
+    } catch (error) {
+      draw(false, "");
+      status.replaceChildren(el("span", { class: "error" }, error.message));
+    }
+  }
+  function draw(isDone, note) {
+    status.replaceChildren(isDone ? el("span", { class: "done" }, t("sc_done")) : note ? el("span", { class: "muted" }, note) : "");
+    if (isDone) {
+      const undo = el("button", { type: "button" }, t("undo"));
+      undo.addEventListener("click", () => decide(true));
+      buttons.replaceChildren(undo);
+      return;
+    }
+    const apply = el("button", { type: "button", class: "primary" }, t("apply"));
+    const skip = el("button", { type: "button", class: "ghost" }, t("sc_not_now"));
+    // A change to pay is asked once more, as in the assistant's window.
+    apply.addEventListener("click", () => (offer.pays ? confirmPay() : decide(false)));
+    skip.addEventListener("click", () => {
+      buttons.replaceChildren(again());
+      status.replaceChildren(el("span", { class: "muted" }, t("sc_skipped")));
+    });
+    buttons.replaceChildren(apply, skip);
+  }
+  function again() {
+    const back = el("button", { type: "button", class: "ghost" }, t("sc_reconsider"));
+    back.addEventListener("click", () => draw(false, ""));
+    return back;
+  }
+  function confirmPay() {
+    const yes = el("button", { type: "button", class: "primary" }, t("confirm_yes"));
+    const no = el("button", { type: "button", class: "ghost" }, t("sc_cancel"));
+    yes.addEventListener("click", () => decide(false));
+    no.addEventListener("click", () => draw(false, ""));
+    buttons.replaceChildren(el("span", { class: "sc-confirm" }, t("sc_confirm_pay")), yes, no);
+  }
+  draw(done, "");
+  return card;
+}
+
+const ACT_ICON = { flag_review: "flag", close_fine: "check", void_day: "cash", live_selfie: "camera" };
+
+// ---- 1. The employee explains ----------------------------------------------------
+// The owner asks; the question arrives in the employee's cabinet (on the right, or on its own
+// page); the employee's answer comes back here with the verdict and what may follow it.
+
+const EXPLAIN_POLL_MS = 1500;
+const explain = { key: null, scene: null, seen: "", poll: null, awaiting: false };
+// On a phone the cabinet is below the owner's window: the page takes the visitor to it and back.
+const narrow = () => window.matchMedia("(max-width: 760px)").matches;
 
 function shown(scene) {
-  return (scene.shown || {})[LANG] || { finding: scene.finding, records: scene.records };
+  return { finding: scene.finding, records: scene.records, record: scene.record, ...((scene.shown || {})[LANG] || {}) };
 }
 
 function showExplain(key, scene) {
-  Object.assign(explain, { key, scene, asked: false });
+  Object.assign(explain, { key, scene, seen: "" });
   const text = shown(scene);
   $("explain-card").replaceChildren(el("article", { class: "sc-card" },
     el("div", { class: "sc-where" }, `${segment(scene)} · ${scene.place}`),
@@ -96,40 +179,57 @@ function showExplain(key, scene) {
     el("ul", { class: "sc-records" }, text.records.map((line) => el("li", {}, line)))));
   $("explain-lang").value = LANG;
   $("explain-ask").textContent = t("sc_ask", scene.employee.split(" ")[0]);
-  $("explain-chat").replaceChildren(el("p", { class: "muted sc-empty" }, t("sc_chat_empty")));
   $("explain-result").replaceChildren();
-  // Three replies in the window's language: one the records fit, one they contradict, one they cannot settle.
-  $("explain-templates").replaceChildren(...scene.replies.map((reply) => {
-    const said = reply.text[LANG] || reply.text.en;
-    const pick = el("button", { type: "button", class: "sc-template" }, el("span", {}, said),
-      el("small", {}, t("sc_expected", t(`sc_v_${reply.expect}`).slice(2))));
-    pick.addEventListener("click", () => answer(said));
-    return pick;
-  }));
+  const cabinet = `/scenarios/explain/cabinet?scene=${encodeURIComponent(key)}`;
+  $("explain-cabinet").src = `${cabinet}&embed=1`;
+  $("explain-open").href = cabinet;
+  watchExplain();
 }
 
 $("explain-ask").addEventListener("click", () => working($("explain-ask"), $("explain-result"), async () => {
-  const data = await send("/api/scenarios/explain/ask", { scene: explain.key, lang: $("explain-lang").value });
-  explain.asked = true;
-  $("explain-chat").replaceChildren(el("div", { class: "sc-bubble from-agent" }, el("small", {}, t("sc_assistant")), data.message));
-  return [el("p", { class: "muted" }, t("sc_sent"))];
+  await send("/api/scenarios/explain/ask", { scene: explain.key, lang: $("explain-lang").value, window_lang: LANG });
+  explain.seen = "";
+  explain.awaiting = true;
+  if (narrow()) setTimeout(() => $("explain-cabinet").scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+  return [el("p", { class: "muted sc-wait" }, t("sc_waiting", explain.scene.employee.split(" ")[0]))];
 }));
 
-function answer(text) {
-  if (!text.trim()) return;
-  if (!explain.asked) {
-    $("explain-result").replaceChildren(el("p", { class: "error" }, t("sc_ask_first")));
-    return;
-  }
-  $("explain-chat").append(el("div", { class: "sc-bubble from-person" }, el("small", {}, explain.scene.employee), text));
-  $("explain-text").value = "";
-  working($("explain-ask"), $("explain-result"), async () => {
-    const data = await send("/api/scenarios/explain/check", { scene: explain.key, said: text, lang: LANG });
-    return [verdict(t(`sc_v_${data.verdict}`), VERDICT_TONE[data.verdict]), el("p", {}, data.why),
-      el("p", { class: "muted" }, t("sc_next", data.next_step))];
-  });
+// The cabinet inside the page says how tall it is: one scroll, the page's.
+window.addEventListener("message", (event) => {
+  if (event.origin !== location.origin || typeof event.data?.cabinetHeight !== "number") return;
+  $("explain-cabinet").style.height = `${Math.max(420, Math.ceil(event.data.cabinetHeight) + 2)}px`;
+});
+
+// The answer is given in the cabinet, maybe in another tab: look for it now and then.
+function watchExplain() {
+  clearInterval(explain.poll);
+  const key = explain.key;
+  const look = async () => {
+    if (explain.key !== key) return;
+    let data;
+    try {
+      const response = await fetch(`/api/scenarios/inbox?scene=${encodeURIComponent(key)}`);
+      if (!response.ok) return;
+      data = await response.json();
+    } catch {
+      return; // the next look tries again
+    }
+    if (!data.message || !data.check) return;
+    const mark = `${data.reply}|${data.check.verdict}|${data.check.why}`;
+    if (mark === explain.seen) return;
+    explain.seen = mark;
+    const first = explain.scene.employee.split(" ")[0];
+    $("explain-result").replaceChildren(
+      el("p", { class: "muted" }, t("sc_answered", first)), el("blockquote", { class: "sc-quote" }, data.reply),
+      verdict(t(`sc_v_${data.check.verdict}`), VERDICT_TONE[data.check.verdict]), el("p", {}, data.check.why),
+      el("p", { class: "muted" }, t("sc_next", data.check.next_step)),
+      ...offerNodes("explain", key, data.check, data.applied, shown(explain.scene).record));
+    if (explain.awaiting && narrow()) $("explain-result").scrollIntoView({ behavior: "smooth", block: "start" });
+    explain.awaiting = false;
+  };
+  look();
+  explain.poll = setInterval(look, EXPLAIN_POLL_MS);
 }
-$("explain-form").addEventListener("submit", (event) => { event.preventDefault(); answer($("explain-text").value); });
 
 // ---- 2. A company from one picture -----------------------------------------------
 
@@ -185,7 +285,8 @@ $("headcount-count").addEventListener("click", () => working($("headcount-count"
   const data = await send("/api/scenarios/headcount", form({ scene: headcount.key, file: headcount.own }));
   const [line, tone] = headcountLine(data);
   return [verdict(line, tone), el("p", {}, t("sc_in_photo", data.people, data.in_team)),
-    data.notes ? el("p", { class: "muted" }, data.notes) : null];
+    data.notes ? el("p", { class: "muted" }, data.notes) : null,
+    ...offerNodes("headcount", headcount.key, data)];
 }));
 $("headcount-file").addEventListener("change", (event) => {
   headcount.own = event.target.files[0] || null;
@@ -200,7 +301,9 @@ const placeLock = el("button", { type: "button", hidden: "" });  // one comparis
 function judgePlace(fields) {
   return working(placeLock, $("place-result"), async () => {
     const data = await send("/api/scenarios/place", form(fields));
-    return [verdict(t(data.same_place ? "sc_same" : "sc_not_same"), data.same_place ? "good" : "bad"), el("p", {}, data.why)];
+    return [verdict(t(data.same_place ? "sc_same" : "sc_not_same"), data.same_place ? "good" : "bad"), el("p", {}, data.why),
+      fields.file ? el("p", { class: "muted sc-small" }, t("sc_own_no_act")) : null,
+      ...offerNodes("gps", fields.scene, data)];
   });
 }
 
