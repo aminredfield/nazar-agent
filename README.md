@@ -30,15 +30,20 @@ The numbers, all scored by plain code — no model grades another model:
 
 | | |
 |---|---|
-| Tests | 553 pass, no network or keys (`pytest`) |
+| Tests | 556 pass, no network or keys (`pytest`) |
 | [Question bank](#any-question-an-owner-may-ask) | 72 owner questions in 3 languages: **70/72**, $0.017 a question |
 | [Held-out set](#a-held-out-set-the-agent-was-never-tuned-on), written after development froze | **13/15**, published as it came out |
 | [Setting a site up through the chat](#setting-a-site-up-through-the-chat) | 7/7 conversations, 38/38 checks |
 | [Scenarios](#scenarios-the-abilities-coming-to-nazar-next) | **39/39** scene checks against the live models, one command to repeat |
 | Prompt injections | 3 live hand-attacks on the employee cabinet, and the same battery in the scenes eval; none closed a case |
+| [Against the real NAZAR](#applying-an-action) | end to end: proposed → NAZAR previewed late 74 → 0 min → applied → audited → undone |
 
 Every model call at runtime goes to a Meta model
 ([which one does what](#meta-models)); the git history starts Oct 27.
+NAZAR itself is in production with paying companies, and the agent is built
+to hold up next to it: every action is validated against NAZAR's own pay
+preview, applied atomically, audited and undoable — and each number above
+can be re-run with one command, named in its linked section.
 
 ## Try it in 5 minutes — no NAZAR needed
 
