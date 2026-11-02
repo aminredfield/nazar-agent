@@ -154,6 +154,8 @@ class ActionSpec:
     undo: Callable[[NazarClient, Any, dict[str, Any]], Awaitable[None]]
     # Policy that needs NAZAR's numbers: checked on the preview, at proposal and again at confirmation.
     preview_policy: Callable[[Preview, Context], str | None] | None = None
+    # A preview-policy refusal the writer can repair (e.g. keep the day's length) goes back to it once.
+    preview_policy_fixable: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,12 +207,14 @@ def _week_minutes(schedule: dict[str, Any] | None) -> int | None:
 
 
 def _shorter_week_policy(preview: Preview, context: Context) -> str | None:
-    """A schedule that moves the day is about the setting; one that pays a crew fewer hours is against people."""
+    """A schedule that moves the day is about the setting; one that pays a crew fewer hours is
+    against people, and never the agent's to propose, however strong the case: live, a card once
+    shaved an hour off a site this way. The owner shortens hours in NAZAR themself."""
     before, after = _week_minutes(preview.before), _week_minutes(preview.after)
-    if before is not None and after is not None and after < before and not _strong_case(context):
+    if before is not None and after is not None and after < before:
         return (
-            f"a shorter working week for everyone on the site ({before // 60} → {after // 60} h): "
-            "it needs high confidence and a skeptic who agrees"
+            f"a shorter working week for everyone on the site ({before // 60} → {after // 60} h) is the "
+            "owner's own decision, never the agent's: keep the day as long as it is, or leave the action out"
         )
     return None
 
@@ -508,6 +512,7 @@ CATALOG: dict[str, ActionSpec] = {
             execute=_schedule_execute,
             undo=_schedule_undo,
             preview_policy=_shorter_week_policy,
+            preview_policy_fixable=True,
         ),
     )
 }
@@ -552,5 +557,5 @@ async def validate_action(
         return rejected(f"NAZAR could not compute before → after: {exc}", params=params)
     violation = spec.preview_policy(preview, context) if spec.preview_policy else None
     if violation:
-        return rejected(violation, params=params)
+        return rejected(violation, params=params, fixable=spec.preview_policy_fixable)
     return ValidatedAction(spec.name, spec.level, params, preview, (), named)

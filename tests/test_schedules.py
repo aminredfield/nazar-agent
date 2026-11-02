@@ -162,8 +162,9 @@ async def test_a_schedule_the_evidence_cannot_complete_still_goes_back_to_the_wr
     assert both_missing.fixable and {problem.split(":")[0] for problem in both_missing.problems} == {"shift_start", "shift_end"}
 
 
-async def test_a_shorter_working_week_needs_a_strong_case_a_shifted_one_does_not():
-    # 08:00–18:00 → 09:00–17:00 is two hours a day less for the whole crew: a decision against people.
+async def test_a_shorter_working_week_is_never_the_agents_to_propose_a_shifted_one_is_fine():
+    # 08:00–18:00 → 09:00–17:00 is two hours a day less for the whole crew: the owner's own
+    # decision, refused whatever the case's strength — and sent back so the writer can keep the day.
     strong = Context("high", SkepticView("concern_supported", "r", (), ()))
     shorter = {**PARAMS, "shift_start": "09:00", "shift_end": "17:00"}
     fewer_days = {**PARAMS, "shift_start": "08:00", "shift_end": "18:00", "working_days": [1, 2, 3, 4, 5]}
@@ -173,13 +174,28 @@ async def test_a_shorter_working_week_needs_a_strong_case_a_shifted_one_does_not
         nazar, _, _ = fake_nazar()
         return await validate_action("change_schedule", params, context=context, evidence=evidence_with_site(), nazar=nazar)
 
-    cut, days_cut, moved, at_night, allowed = (
+    cut, days_cut, moved, at_night, still_cut = (
         await checked(shorter), await checked(fewer_days), await checked(PARAMS), await checked(night), await checked(shorter, strong)
     )
 
-    assert "shorter working week" in cut.problems[0] and "60 → 48 h" in cut.problems[0]
+    assert "shorter working week" in cut.problems[0] and "60 → 48 h" in cut.problems[0] and cut.fixable
     assert "shorter working week" in days_cut.problems[0]
-    assert moved.valid and at_night.valid and allowed.valid
+    assert moved.valid and at_night.valid
+    assert not still_cut.valid and still_cut.fixable
+
+
+async def test_the_live_today_card_shaving_an_hour_is_refused_even_with_a_strong_case():
+    # Seen live on Nov 2: asked who is late today, the writer proposed 09:00–18:00 for a crew
+    # that works 09:00–19:00 on a site set to 08:00–18:00 — one paid hour a day less for everyone,
+    # and it passed because confidence was high and the skeptic agreed.
+    strong = Context("high", SkepticView("concern_supported", "r", (), ()))
+    nazar, _, _ = fake_nazar()
+    shaved = {**PARAMS, "shift_start": "09:00", "shift_end": "18:00"}
+
+    action = await validate_action("change_schedule", shaved, context=strong, evidence=evidence_with_site(), nazar=nazar)
+
+    assert not action.valid and action.fixable
+    assert "60 → 54 h" in action.problems[0] and "owner's own decision" in action.problems[0]
 
 
 async def test_schedule_change_keeps_the_rest_of_the_site_and_undoes_cleanly():
