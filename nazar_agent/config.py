@@ -113,6 +113,10 @@ class Settings(BaseSettings):
     # everyone together (nazar_agent.limits). 0 = no limit.
     demo_questions_per_session: int = 0
     demo_budget_usd_per_day: float = 0.0
+    # The public demo again: the two heaviest example cards are recorded once
+    # per demo day (nazar_agent.service.recorded) and the window plays the
+    # recording at once, offering "Run live". Costs two real runs a day.
+    record_cards: bool = False
 
     # Voice messages: Muse Spark 1.2 takes audio (Muse Voice Transcribe has no
     # Russian or Uzbek).

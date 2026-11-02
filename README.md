@@ -28,6 +28,11 @@ buttons disturbs nobody.
    Muse Spark vision compares the check-in photo's background with the
    place's earlier selfies and catches a fake-GPS check-in.
 
+The two heaviest cards — *Fake check-ins* and *Today* — open with a run
+recorded earlier the same day on the same data, labelled as such, so the
+first click answers at once; **Run live** under the label runs the agents
+for real.
+
 The numbers, all scored by plain code — no model grades another model:
 
 | | |

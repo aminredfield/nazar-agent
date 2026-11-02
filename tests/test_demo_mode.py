@@ -189,6 +189,22 @@ def test_the_people_come_with_their_photos_and_nothing_else_is_served(tmp_path):
     assert outside == [404, 404, 404]
 
 
+def test_a_recorded_run_is_served_only_when_recording_is_on(tmp_path):
+    class Stub:
+        async def get(self, card):
+            return {"question": "Q", "events": [{"seq": 1}], "view": {"recorded": True}} if card == "fake" else None
+
+    with TestClient(create_app(settings(tmp_path, demo_mode=True))) as client:
+        off = client.get("/api/recorded/fake")  # RECORD_CARDS is off by default
+        client.app.state.recorded = Stub()
+        on = client.get("/api/recorded/fake")
+        unknown = client.get("/api/recorded/nope")
+
+    assert off.json() is None
+    assert on.json()["view"]["recorded"] is True
+    assert unknown.json() is None
+
+
 def test_every_scenario_has_its_own_page_and_no_page_is_kept_stale(tmp_path):
     with TestClient(create_app(settings(tmp_path, demo_mode=True))) as client:
         pages = [client.get(path) for path in ("/", "/scenarios", "/scenarios/gps", "/scenarios/explain")]

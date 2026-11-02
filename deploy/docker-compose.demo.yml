@@ -25,6 +25,9 @@ services:
       # A thorough judge's session costs $2–3, so judging week must not run out mid-visit.
       DEMO_QUESTIONS_PER_SESSION: ${DEMO_QUESTIONS_PER_SESSION_PUBLIC:-50}
       DEMO_BUDGET_USD_PER_DAY: ${DEMO_BUDGET_USD_PER_DAY_PUBLIC:-50}
+      # The two heaviest example cards open with a run recorded today;
+      # "Run live" runs the agents for real. Two real runs a day.
+      RECORD_CARDS: "true"
       AGENT_DB_PATH: /data/nazar_agent.sqlite3
       SERVICE_HOST: 0.0.0.0
       SERVICE_PORT: "8100"

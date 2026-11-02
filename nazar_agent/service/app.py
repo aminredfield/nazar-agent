@@ -55,6 +55,7 @@ from nazar_agent.nazar import NazarClient
 from nazar_agent.nazar.connect import NazarLink, connect, demo_link
 from nazar_agent.onboarding import Draft, ImportRow, ParseError, PhotoRejected, image_type
 from nazar_agent.scenarios.acts import SceneDesk
+from nazar_agent.service.recorded import RecordedRuns
 from nazar_agent.service.scenarios import PAGE_HEADERS, scenario_routes
 from nazar_agent.sessions import COOKIE, Person, SessionError, Sessions
 from nazar_agent.setup.apply import SetupRefused
@@ -147,6 +148,10 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
             budget_usd_per_day=active.demo_budget_usd_per_day,
         )
         background, telegram = _start_telegram(active, assistants.service) if assistants.service else ([], None)
+        app.state.recorded = None
+        if active.demo_mode and active.record_cards and nazar_transport is None:
+            app.state.recorded = RecordedRuns(assistants, lambda: active.now().date().isoformat())
+            background.append(asyncio.create_task(app.state.recorded.warm()))
         try:
             yield
         finally:
@@ -284,6 +289,14 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         if assistant.last is None:
             return None
         return _fresh(assistant, assistant.last.view)
+
+    @app.get("/api/recorded/{card}")
+    async def recorded_card(card: str, current: Caller = Depends(caller)) -> dict[str, Any] | None:
+        """A heavy example's run recorded today on the same demo data, for the window to play at once."""
+        recorded: RecordedRuns | None = getattr(app.state, "recorded", None)
+        if not current.demo or recorded is None:
+            return None
+        return await recorded.get(card)
 
     @app.get("/api/dialog")
     async def dialog(current: Caller = Depends(caller)) -> list[dict[str, Any]]:

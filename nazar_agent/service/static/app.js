@@ -55,12 +55,13 @@ const seconds = (value) => t("seconds", value.toFixed(1).replace(".", LANG === "
 // inspector saw, the fact checker's rounds, the skeptic's verdicts.
 
 // `id` — the run the events shown belong to; `stale` — the one before, whose events a new run must not show.
-const run = { seq: 0, poll: null, clock: null, started: 0, open: {}, analyst: null, active: null, finished: false, inflight: null, id: null, stale: null };
+// `log` keeps every event shown, so a finished feed can be drawn again in another language.
+const run = { seq: 0, poll: null, clock: null, started: 0, open: {}, analyst: null, active: null, finished: false, inflight: null, id: null, stale: null, log: [], recorded: false };
 
 function startRun(question, alreadyFor = 0) {
   Object.assign(run, {
     seq: 0, open: {}, active: null, finished: false, inflight: null, started: performance.now() - alreadyFor * 1000,
-    stale: alreadyFor ? null : run.id, id: null,
+    stale: alreadyFor ? null : run.id, id: null, log: [], recorded: false,
   });
   $("run").hidden = false;
   $("run").className = "run";
@@ -91,6 +92,7 @@ function pollProgress() {
         for (const event of data.events) {
           if (event.seq <= run.seq) continue;
           run.seq = event.seq;
+          run.log.push(event);
           handle(event);
         }
         return data;
@@ -278,7 +280,9 @@ function previewTable(preview, fields) {
 }
 
 // One action the team proposes: what will change, said by code, and the buttons.
-function actionBlock(action, card) {
+// In a replay (`recorded`) the proposals belong to the recording's own company:
+// no buttons — "Run live" above brings the same cards back ready to apply.
+function actionBlock(action, card, recorded = false) {
   const result = el("div", { class: "muted" });
   const buttons = el("div", { class: "row" });
   const pays = action.level === "changes_pay";
@@ -327,6 +331,7 @@ function actionBlock(action, card) {
   function render(status) {
     buttons.replaceChildren();
     result.className = "muted"; result.textContent = "";
+    if (recorded) { result.textContent = t("recorded_actions"); return; }
     if (status === "pending") {
       const apply = el("button", { class: "primary", type: "button" }, t("apply"));
       const disagree = el("button", { type: "button" }, t("disagree"));
@@ -409,15 +414,25 @@ function answerFacts(facts) {
   ];
 }
 
+// A short answer sometimes repeats the summary almost word for word: the point is said once.
+const answerTokens = (text) => new Set((text || "").toLowerCase().match(/[\p{L}\p{N}]+/gu) || []);
+function repeatsSummary(text, summary) {
+  const a = answerTokens(text), b = answerTokens(summary);
+  if (!a.size || !b.size) return false;
+  let shared = 0;
+  for (const word of a) if (b.has(word)) shared += 1;
+  return shared / Math.max(a.size, b.size) >= 0.85;
+}
+
 function answerParts(data, live) {
   const removed = data.removed_by_fact_checker.map((item) => `${item.fact || item.finding}: ${item.reasons.join("; ")}`);
   const rounds = data.fact_checker_rounds.flat();
-  const actions = data.cards.flatMap((card) => card.actions.map((action) => actionBlock(action, card)));
+  const actions = data.cards.flatMap((card) => card.actions.map((action) => actionBlock(action, card, Boolean(data.recorded))));
   // Short first: what the team thinks and what it will do if the owner agrees; the reasoning is folded below.
   return [
     actions.length ? el("h3", { class: "lead" }, t("lead_think")) : null,
     el("p", { class: "summary" }, data.summary),
-    answerFacts(data.answer || []),
+    answerFacts((data.answer || []).filter((fact) => !repeatsSummary(fact.text, data.summary))),
     (data.choices || []).length ? el("div", { class: "suggest choices" }, data.choices.map(choiceButton)) : null,
     data.setup ? setupSection(data.setup, live) : null,
     actions.length ? el("h3", { class: "lead" }, t("lead_do")) : null,
@@ -446,9 +461,20 @@ let shownDialog = [];
 
 const meantLine = (meant) => (meant ? [el("p", { class: "muted meant" }, t("meant", meant))] : []);
 
+// A replayed answer starts with what it is — a recording — and the button for the real thing.
+function recordedNote(data) {
+  const live = el("button", { class: "primary small", type: "button" }, t("run_live"));
+  live.onclick = () => {
+    if ($("send").disabled) return;
+    $("question").value = data.question || $("run-question").textContent;
+    $("ask").requestSubmit();
+  };
+  return el("div", { class: "recorded-note" }, el("span", {}, t("recorded_note")), live);
+}
+
 function renderAnswer(data) {
   shownAnswer = data;
-  $("answer").replaceChildren(...meantLine(data.meant), ...answerNodes(data, true));
+  $("answer").replaceChildren(...(data.recorded ? [recordedNote(data)] : []), ...meantLine(data.meant), ...answerNodes(data, true));
 }
 
 function renderHistory() {
@@ -566,6 +592,8 @@ function renderTry() {
       watching = index;
       $("question").value = item.q;
       chooseAnalyst("auto");
+      const key = RECORDED_TRY[index];
+      if (key && LANG === "en" && (await playRecorded(key))) return;
       $("ask").requestSubmit();
     });
     return card;
@@ -701,7 +729,7 @@ async function followRunning() {
       startRun(state.question, state.events[state.events.length - 1].t);
       run.id = state.run;
       clearInterval(run.poll);
-      for (const event of state.events) { run.seq = event.seq; handle(event); }
+      for (const event of state.events) { run.seq = event.seq; run.log.push(event); handle(event); }
       $("run-timer").textContent = seconds(state.events[state.events.length - 1].t);
       if (!run.finished) stopRun(true);
       if (!$("run").classList.contains("failed")) $("run-title").textContent = t("how_got", $("run-timer").textContent);
@@ -721,6 +749,44 @@ async function followRunning() {
       loadDialog(); loadAudit();
     }
   }, 1000);
+  return true;
+}
+
+// The feed's captions are built in the window's language at render time:
+// after a switch, a finished run is drawn again from its kept events.
+function redrawRun() {
+  if ($("run").hidden || !run.finished || !run.log.length) return;
+  const events = run.log.slice(), question = $("run-question").textContent;
+  const failed = $("run").classList.contains("failed"), recorded = run.recorded;
+  startRun(question, events[events.length - 1].t);
+  clearInterval(run.poll);
+  clearInterval(run.clock);
+  for (const event of events) { run.seq = event.seq; run.log.push(event); handle(event); }
+  $("run-timer").textContent = seconds(events[events.length - 1].t);
+  run.recorded = recorded;
+  if (!run.finished) stopRun(!failed);
+  if (!failed) $("run-title").textContent = t(recorded ? "recorded_title" : "how_got", $("run-timer").textContent);
+}
+
+// The two heaviest examples: the first click plays a run recorded today on
+// the same demo data the visitor's company is built from; "Run live" asks
+// the team for real. Recordings are in English — the cards' own language.
+const RECORDED_TRY = { 0: "fake", 3: "today" };
+async function playRecorded(key) {
+  let rec = null;
+  try { rec = await api(`/api/recorded/${key}`); } catch { return false; }
+  if (!rec || !(rec.events || []).length) return false;
+  showWatch();
+  startRun(rec.question, rec.events[rec.events.length - 1].t);
+  clearInterval(run.poll);
+  clearInterval(run.clock);
+  for (const event of rec.events) { run.seq = event.seq; run.log.push(event); handle(event); }
+  $("run-timer").textContent = seconds(rec.events[rec.events.length - 1].t);
+  run.recorded = true;
+  if (!run.finished) stopRun(true);
+  $("run-title").textContent = t("recorded_title", $("run-timer").textContent);
+  renderAnswer({ ...rec.view, question: rec.question });
+  ($("watch").hidden ? $("run") : $("watch")).scrollIntoView({ block: "start" });
   return true;
 }
 
@@ -808,6 +874,7 @@ for (const button of $("lang-seg").children) {
     if (!$("tab-company").hidden) loadCompany();
     if (shownAnswer) renderAnswer(shownAnswer);
     renderHistory();
+    redrawRun();
     loadAudit();
     if (!$("tab-import").hidden) loadWaiting();
   });
