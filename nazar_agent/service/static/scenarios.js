@@ -105,10 +105,14 @@ function offerNodes(page, scene, data, applied = [], record = "") {
 function offerCard(page, scene, offer, done, record) {
   const buttons = el("div", { class: "row" });
   const status = el("div", { class: "sc-act-status" });
+  // "No violation" is about the check-in under review; a lateness the employee admitted
+  // stays in the timesheet — said next to the button, so the two are not read as one.
+  const note = page === "explain" && offer.action === "close_fine"
+    ? el("p", { class: "muted sc-small" }, t("sc_close_note")) : "";
   const card = el("div", { class: "action" },
     el("div", { class: "title" }, icon(ACT_ICON[offer.action], 18), L().SC_ACTIONS[offer.action],
       el("span", { class: offer.pays ? "level pay" : "level" }, offer.pays ? t("sc_pays") : t("sc_no_pay"))),
-    el("div", { class: "what" }, effectText(offer, record)), buttons, status);
+    el("div", { class: "what" }, effectText(offer, record)), note, buttons, status);
 
   async function decide(undo, confirmed = false) {
     for (const button of buttons.querySelectorAll("button")) button.disabled = true;
