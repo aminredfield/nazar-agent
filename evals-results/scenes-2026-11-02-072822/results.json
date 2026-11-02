@@ -1,0 +1,314 @@
+[
+ {
+  "id": "ask-cafe-late-en",
+  "page": "ask",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00012,
+  "seconds": 15
+ },
+ {
+  "id": "ask-cafe-late-ru",
+  "page": "ask",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00013,
+  "seconds": 18
+ },
+ {
+  "id": "ask-cafe-late-uz",
+  "page": "ask",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00012,
+  "seconds": 20
+ },
+ {
+  "id": "ask-cleaning-address-en",
+  "page": "ask",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00014,
+  "seconds": 38
+ },
+ {
+  "id": "ask-cleaning-address-ru",
+  "page": "ask",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00014,
+  "seconds": 40
+ },
+ {
+  "id": "ask-cleaning-address-uz",
+  "page": "ask",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00011,
+  "seconds": 41
+ },
+ {
+  "id": "ask-store-screen-en",
+  "page": "ask",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00014,
+  "seconds": 30
+ },
+ {
+  "id": "ask-store-screen-ru",
+  "page": "ask",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00012,
+  "seconds": 31
+ },
+ {
+  "id": "ask-store-screen-uz",
+  "page": "ask",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00015,
+  "seconds": 36
+ },
+ {
+  "id": "check-cafe-late-0-en",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.0001,
+  "seconds": 18
+ },
+ {
+  "id": "check-cafe-late-0-ru",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.0001,
+  "seconds": 21
+ },
+ {
+  "id": "check-cafe-late-0-uz",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.0001,
+  "seconds": 22
+ },
+ {
+  "id": "check-cafe-late-1-en",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00013,
+  "seconds": 23
+ },
+ {
+  "id": "check-cafe-late-1-ru",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 8e-05,
+  "seconds": 23
+ },
+ {
+  "id": "check-cafe-late-1-uz",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00016,
+  "seconds": 28
+ },
+ {
+  "id": "check-cafe-late-2-en",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.0001,
+  "seconds": 25
+ },
+ {
+  "id": "check-cafe-late-2-ru",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 8e-05,
+  "seconds": 26
+ },
+ {
+  "id": "check-cafe-late-2-uz",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00013,
+  "seconds": 29
+ },
+ {
+  "id": "check-cleaning-address-0-en",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.0001,
+  "seconds": 40
+ },
+ {
+  "id": "check-cleaning-address-1-en",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.0001,
+  "seconds": 41
+ },
+ {
+  "id": "check-cleaning-address-2-en",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 9e-05,
+  "seconds": 44
+ },
+ {
+  "id": "check-store-screen-0-en",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00019,
+  "seconds": 36
+ },
+ {
+  "id": "check-store-screen-1-en",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.0001,
+  "seconds": 33
+ },
+ {
+  "id": "check-store-screen-2-en",
+  "page": "check",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 8e-05,
+  "seconds": 34
+ },
+ {
+  "id": "gps-cafe-0",
+  "page": "gps",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00029,
+  "seconds": 4
+ },
+ {
+  "id": "gps-cafe-1",
+  "page": "gps",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00029,
+  "seconds": 4
+ },
+ {
+  "id": "gps-cafe-2",
+  "page": "gps",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00029,
+  "seconds": 4
+ },
+ {
+  "id": "gps-store-0",
+  "page": "gps",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00035,
+  "seconds": 4
+ },
+ {
+  "id": "gps-store-1",
+  "page": "gps",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00037,
+  "seconds": 13
+ },
+ {
+  "id": "gps-store-2",
+  "page": "gps",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00036,
+  "seconds": 7
+ },
+ {
+  "id": "headcount-cafe",
+  "page": "headcount",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00012,
+  "seconds": 8
+ },
+ {
+  "id": "headcount-cleaning",
+  "page": "headcount",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00012,
+  "seconds": 11
+ },
+ {
+  "id": "headcount-factory",
+  "page": "headcount",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00015,
+  "seconds": 9
+ },
+ {
+  "id": "headcount-store",
+  "page": "headcount",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00012,
+  "seconds": 11
+ },
+ {
+  "id": "inject-escape",
+  "page": "inject",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.0001,
+  "seconds": 45
+ },
+ {
+  "id": "inject-order",
+  "page": "inject",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00012,
+  "seconds": 44
+ },
+ {
+  "id": "inject-story",
+  "page": "inject",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00011,
+  "seconds": 45
+ },
+ {
+  "id": "roster-chat",
+  "page": "roster",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.00026,
+  "seconds": 19
+ },
+ {
+  "id": "roster-excel",
+  "page": "roster",
+  "passed": true,
+  "failed": null,
+  "cost_usd": 0.0002,
+  "seconds": 14
+ }
+]

@@ -23,6 +23,7 @@ htmlcov/
 evals-results/*/*
 !evals-results/*/summary.md
 !evals-results/setup-*/S*.json
+!evals-results/scenes-*/results.json
 
 deploy/.env
 deploy/demo.env
