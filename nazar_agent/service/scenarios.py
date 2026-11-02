@@ -19,6 +19,7 @@ from openai import OpenAIError
 from pydantic import BaseModel, Field
 
 from nazar_agent.llm import LLMClient
+from nazar_agent.onboarding import image_type
 from nazar_agent.scenarios import (
     EXPLAIN,
     HEADCOUNT,
@@ -97,6 +98,15 @@ def scenario_routes(
     def picture(name: str) -> bytes:
         return (pictures / name).read_bytes()
 
+    def own_photo(data: bytes | None) -> tuple[bytes, str] | None:
+        """A visitor's own picture, typed by its first bytes — the browser's claim is not sent to the model."""
+        if data is None:
+            return None
+        mime = image_type(data)
+        if mime is None:
+            raise HTTPException(415, "The file is not a photo — JPEG, PNG or WebP.")
+        return data, mime
+
     @router.get("/scenarios", include_in_schema=False)
     async def page() -> FileResponse:
         return FileResponse(static / "scenarios.html", headers=PAGE_HEADERS)
@@ -165,8 +175,8 @@ def scenario_routes(
         http: Request, scene: str = Form(""), lang: Lang = Form("en"), file: UploadFile | None = File(None),
         current: Any = Depends(caller),
     ) -> dict[str, Any]:
-        own = await read_upload(file)
-        data, mime = (own, file.content_type or "image/png") if own else (picture(_scene(ROSTER, scene)["file"]), "image/png")
+        own = own_photo(await read_upload(file))
+        data, mime = own if own else (picture(_scene(ROSTER, scene)["file"]), "image/png")
         found = await played(http, current, lang, "roster", lambda llm, model: read_roster(llm, model, data, mime, lang))
         return {"people": found.people, "plan": found.plan, "unclear": found.unclear}
 
@@ -176,8 +186,8 @@ def scenario_routes(
         current: Any = Depends(caller),
     ) -> dict[str, Any]:
         case = _scene(HEADCOUNT, scene)
-        own = await read_upload(file)
-        data, mime = (own, file.content_type or "image/jpeg") if own else (picture(case["file"]), "image/jpeg")
+        own = own_photo(await read_upload(file))
+        data, mime = own if own else (picture(case["file"]), "image/jpeg")
         found = await played(http, current, lang, f"headcount: {scene}",
                              lambda llm, model: count_shift(llm, model, data, mime, case["checked_in"], lang))
         verdict = "all_here" if found["in_team"] == found["checked_in"] else "missing" if found["in_team"] < found["checked_in"] else "extra"
@@ -189,10 +199,10 @@ def scenario_routes(
         file: UploadFile | None = File(None), current: Any = Depends(caller),
     ) -> dict[str, Any]:
         case = _scene(PLACES, scene)
-        own = await read_upload(file)
+        own = own_photo(await read_upload(file))
         if own is None and not 0 <= candidate < len(case["candidates"]):
             raise HTTPException(404, "No such check-in in this scene.")
-        new = own or picture(case["candidates"][candidate]["file"])
+        new = own[0] if own else picture(case["candidates"][candidate]["file"])
         references = [picture(name) for name in case["references"]]
         found = await played(http, current, lang, f"place: {scene}",
                              lambda llm, model: same_place(llm, model, references, new, lang))

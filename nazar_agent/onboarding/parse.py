@@ -174,6 +174,19 @@ def file_type(file: bytes, declared: str) -> str:
     return "text/plain" if maybe_csv and file and b"\x00" not in file[:4096] else declared
 
 
+def image_type(file: bytes) -> str | None:
+    """The upload's image type by its first bytes alone; None when the bytes are not an
+    image's, whatever type the browser claimed — a photo endpoint refuses those instead
+    of passing the claimed type on to a model or to NAZAR."""
+    if file.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if file.startswith(b"\x89PNG"):
+        return "image/png"
+    if file[:4] == b"RIFF" and file[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
 def sheet_text(file: bytes) -> str:
     """Every non-empty row of every sheet, cells separated by " | "."""
     try:

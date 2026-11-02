@@ -238,6 +238,17 @@ def test_a_file_is_known_by_its_first_bytes_not_by_the_type_it_was_sent_with():
     assert file_type(b"\x00\x01binary", "application/octet-stream") == "application/octet-stream"
 
 
+def test_a_photo_endpoint_trusts_the_bytes_never_the_browsers_word():
+    from nazar_agent.onboarding.parse import image_type
+
+    assert image_type(b"\xff\xd8\xff\xe0jpeg") == "image/jpeg"
+    assert image_type(b"\x89PNG\r\n\x1a\n") == "image/png"
+    assert image_type(b"RIFF\x00\x00\x00\x00WEBP") == "image/webp"
+    # The claimed type is not even an argument: an HTML page named face.jpg is no photo.
+    assert image_type(b"<html><script>alert(1)</script>") is None
+    assert image_type(b"") is None
+
+
 def test_a_csv_is_text_whatever_type_windows_gives_it():
     from nazar_agent.onboarding.parse import file_type
 

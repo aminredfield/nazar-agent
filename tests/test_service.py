@@ -104,7 +104,7 @@ def test_import_from_rows_to_an_employee_in_nazar(setup):
     })
     [ivanov, sidorov] = created.json()
     photo = client.post(f"/api/import/drafts/{ivanov['id']}/photo", data={"actor": "Шерзод"},
-                        files={"photo": ("face.jpg", b"jpeg", "image/jpeg")})
+                        files={"photo": ("face.jpg", b"\xff\xd8\xff\xe0jpeg", "image/jpeg")})
     removed = client.post(f"/api/import/drafts/{sidorov['id']}/discard", json={"actor": "Шерзод"})
 
     assert ivanov["full_name"] == "Иванов Алишер" and ivanov["site_name"] == "Магазин Чиланзар"
@@ -121,7 +121,21 @@ def test_import_refuses_an_unknown_site_and_a_bad_photo(setup, monkeypatch):
     [draft] = client.post("/api/import/drafts", json={"actor": "x", "rows": [{"full_name": "Иванов Алишер"}]}).json()
     monkeypatch.setattr(factories, "PHOTO_CHECK", {"face_detected": False, "blocking_reasons": ["FACE_NOT_FOUND: Лицо не найдено."]})
 
-    bad = client.post(f"/api/import/drafts/{draft['id']}/photo", data={"actor": "x"}, files={"photo": ("f.jpg", b"x", "image/jpeg")})
+    bad = client.post(f"/api/import/drafts/{draft['id']}/photo", data={"actor": "x"},
+                      files={"photo": ("f.jpg", b"\xff\xd8\xffx", "image/jpeg")})
+    # An HTML page named face.jpg with the browser's word that it is a JPEG: the bytes decide.
+    not_a_photo = client.post(f"/api/import/drafts/{draft['id']}/photo", data={"actor": "x"},
+                              files={"photo": ("face.jpg", b"<html><script>", "image/jpeg")})
 
     assert unknown.status_code == 422
     assert bad.status_code == 422 and bad.json()["detail"] == {"photo_rejected": ["Лицо не найдено."]}
+    assert not_a_photo.status_code == 415
+
+
+def test_a_scenario_upload_that_is_not_a_photo_is_refused_by_its_bytes(setup):
+    client, _, _ = setup
+
+    answer = client.post("/api/scenarios/headcount", data={"scene": "cafe"},
+                         files={"file": ("shift.jpg", b"<html><script>", "image/jpeg")})
+
+    assert answer.status_code == 415

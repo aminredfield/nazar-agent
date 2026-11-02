@@ -53,7 +53,7 @@ from nazar_agent.feedback import agreement
 from nazar_agent.limits import LimitReached, Limits
 from nazar_agent.nazar import NazarClient
 from nazar_agent.nazar.connect import NazarLink, connect, demo_link
-from nazar_agent.onboarding import Draft, ImportRow, ParseError, PhotoRejected
+from nazar_agent.onboarding import Draft, ImportRow, ParseError, PhotoRejected, image_type
 from nazar_agent.scenarios.acts import SceneDesk
 from nazar_agent.service.scenarios import PAGE_HEADERS, scenario_routes
 from nazar_agent.sessions import COOKIE, Person, SessionError, Sessions
@@ -461,9 +461,13 @@ def create_app(settings: Settings | None = None, *, nazar_transport: httpx.Async
         current: Caller = Depends(caller),
     ) -> dict[str, Any]:
         content = await _read_upload(photo)
+        # The type by the first bytes, never the browser's word: NAZAR gets a real photo or nothing.
+        mime = image_type(content or b"")
+        if mime is None:
+            raise HTTPException(415, "The file is not a photo — JPEG, PNG or WebP.")
         try:
             draft = await current.assistant.drafts.photograph(
-                draft_id, content or b"", photo.content_type or "image/jpeg", current.nazar, current.actor_for(actor)
+                draft_id, content or b"", mime, current.nazar, current.actor_for(actor)
             )
         except KeyError:
             raise HTTPException(404, "No such draft.") from None
