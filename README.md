@@ -5,7 +5,9 @@ A team of AI agents that reviews time-and-attendance data in
 with evidence**. Nothing changes without a human pressing the button.
 
 Built for the Meta AI Developer Hackathon (Oct 26 – Nov 4, 2026), Startup
-track, theme **Build for Your World**.
+track, theme **Build for Your World**. The team is a registered business (a
+sole proprietorship; the organisers confirmed on Nov 1 that it qualifies for
+the Startup track, and its registration details are with them).
 
 ## For a judge with three minutes
 
