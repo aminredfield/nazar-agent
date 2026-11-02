@@ -308,8 +308,10 @@ async function placeMap(view) {
   if (!mapParts) {
     const node = el("div", { class: "setup-map" });
     const map = leaflet.map(node).setView(point, 15);
-    leaflet.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19, attribution: "&copy; OpenStreetMap",
+    // OSM's own tile servers block third-party apps (osm.wiki/Blocked), so the
+    // same OpenStreetMap data comes from CARTO's free basemap CDN instead.
+    leaflet.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      maxZoom: 20, subdomains: "abcd", attribution: "&copy; OpenStreetMap &copy; CARTO",
     }).addTo(map);
     map.on("click", (event) => changeSetup({ site: { latitude: event.latlng.lat, longitude: event.latlng.lng, point_source: "map" } }));
     mapParts = { node, map, marker: null, circle: null };
